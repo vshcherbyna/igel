@@ -38,6 +38,7 @@ void InitIO()
 
 bool InputAvailable()
 {
+// TODO: the line below fails VS2017 compilation
 //	if (stdin->_cnt > 0)
 //		return true;
 

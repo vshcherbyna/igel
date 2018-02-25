@@ -887,11 +887,11 @@ void RunCommandLine()
 		string cmd = g_tokens[0];
 
 #define ON_CMD(pattern, minLen, action) \
-    if (Is(cmd, #pattern, minLen))      \
-    {                                   \
-      action;                           \
-      continue;                         \
-    }
+	if (Is(cmd, #pattern, minLen))      \
+	{                                   \
+	  action;                           \
+	  continue;                         \
+	}
 
 		ON_CMD(analyze,    1, OnAnalyze())
 		ON_CMD(board,      1, g_pos.Print())
