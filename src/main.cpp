@@ -9,8 +9,8 @@
 #include "search.h"
 #include "utils.h"
 
-const string PROGRAM_NAME = "GreKo 2018.01";
-const string RELEASE_DATE = "31-Jan-2018";
+const string PROGRAM_NAME = "igel 1.0";
+const string RELEASE_DATE = "Feb-2018";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 1024;
@@ -313,12 +313,13 @@ void OnList()
 	MoveList mvlist;
 	GenAllMoves(g_pos, mvlist);
 
-	for (size_t i = 0; i < mvlist.Size(); ++i)
+	auto mvSize = mvlist.Size();
+	for (size_t i = 0; i < mvSize; ++i)
 	{
 		Move mv = mvlist[i].m_mv;
 		cout << MoveToStrLong(mv) << " "; 
 	}
-	cout << " -- total: " << mvlist.Size() << endl << endl;
+	cout << " -- total: " << mvSize << endl << endl;
 }
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -810,7 +811,7 @@ void OnUCI()
 	g_uci = true;
 
 	cout << "id name " << PROGRAM_NAME << endl;
-	cout << "id author Vladimir Medvedev" << endl;
+	cout << "id author igel" << endl;
 
 	cout << "option name Hash type spin" <<
 		" default " << DEFAULT_HASH_SIZE <<

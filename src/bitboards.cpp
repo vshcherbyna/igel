@@ -189,8 +189,8 @@ static const U64 R_MULT[64] =
 static int B_OFFSET[64];
 static int R_OFFSET[64];
 
-static vector<U64> B_DATA;
-static vector<U64> R_DATA;
+U64 * B_DATA = nullptr;
+U64 * R_DATA = nullptr;
 
 U64 Attacks(FLD f, U64 occ, PIECE piece)
 {
@@ -653,8 +653,8 @@ void InitBitboards()
 		r_offset += (1 << R_BITS[f]);
 	}
 
-	B_DATA.resize(b_offset);
-	R_DATA.resize(r_offset);
+	assert(B_DATA == nullptr);
+	B_DATA = (U64*)malloc(b_offset * sizeof(U64));
 
 	for (f = 0; f < 64; ++f)
 	{
@@ -670,6 +670,9 @@ void InitBitboards()
 			B_DATA[B_OFFSET[f] + index] =  BishopAttacksTrace(f, occ);
 		}
 	}
+
+	assert(R_DATA == nullptr);
+	R_DATA = (U64*)malloc(r_offset * sizeof(U64));
 
 	for (f = 0; f < 64; ++f)
 	{

@@ -117,7 +117,8 @@ EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
 		GenAllMoves(s_pos, mvlist);
 	UpdateSortScores(mvlist, hashMove, ply);
 
-	for (size_t i = 0; i < mvlist.Size(); ++i)
+	auto mvSize = mvlist.Size();
+	for (size_t i = 0; i < mvSize; ++i)
 	{
 		Move mv = GetNextBest(mvlist, i);
 		if (s_pos.MakeMove(mv))
@@ -306,7 +307,8 @@ EVAL AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 		GenAllMoves(s_pos, mvlist);
 	UpdateSortScores(mvlist, hashMove, ply);
 
-	for (size_t i = 0; i < mvlist.Size(); ++i)
+	auto mvSize = mvlist.Size();
+	for (size_t i = 0; i < mvSize; ++i)
 	{
 		Move mv = GetNextBest(mvlist, i);
 		if (s_pos.MakeMove(mv))
@@ -443,7 +445,8 @@ EVAL AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
 	UpdateSortScoresQ(mvlist, ply);
 
 	int legalMoves = 0;
-	for (size_t i = 0; i < mvlist.Size(); ++i)
+	auto mvSize = mvlist.Size();
+	for (size_t i = 0; i < mvSize; ++i)
 	{
 		Move mv = GetNextBest(mvlist, i);
 
@@ -566,7 +569,8 @@ Move GetNextBest(MoveList& mvlist, size_t i)
 	if (i == 0 && mvlist[0].m_score == SORT_HASH)
 		return mvlist[0].m_mv;
 
-	for (size_t j = i + 1; j < mvlist.Size(); ++j)
+	auto mvSize = mvlist.Size();
+	for (size_t j = i + 1; j < mvSize; ++j)
 	{
 		if (mvlist[j].m_score > mvlist[i].m_score)
 			swap(mvlist[i], mvlist[j]);
@@ -584,7 +588,8 @@ Move GetRandomMove(const Position& pos)
 	GenAllMoves(s_pos, mvlist);
 	vector<Move> cand_moves;
 
-	for (size_t i = 0; i < mvlist.Size(); ++i)
+	auto mvSize = mvlist.Size();
+	for (size_t i = 0; i < mvSize; ++i)
 	{
 		Move mv = mvlist[i].m_mv;
 		if (s_pos.MakeMove(mv))
@@ -613,7 +618,8 @@ bool HaveSingleMove(Position& pos)
 	GenAllMoves(pos, mvlist);
 
 	int legalMoves = 0;
-	for (size_t i = 0; i < mvlist.Size(); ++i)
+	auto mvSize = mvlist.Size();
+	for (size_t i = 0; i < mvSize; ++i)
 	{
 		Move mv = mvlist[i].m_mv;
 		if (pos.MakeMove(mv))
@@ -644,8 +650,9 @@ bool IsGameOver(Position& pos, string& result, string& comment)
 	MoveList mvlist;
 	GenAllMoves(pos, mvlist);
 	int legalMoves = 0;
+	auto mvSize = mvlist.Size();
 
-	for (size_t i = 0; i < mvlist.Size(); ++i)
+	for (size_t i = 0; i < mvSize; ++i)
 	{
 		Move mv = mvlist[i].m_mv;
 		if (pos.MakeMove(mv))
@@ -713,7 +720,8 @@ NODES Perft(Position& pos, int depth, int ply)
 	MoveList& mvlist = g_lists[ply];
 	GenAllMoves(pos, mvlist);
 
-	for (size_t i = 0; i < mvlist.Size(); ++i)
+	auto mvSize = mvlist.Size();
+	for (size_t i = 0; i < mvSize; ++i)
 	{
 		Move mv = mvlist[i].m_mv;
 		if (pos.MakeMove(mv))
@@ -784,7 +792,10 @@ void PrintPV(const Position& pos, int iter, EVAL score, const Move* pv, int pvSi
 	else
 	{
 		cout << "info depth " << iter;
-		cout << " score cp " << score;
+		if (score >= (CHECKMATE_SCORE - 1))
+			cout << " score mate 1";
+		else 
+			cout << " score cp " << score;
 		cout << " time " << dt;
 		cout << " nodes " << g_nodes;
 		if (pvSize > 0)
@@ -985,7 +996,8 @@ void StartPerft(Position& pos, int depth)
 	GenAllMoves(pos, mvlist);
 
 	cout << endl;
-	for (size_t i = 0; i < mvlist.Size(); ++i)
+	auto mvSize = mvlist.Size();
+	for (size_t i = 0; i < mvSize; ++i)
 	{
 		Move mv = mvlist[i].m_mv;
 		if (pos.MakeMove(mv))
@@ -1167,7 +1179,8 @@ Move StartSearch(const Position& pos, U8 flags)
 
 void UpdateSortScores(MoveList& mvlist, Move hashMove, int ply)
 {
-	for (size_t j = 0; j < mvlist.Size(); ++j)
+	auto mvSize = mvlist.Size();
+	for (size_t j = 0; j < mvSize; ++j)
 	{
 		Move mv = mvlist[j].m_mv;
 		if (mv == hashMove)
@@ -1199,7 +1212,8 @@ void UpdateSortScores(MoveList& mvlist, Move hashMove, int ply)
 
 void UpdateSortScoresQ(MoveList& mvlist, int ply)
 {
-	for (size_t j = 0; j < mvlist.Size(); ++j)
+	auto mvSize = mvlist.Size();
+	for (size_t j = 0; j < mvSize; ++j)
 	{
 		Move mv = mvlist[j].m_mv;
 		if (mv.Captured() || mv.Promotion())
