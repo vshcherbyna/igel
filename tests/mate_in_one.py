@@ -28,8 +28,9 @@ def evaluate(fen):
     bestmove, pondermove = engine.go(movetime=engine_move_time)
     b = datetime.datetime.now()
     d = (b - a).microseconds
-    if d > 10000:
+    if d > 500000:
         raise Exception("exceeded a go time", d)
+    print (handler.info["score"][1])
     print("search time: %d" % d)
     engine.quit()
 
@@ -41,6 +42,7 @@ def fen_assert(engine_move,  expected_move):
     
 def main():
     fen_assert("Qg8#",  evaluate("rnbqk3/ppppp3/8/6Q1/3P4/4P3/PPP1BPPP/RNB1K1NR w - - 0 1"))
+    fen_assert("Qg7#",  evaluate("7k/8/5KQ1/8/8/8/8/8 w - - 0 1"))
 
 if __name__ == "__main__":
     main()
