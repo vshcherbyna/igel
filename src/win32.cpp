@@ -38,8 +38,8 @@ void InitIO()
 
 bool InputAvailable()
 {
-	if (stdin->_cnt > 0)
-		return true;
+//	if (stdin->_cnt > 0)
+//		return true;
 
 	if (g_pipe)
 	{
