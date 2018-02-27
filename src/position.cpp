@@ -123,7 +123,7 @@ string Position::FEN() const
 	else
 		fen << FldToStr(m_ep);
 	fen << " ";
-		
+
 	fen << m_fifty << " " << m_ply / 2 + 1;
 	return fen.str();
 }
@@ -220,6 +220,9 @@ bool Position::MakeMove(Move mv)
 
 	COLOR side = m_side;
 	COLOR opp = side ^ 1;
+
+	if (m_initialPosition)
+		m_initialPosition = false;
 
 	++m_fifty;
 	if (captured)
@@ -338,7 +341,7 @@ void Position::MovePiece(PIECE p, FLD from, FLD to)
 	assert(p == m_board[from]);
 
 	COLOR side = GetColor(p);
-	
+
 	m_bits[p] ^= BB_SINGLE[from];
 	m_bits[p] ^= BB_SINGLE[to];
 
@@ -449,6 +452,8 @@ int Position::Repetitions() const
 
 bool Position::SetFEN(const string& fen)
 {
+	m_initialPosition = (fen == STD_POSITION);
+
 	if (fen.length() < 5)
 		return false;
 
@@ -579,7 +584,7 @@ ILLEGAL_FEN:
 
 void Position::SetInitial()
 {
-	SetFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+	SetFEN(STD_POSITION);
 }
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -649,5 +654,10 @@ void Position::UnmakeNullMove()
 
 	--m_ply;
 	m_side ^= 1;
+}
+
+bool Position::isInitialPosition()
+{
+	return m_initialPosition;
 }
 ////////////////////////////////////////////////////////////////////////////////
