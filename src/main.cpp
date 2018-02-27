@@ -9,8 +9,8 @@
 #include "search.h"
 #include "utils.h"
 
-const string PROGRAM_NAME = "GreKo 2018.01";
-const string RELEASE_DATE = "31-Jan-2018";
+const string PROGRAM_NAME = "igel 1.0";
+const string RELEASE_DATE = "Feb-2018";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 1024;
@@ -34,10 +34,26 @@ static bool g_force = false;
 
 void OnZero();
 
-void ComputeTimeLimits(U32 rest, U32 inc)
+void ComputeTimeLimits(U32 ourTime, U32 enemyTime, U32 inc)
 {
-	g_stHard = rest / 2;
-	g_stSoft = rest / 100 + g_inc / 2;
+	g_stHard = ourTime / 2;
+
+	if (ourTime <= 1000)
+	{
+		g_stSoft = (ourTime / 300) + (g_inc); // time is running out
+	}
+	else
+	{
+		if (ourTime <= enemyTime)
+		{
+			g_stSoft = (ourTime / 100) + (g_inc);
+		}
+		else
+		{
+			U32 diff = ourTime - enemyTime;
+			g_stSoft = (ourTime / 100) + (g_inc) + (diff / 200);
+		}
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -102,6 +118,8 @@ void OnFlip()
 void OnGoUci()
 {
 	U8 mode = MODE_PLAY;
+	int ourTime = -1;
+	int enemyTime = -1;
 
 	for (size_t i = 1; i < g_tokens.size(); ++i)
 	{
@@ -116,7 +134,6 @@ void OnGoUci()
 		}
 		else if (i < g_tokens.size() - 1)
 		{
-			int rest = -1;
 			if (token == "movetime")
 			{
 				g_sd = 0;
@@ -126,9 +143,21 @@ void OnGoUci()
 				g_stSoft = t;
 				++i;
 			}
-			else if ((token == "wtime" && g_pos.Side() == WHITE) || (token == "btime" && g_pos.Side() == BLACK))
+			else if (token == "wtime")
 			{
-				rest = atoi(g_tokens[i + 1].c_str());
+				if (g_pos.Side() == WHITE)
+					ourTime = atoi(g_tokens[i + 1].c_str());
+				else
+					enemyTime = atoi(g_tokens[i + 1].c_str());
+
+				++i;
+			}
+			else if (token == "btime")
+			{
+				if (g_pos.Side() == BLACK)
+					ourTime = atoi(g_tokens[i + 1].c_str());
+				else
+					enemyTime = atoi(g_tokens[i + 1].c_str());
 				++i;
 			}
 			else if ((token == "winc" && g_pos.Side() == WHITE) || (token == "binc" && g_pos.Side() == BLACK))
@@ -153,16 +182,16 @@ void OnGoUci()
 				++i;
 			}
 
-			if (rest >= 0)
+			if (ourTime >= 0 && enemyTime >= 0)
 			{
 				g_sd = 0;
 				g_sn = 0;
-				ComputeTimeLimits(rest, g_inc);
+				ComputeTimeLimits(ourTime, enemyTime, g_inc);
 
 				if (g_log)
 				{
 					stringstream ss;
-					ss << "Time limits: rest = " << rest << ", inc = " << g_inc <<
+					ss << "Time limits: rest = " << ourTime << ", inc = " << g_inc <<
 						" ==> stHard = " << g_stHard << ", stSoft = " << g_stSoft;
 					Log(ss.str());
 				}
@@ -313,12 +342,13 @@ void OnList()
 	MoveList mvlist;
 	GenAllMoves(g_pos, mvlist);
 
-	for (size_t i = 0; i < mvlist.Size(); ++i)
+	auto mvSize = mvlist.Size();
+	for (size_t i = 0; i < mvSize; ++i)
 	{
 		Move mv = mvlist[i].m_mv;
 		cout << MoveToStrLong(mv) << " "; 
 	}
-	cout << " -- total: " << mvlist.Size() << endl << endl;
+	cout << " -- total: " << mvSize << endl << endl;
 }
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -750,7 +780,7 @@ void OnTime()
 	g_sn = 0;
 
 	int rest = 10 * atoi(g_tokens[1].c_str());
-	ComputeTimeLimits(rest, g_inc);
+	ComputeTimeLimits(rest, 0, g_inc);
 
 	if (g_log)
 	{
@@ -810,7 +840,7 @@ void OnUCI()
 	g_uci = true;
 
 	cout << "id name " << PROGRAM_NAME << endl;
-	cout << "id author Vladimir Medvedev" << endl;
+	cout << "id author V. Medvedev, V. Shcherbyna" << endl;
 
 	cout << "option name Hash type spin" <<
 		" default " << DEFAULT_HASH_SIZE <<
@@ -960,7 +990,7 @@ int main(int argc, const char* argv[])
 
 	if (IsPipe())
 	{
-		cout << PROGRAM_NAME << " by Vladimir Medvedev" << endl;
+		cout << PROGRAM_NAME << " by V. Medvedev, V. Shcherbyna" << endl;
 		g_uci = true;
 		g_xboard = false;
 		g_console = false;
@@ -996,7 +1026,7 @@ int main(int argc, const char* argv[])
 			SetStrength(level);
 		}
 		else if (!strcmp(argv[i], "-log"))
-			g_log = fopen("GreKo.log", "at");
+			g_log = fopen("igel.txt", "at");
 	}
 
 
