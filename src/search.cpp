@@ -797,7 +797,7 @@ void PrintPV(const Position& pos, int iter, EVAL score, const Move* pv, int pvSi
 		cout << "info depth " << iter;
 		if (score >= (CHECKMATE_SCORE - 1))
 			cout << " score mate 1";
-		else 
+		else
 			cout << " score cp " << score;
 		cout << " time " << dt;
 		cout << " nodes " << g_nodes;
@@ -1024,6 +1024,13 @@ void StartPerft(Position& pos, int depth)
 
 Move StartSearch(const Position& pos, U8 flags)
 {
+	if ((g_stHard) && (g_pos.Side() == WHITE) && (g_pos.isInitialPosition()))
+	{
+		Move moves[5] = { Move(B1, C3, NW), Move(G1, F3, NW), Move(D2, D4, PW), Move(E2, E4, PW), Move(E2, E3, PW) };
+		RandSeed(time(0));
+		return moves[Rand32() % 4];
+	}
+
 	g_t0 = GetProcTime();
 	g_nodes = 0;
 	g_flags = flags;

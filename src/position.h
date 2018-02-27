@@ -7,6 +7,8 @@
 
 #include "bitboards.h"
 
+#define STD_POSITION "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
 enum
 {
 	KINGSIDE = 0,
@@ -78,7 +80,7 @@ public:
 	COLOR  Side() const { return m_side; }
 	void   UnmakeMove();
 	void   UnmakeNullMove();
-
+	bool   isInitialPosition();
 	const PIECE& operator[] (FLD f) const { return m_board[f]; }
 
 	static void  InitHashNumbers();
@@ -124,6 +126,7 @@ private:
 	enum { MAX_UNDO = 1024 };
 	Undo m_undos[MAX_UNDO];
 	int m_undoSize;
+	bool m_initialPosition;
 };
 ////////////////////////////////////////////////////////////////////////////////
 
