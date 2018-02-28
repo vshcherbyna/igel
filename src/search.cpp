@@ -10,8 +10,6 @@
 
 extern Position g_pos;
 extern deque<string> g_queue;
-extern bool g_console;
-extern bool g_xboard;
 extern bool g_uci;
 
 static Position s_pos;
@@ -57,7 +55,6 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
 EVAL       AlphaBetaRoot(EVAL alpha, EVAL beta, int depth);
 EVAL       AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull);
 EVAL       AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply);
-void       CheckInput();
 void       CheckLimits();
 int        Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV);
 Move       GetNextBest(MoveList& mvlist, size_t i);
@@ -80,8 +77,6 @@ void AdjustSpeed()
 		double expectedTime = g_nodes / g_knps;
 		while (dt < expectedTime)
 		{
-			SleepMillisec(1);
-			CheckInput();
 			CheckLimits();
 			if (g_flags & SEARCH_TERMINATED)
 				return;
@@ -152,7 +147,6 @@ EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
 			s_pos.UnmakeMove();
 
 			CheckLimits();
-			CheckInput();
 
 			if (g_flags & SEARCH_TERMINATED)
 				break;
@@ -486,20 +480,6 @@ EVAL AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
 	}
 
 	return alpha;
-}
-////////////////////////////////////////////////////////////////////////////////
-
-void CheckInput()
-{
-	if (g_iter < 2)
-		return;
-
-	if (InputAvailable())
-	{
-		string s;
-		getline(cin, s);
-		ProcessInput(s);
-	}
 }
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -1051,12 +1031,6 @@ Move StartSearch(const Position& pos, U8 flags)
 	}
 	else
 	{
-		if (g_console || g_xboard)
-		{
-			if (!(flags & MODE_SILENT))
-				cout << endl;
-		}
-
 		bool singleMove = HaveSingleMove(s_pos);
 		for (g_iter = 1; g_iter < MAX_PLY; ++g_iter)
 		{
@@ -1149,12 +1123,6 @@ Move StartSearch(const Position& pos, U8 flags)
 				g_flags |= TERMINATED_BY_LIMIT;
 				break;
 			}
-		}
-
-		if (g_console || g_xboard)
-		{
-			if (!(flags & MODE_SILENT))
-				cout << endl;
 		}
 	}
 

@@ -551,13 +551,7 @@ void InitEval(const vector<int>& x)
 void InitEval()
 {
 	InitParamLines();
-
-	if (!ReadParamsFromFile(W, "weights.txt"))
-	{
-		SetDefaultValues(W);
-		WriteParamsToFile(W, "weights.txt");
-	}
-
+	SetDefaultValues(W);
 	InitEval(W);
 }
 ////////////////////////////////////////////////////////////////////////////////

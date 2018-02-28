@@ -3,7 +3,6 @@
 //   http://greko.su
 
 #include "eval.h"
-#include "learn.h"
 #include "moves.h"
 #include "notation.h"
 #include "search.h"
@@ -24,8 +23,6 @@ Position g_pos;
 deque<string> g_queue;
 FILE* g_log = NULL;
 
-bool g_console = false;
-bool g_xboard = false;
 bool g_uci = true;
 
 static string g_s;
@@ -206,127 +203,14 @@ void OnGoUci()
 
 void OnGo()
 {
-	if (g_uci)
-	{
-		OnGoUci();
-		return;
-	}
-
-	g_force = false;
-
-	string result, comment;
-	if (IsGameOver(g_pos, result, comment))
-	{
-		cout << result << " " << comment << endl << endl;
-		return;
-	}
-
-	Move mv = StartSearch(g_pos, MODE_PLAY);
-
-	if (mv)
-	{
-		Highlight(true);
-		cout << "move " << MoveToStrLong(mv) << endl;
-		Highlight(false);
-
-		g_pos.MakeMove(mv);
-
-		if (IsGameOver(g_pos, result, comment))
-			cout << result << " " << comment << endl;
-
-		cout << endl;
-	}
+	OnGoUci();
+	return;
 }
 ////////////////////////////////////////////////////////////////////////////////
 
 void OnIsready()
 {
 	cout << "readyok" << endl;
-}
-////////////////////////////////////////////////////////////////////////////////
-
-void OnLearn(int alg, int limitTimeInSec)
-{
-	if (g_tokens.size() < 2)
-		return;
-
-	string pgnFile, fenFile;
-
-	string fileName = g_tokens[1];
-	if (fileName.find(".pgn") != string::npos)
-	{
-		pgnFile = fileName;
-		size_t extPos = fileName.find(".pgn");
-		if (extPos != string::npos)
-			fenFile = fileName.substr(0, extPos) + ".fen";
-	}
-	else if (fileName.find(".fen") != string::npos)
-	{
-		fenFile = fileName;
-		size_t extPos = fileName.find(".fen");
-		if (extPos != string::npos)
-			pgnFile = fileName.substr(0, extPos) + ".pgn";
-	}
-	else
-	{
-		pgnFile = fileName + ".pgn";
-		fenFile = fileName + ".fen";
-	}
-
-	{
-		ifstream test(fenFile.c_str());
-		if (!test.good())
-		{
-			if (!PgnToFen(pgnFile, fenFile, 6, 999, 0, 1))
-				return;
-		}
-	}
-
-	if (g_tokens.size() > 2)
-		alg = atoi(g_tokens[2].c_str());
-
-	if (g_tokens.size() > 3)
-		limitTimeInSec = atoi(g_tokens[3].c_str());
-
-	vector<int> params;
-	ifstream f1("learn_params.txt");
-	if (f1.good())
-	{
-		string s;
-		while(getline(f1, s))
-		{
-			vector<string> tokens;
-			Split(s, tokens);
-			if (tokens.empty()) continue;
-			string name = tokens[0];
-			for (size_t i = 0; i < NUM_LINES; ++i)
-			{
-				if (name == lines[i].name)
-				{
-					for (int j = 0; j < lines[i].len; ++j)
-						params.push_back(lines[i].start + j);
-				}
-			}
-		}
-	}
-
-	if (params.empty())
-	{
-		for (int i = 0; i < NUM_PARAMS; ++i)
-			params.push_back(i);
-	}
-
-	vector<int> x0 = W;
-	SetStartLearnTime();
-
-	if (alg == 1)
-		CoordinateDescent(fenFile, x0, params);
-	else if (alg == 2)
-		RandomWalk(fenFile, x0, limitTimeInSec, false, params);
-	else if (alg == 3)
-		RandomWalk(fenFile, x0, limitTimeInSec, true, params);
-	else
-		cout << "Unknown algorithm: " << alg << endl << endl;
 }
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -446,20 +330,6 @@ void OnPerft()
 }
 ////////////////////////////////////////////////////////////////////////////////
 
-void OnPgnToFen()
-{
-	if (g_tokens.size() < 3)
-		return;
-
-	string pgnFile = g_tokens[1];
-	string fenFile = g_tokens[2];
-	int fensPerGame = 1;
-	if (g_tokens.size() >= 4)
-		fensPerGame = atoi(g_tokens[3].c_str());
-	PgnToFen(pgnFile, fenFile, 6, 999, 0, fensPerGame);
-}
-////////////////////////////////////////////////////////////////////////////////
-
 void OnPing()
 {
 	if (g_tokens.size() < 2)
@@ -511,19 +381,6 @@ void OnPosition()
 			g_pos.MakeMove(mv);
 		}
 	}
-}
-////////////////////////////////////////////////////////////////////////////////
-
-void OnPredict()
-{
-	if (g_tokens.size() < 2)
-		return;
-
-	string file = g_tokens[1];
-	if (file.find(".fen") == string::npos)
-		file += ".fen";
-
-	cout << setprecision(10) << Predict(file) << endl << endl;
 }
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -628,92 +485,6 @@ void OnSD()
 	g_stHard = 0;
 	g_stSoft = 0;
 }
-////////////////////////////////////////////////////////////////////////////////
-
-void OnSelfPlay(int N, U32 limitTimeInSec)
-{
-	RandSeed(time(0));
-	U32 t0 = GetProcTime();
-
-	if (g_tokens.size() > 1)
-		N = atoi(g_tokens[1].c_str());
-
-	for (int games = 0; games < N; ++games)
-	{
-		if (limitTimeInSec > 0 && GetProcTime() - t0 >= limitTimeInSec * 1000)
-		{
-			cout << "\nTime limit reached\n";
-			break;
-		}
-
-		Position pos;
-		pos.SetInitial();
-
-		string result, comment;
-		string pgn, line;
-
-		while (!IsGameOver(pos, result, comment))
-		{
-			Move mv = (pos.Ply() < 6)? GetRandomMove(pos) : StartSearch(pos, MODE_PLAY | MODE_SILENT);
-
-			if (mv == 0)
-			{
-				result = "1/2-1/2";
-				comment = "{Adjudication: zero move generated}";
-				break;
-			}
-
-			MoveList mvlist;
-			GenAllMoves(pos, mvlist);
-			if (pos.Side() == WHITE)
-			{
-				stringstream ss;
-				ss << pos.Ply() / 2 + 1 << ". ";
-				line = line + ss.str();
-			}
-			line = line + MoveToStrShort(mv, pos, mvlist) + string(" ");
-
-			pos.MakeMove(mv);
-
-			if (line.length() > 60 && pos.Side() == WHITE)
-			{
-				pgn = pgn + "\n" + line;
-				line.clear();
-			}
-
-			if (pos.Ply() > 600)
-			{
-				result = "1/2-1/2";
-				comment = "{Adjudication: too long}";
-				break;
-			}
-		}
-
-		stringstream header;
-		header << "[Event \"Self-play\"]" << endl <<
-			"[Date \"" << CurrentDateStr() << "\"]" << endl <<
-			"[White \"" << PROGRAM_NAME << "\"]" << endl <<
-			"[Black \"" << PROGRAM_NAME << "\"]" << endl <<
-			"[Result \"" << result << "\"]" << endl;
-
-		// cout << endl << header.str() << pgn << endl << result << " " << comment << endl << endl;
-
-		if (!line.empty())
-		{
-			pgn = pgn + "\n" + line;
-			line.clear();
-		}
-
-		std::ofstream ofs;
-		ofs.open("games.pgn", ios::app);
-		if (ofs.good())
-			ofs << header.str() << pgn << endl << result << " " << comment << endl << endl;
-
-		cout << "Playing games: " << games + 1 << " of " << N << "\r";
-	}
-	cout << endl;
-}
-////////////////////////////////////////////////////////////////////////////////
 
 void OnSetboard()
 {
@@ -792,51 +563,8 @@ void OnTime()
 }
 ////////////////////////////////////////////////////////////////////////////////
 
-void OnTraining()
-{
-	const string pgn_file = "games.pgn";
-	const string fen_file = "games.fen";
-
-	RandSeed(time(0));
-
-	stringstream ss;
-	ss << "weights_" << CountGames(pgn_file) << ".txt";
-	WriteParamsToFile(W, ss.str());
-	cout << "Weights saved in " << ss.str() << endl;
-
-	while (1)
-	{
-		int skipGames = CountGames(pgn_file);
-		cout << "Found " << skipGames << " games in " << pgn_file << endl;
-
-		g_tokens.clear();
-		g_tokens.push_back("selfplay");
-		OnSelfPlay(10000, 0);
-
-		int N = CountGames(pgn_file);
-
-		if (!PgnToFen(pgn_file, fen_file, 6, 999, skipGames, 1))
-			return;
-
-		OnZero();
-
-		g_tokens.clear();
-		g_tokens.push_back("learn");
-		g_tokens.push_back(fen_file);
-		OnLearn(2, 600);
-
-		stringstream ss;
-		ss << "weights_" << N << ".txt";
-		WriteParamsToFile(W, ss.str());
-		cout << "Weights saved in " << ss.str() << endl;
-	}
-}
-////////////////////////////////////////////////////////////////////////////////
-
 void OnUCI()
 {
-	g_console = false;
-	g_xboard = false;
 	g_uci = true;
 
 	cout << "id name " << PROGRAM_NAME << endl;
@@ -853,16 +581,6 @@ void OnUCI()
 		" max " << 100 << endl;
 
 	cout << "uciok" << endl;
-}
-////////////////////////////////////////////////////////////////////////////////
-
-void OnXboard()
-{
-	g_console = false;
-	g_xboard = true;
-	g_uci = false;
-
-	cout << endl;
 }
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -888,28 +606,7 @@ void RunCommandLine()
 {
 	while (1)
 	{
-		if (!g_queue.empty())
-		{
-			g_s = g_queue.front();
-			g_queue.pop_front();
-		}
-		else
-		{
-			if (g_console)
-			{
-				if (g_pos.Side() == WHITE)
-					cout << "White(" << g_pos.Ply() / 2 + 1 << "): ";
-				else
-					cout << "Black(" << g_pos.Ply() / 2 + 1 << "): ";
-			}
-			getline(cin, g_s);
-		}
-
-		if (g_s.empty())
-			continue;
-
-		Log(string("> ") + g_s);
-
+		getline(cin, g_s);
 		Split(g_s, g_tokens);
 		if (g_tokens.empty())
 			continue;
@@ -932,34 +629,27 @@ void RunCommandLine()
 		ON_CMD(force,      2, g_force = true)
 		ON_CMD(go,         1, OnGo())
 		ON_CMD(isready,    1, OnIsready())
-		ON_CMD(learn,      3, OnLearn(2, 600))
 		ON_CMD(level,      3, OnLevel())
 		ON_CMD(list,       2, OnList())
 		ON_CMD(load,       2, OnLoad())
 		ON_CMD(mt,         2, OnMT())
 		ON_CMD(new,        1, OnNew())
 		ON_CMD(perft,      2, OnPerft())
-		ON_CMD(pgntofen,   2, OnPgnToFen())
 		ON_CMD(ping,       2, OnPing())
 		ON_CMD(position,   2, OnPosition())
-		ON_CMD(predict,    3, OnPredict())
 		ON_CMD(protover,   3, OnProtover())
 		ON_CMD(psq,        2, OnPSQ())
 		ON_CMD(quit,       1, break)
 		ON_CMD(sd,         2, OnSD())
-		ON_CMD(selfplay,   4, OnSelfPlay(10000, 0))
-		ON_CMD(sp,         2, OnSelfPlay(10000, 0))
 		ON_CMD(setboard,   3, OnSetboard())
 		ON_CMD(setoption,  3, OnSetoption())
 		ON_CMD(sn,         2, OnSN())
 		ON_CMD(st,         2, OnST())
 		ON_CMD(test,       2, OnTest())
 		ON_CMD(time,       2, OnTime())
-		ON_CMD(training,   2, OnTraining())
 		ON_CMD(uci,        1, OnUCI())
 		ON_CMD(ucinewgame, 4, OnNew())
 		ON_CMD(undo,       1, g_pos.UnmakeMove())
-		ON_CMD(xboard,     1, OnXboard())
 		ON_CMD(zero,       1, OnZero())
 #undef ON_CMD
 
@@ -986,25 +676,6 @@ void RunCommandLine()
 
 int main(int argc, const char* argv[])
 {
-	InitIO();
-
-	if (IsPipe())
-	{
-		cout << PROGRAM_NAME << " by V. Medvedev, V. Shcherbyna" << endl;
-		g_uci = true;
-		g_xboard = false;
-		g_console = false;
-	}
-	else
-	{
-		Highlight(true);
-		cout << endl << PROGRAM_NAME << " (" << RELEASE_DATE << ")" << endl << endl;
-		Highlight(false);
-		g_uci = false;
-		g_xboard = false;
-		g_console = true;
-	}
-
 	InitBitboards();
 	Position::InitHashNumbers();
 	InitEval();
@@ -1029,10 +700,9 @@ int main(int argc, const char* argv[])
 			g_log = fopen("igel.txt", "at");
 	}
 
-
 	SetHashSize(hashMb);
-
 	RunCommandLine();
+
 	return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////

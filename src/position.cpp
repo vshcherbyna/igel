@@ -371,9 +371,7 @@ void Position::Print() const
 	{
 		PIECE p = m_board[f];
 
-		Highlight(p && GetColor(p) == WHITE);
 		cout << " " << names[p];
-		Highlight(false);
 
 		if (Col(f) == 7)
 			cout << endl;
