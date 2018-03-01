@@ -10,9 +10,7 @@
 string CurrentDateStr();
 U32    GetProcTime();
 void   Highlight(bool on);
-void   InitIO();
 bool   InputAvailable();
-bool   IsPipe();
 bool   Is(const string& cmd, const string& pattern, size_t minLen);
 void   Log(const string& s);
 U32    Rand32();

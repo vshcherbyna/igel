@@ -5,19 +5,22 @@
 #include "bitboards.h"
 #include "utils.h"
 
+#ifndef _MSC_VER
+U32 GetProcTime()
+{
+	return 1000 * clock() / CLOCKS_PER_SEC;
+}
+#else
+#include <windows.h>
+U32 GetProcTime()
+{
+	return GetTickCount();
+}
+#endif
+
 extern FILE* g_log;
 
 U64 g_rand64 = 42;
-
-string CurrentDateStr()
-{
-	time_t t = time(0);   // get time now
-	struct tm* now = localtime(&t);
-	stringstream ss;
-	ss << (now->tm_year + 1900) << "." << (now->tm_mon + 1) << "." <<  now->tm_mday;
-	return ss.str();
-}
-////////////////////////////////////////////////////////////////////////////////
 
 bool Is(const string& cmd, const string& pattern, size_t minLen)
 {
