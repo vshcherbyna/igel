@@ -1,6 +1,22 @@
-//   GreKo chess engine
-//   (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
-//   http://greko.su
+/*
+*  Igel - a UCI chess playing engine derived from GreKo 2018.01
+*
+*  Copyright (C) 2002-2018 Vladimir Medvedev <vrm@bk.ru> (GreKo author)
+*  Copyright (C) 2018 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+*
+*  Igel is free software: you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation, either version 3 of the License, or
+*  (at your option) any later version.
+*
+*  Igel is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*  GNU General Public License for more details.
+*
+*  You should have received a copy of the GNU General Public License
+*  along with Igel.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include "notation.h"
 #include "position.h"
@@ -38,7 +54,7 @@ bool Position::CanCastle(COLOR side, U8 flank) const
 		return false;
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void Position::Clear()
 {
@@ -64,7 +80,7 @@ void Position::Clear()
 	m_side = WHITE;
 	m_undoSize = 0;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 string Position::FEN() const
 {
@@ -127,7 +143,7 @@ string Position::FEN() const
 	fen << m_fifty << " " << m_ply / 2 + 1;
 	return fen.str();
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 U64 Position::GetAttacks(FLD to, COLOR side, U64 occ) const
 {
@@ -140,13 +156,13 @@ U64 Position::GetAttacks(FLD to, COLOR side, U64 occ) const
 	att |= RookAttacks(to, occ) & (Bits(RW | side) | Bits(QW | side));
 	return att;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 U64 Position::Hash() const
 {
 	return m_hash ^ s_hashSide[m_side] ^ s_hashCastlings[m_castlings] ^ s_hashEP[m_ep];
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void Position::InitHashNumbers()
 {
@@ -170,7 +186,7 @@ void Position::InitHashNumbers()
 		s_hashEP[i] = Rand64();
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 bool Position::IsAttacked(FLD f, COLOR side) const
 {
@@ -201,7 +217,7 @@ bool Position::IsAttacked(FLD f, COLOR side) const
 
 	return false;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 bool Position::MakeMove(Move mv)
 {
@@ -294,7 +310,7 @@ bool Position::MakeMove(Move mv)
 
 	return true;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void Position::MakeNullMove()
 {
@@ -310,7 +326,7 @@ void Position::MakeNullMove()
 	++m_ply;
 	m_side ^= 1;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void Position::Mirror()
 {
@@ -332,7 +348,7 @@ void Position::Mirror()
 	m_Kings[WHITE] = FLIP[BLACK][tmp.King(BLACK)];
 	m_Kings[BLACK] = FLIP[BLACK][tmp.King(WHITE)];
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void Position::MovePiece(PIECE p, FLD from, FLD to)
 {
@@ -360,7 +376,7 @@ void Position::MovePiece(PIECE p, FLD from, FLD to)
 	m_score += PSQ[p][to];
 	m_score -= PSQ[p][from];
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void Position::Print() const
 {
@@ -385,7 +401,7 @@ void Position::Print() const
 		cout << endl << endl;
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void Position::Put(FLD f, PIECE p)
 {
@@ -404,7 +420,7 @@ void Position::Put(FLD f, PIECE p)
 
 	m_score += PSQ[p][f];
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void Position::Remove(FLD f)
 {
@@ -424,7 +440,7 @@ void Position::Remove(FLD f)
 
 	m_score -= PSQ[p][f];
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 int Position::Repetitions() const
 {
@@ -446,7 +462,7 @@ int Position::Repetitions() const
 	}
 	return r;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 bool Position::SetFEN(const string& fen)
 {
@@ -578,13 +594,13 @@ ILLEGAL_FEN:
 	*this = tmp;
 	return false;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void Position::SetInitial()
 {
 	SetFEN(STD_POSITION);
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void Position::UnmakeMove()
 {
@@ -638,7 +654,7 @@ void Position::UnmakeMove()
 	--m_ply;
 	m_side ^= 1;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void Position::UnmakeNullMove()
 {
@@ -658,4 +674,4 @@ bool Position::isInitialPosition()
 {
 	return m_initialPosition;
 }
-////////////////////////////////////////////////////////////////////////////////
+

@@ -1,6 +1,22 @@
-//   GreKo chess engine
-//   (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
-//   http://greko.su
+/*
+*  Igel - a UCI chess playing engine derived from GreKo 2018.01
+*
+*  Copyright (C) 2002-2018 Vladimir Medvedev <vrm@bk.ru> (GreKo author)
+*  Copyright (C) 2018 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+*
+*  Igel is free software: you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation, either version 3 of the License, or
+*  (at your option) any later version.
+*
+*  Igel is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*  GNU General Public License for more details.
+*
+*  You should have received a copy of the GNU General Public License
+*  along with Igel.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include "eval.h"
 #include "moves.h"
@@ -10,7 +26,6 @@
 
 extern Position g_pos;
 extern deque<string> g_queue;
-extern bool g_uci;
 
 static Position s_pos;
 
@@ -85,7 +100,7 @@ void AdjustSpeed()
 		}
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
 {
@@ -122,10 +137,8 @@ EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
 			++legalMoves;
 			g_histTry[mv.To()][mv.Piece()] += depth;
 
-			if (g_uci && GetProcTime() - g_t0 > 1000)
-			{
+			if (GetProcTime() - g_t0 > 1000)
 				cout << "info currmove " << MoveToStrLong(mv) << " currmovenumber " << legalMoves << endl;
-			}
 
 			int newDepth = depth - 1;
 
@@ -193,7 +206,7 @@ EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
 
 	return alpha;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 EVAL AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 {
@@ -405,7 +418,7 @@ EVAL AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
 	return alpha;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 EVAL AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
 {
@@ -481,7 +494,7 @@ EVAL AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
 
 	return alpha;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void CheckLimits()
 {
@@ -506,7 +519,7 @@ void CheckLimits()
 			g_flags |= TERMINATED_BY_LIMIT;
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void ClearHash()
 {
@@ -514,21 +527,21 @@ void ClearHash()
 	assert(g_hashSize > 0);
 	memset(g_hash, 0, g_hashSize * sizeof(HashEntry));
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void ClearHistory()
 {
 	memset(g_histTry, 0, 64 * 14 * sizeof(int));
 	memset(g_histSuccess, 0, 64 * 14 * sizeof(int));
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void ClearKillers()
 {
 	memset(g_killers, 0, MAX_PLY * sizeof(Move));
 	memset(g_mateKillers, 0, MAX_PLY * sizeof(Move));
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 int Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV)
 {
@@ -545,7 +558,7 @@ int Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV)
 	}
 	return 0;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 Move GetNextBest(MoveList& mvlist, size_t i)
 {
@@ -560,7 +573,7 @@ Move GetNextBest(MoveList& mvlist, size_t i)
 	}
 	return mvlist[i].m_mv;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 Move GetRandomMove(const Position& pos)
 {
@@ -593,7 +606,7 @@ Move GetRandomMove(const Position& pos)
 		return cand_moves[ind];
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 bool HaveSingleMove(Position& pos)
 {
@@ -616,7 +629,7 @@ bool HaveSingleMove(Position& pos)
 
 	return (legalMoves == 1);
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 bool IsGameOver(Position& pos, string& result, string& comment)
 {
@@ -685,13 +698,13 @@ bool IsGameOver(Position& pos, string& result, string& comment)
 
 	return false;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 bool IsGoodCapture(Move mv)
 {
 	return SORT_VALUE[mv.Captured()] >= SORT_VALUE[mv.Piece()];
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 NODES Perft(Position& pos, int depth, int ply)
 {
@@ -716,7 +729,7 @@ NODES Perft(Position& pos, int depth, int ply)
 
 	return total;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void PrintPV(const Position& pos, int iter, EVAL score, const Move* pv, int pvSize, const string& sign)
 {
@@ -725,72 +738,22 @@ void PrintPV(const Position& pos, int iter, EVAL score, const Move* pv, int pvSi
 
 	U32 dt = GetProcTime() - g_t0;
 
-	if (!g_uci)
-	{
-		cout <<
-			setw(2) << iter <<
-			setw(8) << score <<
-			setw(10) << dt / 10 <<
-			setw(12) << g_nodes;
-		cout << "   ";
-		Position tmp = pos;
-		int plyCount = tmp.Ply();
-		if (tmp.Side() == BLACK)
-		{
-			if (plyCount == 0)
-				++plyCount;
-			cout << plyCount / 2 + 1 << ". ... ";
-		}
-		for (int m = 0; m < int(pvSize); ++m)
-		{
-			Move mv = pv[m];
-			MoveList mvlist;
-			GenAllMoves(tmp, mvlist);
-			if (tmp.Side() == WHITE)
-				cout << plyCount / 2 + 1 << ". ";
-			++plyCount;
-			cout << MoveToStrShort(mv, tmp, mvlist);
-			if (!tmp.MakeMove(mv))
-				break;
-			if (tmp.InCheck())
-			{
-				if (score + m + 1 == CHECKMATE_SCORE)
-					cout << "#";
-				else if (score - m + 1 == -CHECKMATE_SCORE)
-					cout << "#";
-				else
-					cout << "+";
-			}
-			if (!sign.empty() && m == 0)
-			{
-				cout << sign;
-				if (sign == "!")
-					break;
-			}
-			if (m < pvSize - 1)
-				cout << " ";
-		}
-		cout << endl;
-	}
+	cout << "info depth " << iter;
+	if (score >= (CHECKMATE_SCORE - 1))
+		cout << " score mate 1";
 	else
+		cout << " score cp " << score;
+	cout << " time " << dt;
+	cout << " nodes " << g_nodes;
+	if (pvSize > 0)
 	{
-		cout << "info depth " << iter;
-		if (score >= (CHECKMATE_SCORE - 1))
-			cout << " score mate 1";
-		else
-			cout << " score cp " << score;
-		cout << " time " << dt;
-		cout << " nodes " << g_nodes;
-		if (pvSize > 0)
-		{
-			cout << " pv";
-			for (int i = 0; i < pvSize; ++i)
-				cout << " " << MoveToStrLong(pv[i]);
-		}
-		cout << endl;
+		cout << " pv";
+		for (int i = 0; i < pvSize; ++i)
+			cout << " " << MoveToStrLong(pv[i]);
 	}
+	cout << endl;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void ProcessInput(const string& s)
 {
@@ -841,7 +804,7 @@ void ProcessInput(const string& s)
 	else if (Is(cmd, "stop", 1))
 		g_flags |= TERMINATED_BY_USER;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 HashEntry* ProbeHash()
 {
@@ -858,7 +821,7 @@ HashEntry* ProbeHash()
 	else
 		return NULL;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void RecordHash(Move mv, EVAL score, I8 depth, int ply, U8 type)
 {
@@ -889,7 +852,7 @@ void RecordHash(Move mv, EVAL score, I8 depth, int ply, U8 type)
 		entry.m_age = g_hashAge;
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 EVAL SEE_Exchange(FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ)
 {
@@ -916,7 +879,7 @@ EVAL SEE_Exchange(FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ)
 	EVAL score = - SEE_Exchange(to, side ^ 1, -(currScore + target), newTarget, occ);
 	return (score > currScore)? score : currScore;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 EVAL SEE(Move mv)
 {
@@ -939,7 +902,7 @@ EVAL SEE(Move mv)
 
 	return score;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void SetHashSize(double mb)
 {
@@ -949,7 +912,7 @@ void SetHashSize(double mb)
 	g_hashSize = int(1024 * 1024 * mb / sizeof(HashEntry));
 	g_hash = new HashEntry[g_hashSize];
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void SetStrength(int level)
 {
@@ -968,7 +931,7 @@ void SetStrength(int level)
 	else
 		g_knps = 0;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void StartPerft(Position& pos, int depth)
 {
@@ -1000,7 +963,7 @@ void StartPerft(Position& pos, int depth)
 	if (dt > 0) cout << " Knps:  " << total / dt / 1000. << endl;
 	cout << endl;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 Move StartSearch(const Position& pos, U8 flags)
 {
@@ -1098,10 +1061,8 @@ Move StartSearch(const Position& pos, U8 flags)
 				--g_iter;
 			}
 
-			if (g_uci && dt > 1000)
-			{
+			if (dt > 1000)
 				cout << "info time " << dt << " nodes " << g_nodes << " nps " << 1000 * g_nodes / dt << endl;
-			}
 
 			if ((flags & MODE_ANALYZE) == 0)
 			{
@@ -1143,7 +1104,7 @@ Move StartSearch(const Position& pos, U8 flags)
 	else
 		return 0;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void UpdateSortScores(MoveList& mvlist, Move hashMove, int ply)
 {
@@ -1176,7 +1137,7 @@ void UpdateSortScores(MoveList& mvlist, Move hashMove, int ply)
 		}
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void UpdateSortScoresQ(MoveList& mvlist, int ply)
 {
@@ -1204,5 +1165,5 @@ void UpdateSortScoresQ(MoveList& mvlist, int ply)
 		}
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 

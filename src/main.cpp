@@ -1,6 +1,22 @@
-//   GreKo chess engine
-//   (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
-//   http://greko.su
+/*
+*  Igel - a UCI chess playing engine derived from GreKo 2018.01
+*
+*  Copyright (C) 2002-2018 Vladimir Medvedev <vrm@bk.ru> (GreKo author)
+*  Copyright (C) 2018 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+*
+*  Igel is free software: you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation, either version 3 of the License, or
+*  (at your option) any later version.
+*
+*  Igel is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*  GNU General Public License for more details.
+*
+*  You should have received a copy of the GNU General Public License
+*  along with Igel.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include "eval.h"
 #include "moves.h"
@@ -23,8 +39,6 @@ Position g_pos;
 deque<string> g_queue;
 FILE* g_log = NULL;
 
-bool g_uci = true;
-
 static string g_s;
 static vector<string> g_tokens;
 static bool g_force = false;
@@ -37,22 +51,22 @@ void ComputeTimeLimits(U32 ourTime, U32 enemyTime, U32 inc)
 
 	if (ourTime <= 1000)
 	{
-		g_stSoft = (ourTime / 300) + (g_inc); // time is running out
+		g_stSoft = (ourTime / 300) + (g_inc / 2); // time is running out
 	}
 	else
 	{
 		if (ourTime <= enemyTime)
 		{
-			g_stSoft = (ourTime / 100) + (g_inc);
+			g_stSoft = (ourTime / 100) + (g_inc / 2);
 		}
 		else
 		{
 			U32 diff = ourTime - enemyTime;
-			g_stSoft = (ourTime / 100) + (g_inc) + (diff / 200);
+			g_stSoft = (ourTime / 100) + (g_inc / 2) + (diff / 200);
 		}
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnAnalyze()
 {
@@ -68,7 +82,7 @@ void OnAnalyze()
 	Position pos = g_pos;
 	StartSearch(pos, MODE_ANALYZE);
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnDump()
 {
@@ -91,26 +105,26 @@ void OnDump()
 	}
 	ofs << endl << "\t};" << endl;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnEval()
 {
 	cout << Evaluate(g_pos, -INFINITY_SCORE, INFINITY_SCORE) << endl << endl;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnFEN()
 {
 	cout << g_pos.FEN() << endl << endl;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnFlip()
 {
 	g_pos.Mirror();
 	g_pos.Print();
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnGoUci()
 {
@@ -199,27 +213,20 @@ void OnGoUci()
 	Move mv = StartSearch(g_pos, mode);
 	cout << "bestmove " << MoveToStrLong(mv) << endl;
 }
-////////////////////////////////////////////////////////////////////////////////
 
-void OnGo()
-{
-	OnGoUci();
-	return;
-}
-////////////////////////////////////////////////////////////////////////////////
 
 void OnIsready()
 {
 	cout << "readyok" << endl;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnLevel()
 {
 	if (g_tokens.size() > 3)
 		g_inc = 1000 * atoi(g_tokens[3].c_str());
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnList()
 {
@@ -234,7 +241,7 @@ void OnList()
 	}
 	cout << " -- total: " << mvSize << endl << endl;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnLoad()
 {
@@ -272,7 +279,7 @@ void OnLoad()
 		cout << "Illegal FEN" << endl << endl;
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnMT()
 {
@@ -308,7 +315,7 @@ void OnMT()
 
 	cout << endl;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnNew()
 {
@@ -319,7 +326,7 @@ void OnNew()
 	ClearHistory();
 	ClearKillers();
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnPerft()
 {
@@ -328,7 +335,7 @@ void OnPerft()
 	int depth = atoi(g_tokens[1].c_str());
 	StartPerft(g_pos, depth);
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnPing()
 {
@@ -336,7 +343,7 @@ void OnPing()
 		return;
 	cout << "pong " << g_tokens[1] << endl;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnPosition()
 {
@@ -382,14 +389,14 @@ void OnPosition()
 		}
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnProtover()
 {
 	cout << "feature myname=\"" << PROGRAM_NAME <<
 		"\" setboard=1 analyze=1 colors=0 san=0 ping=1 name=1 done=1" << endl;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnPSQ()
 {
@@ -473,7 +480,7 @@ void OnPSQ()
 		cout << endl;
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnSD()
 {
@@ -493,7 +500,7 @@ void OnSetboard()
 	else
 		cout << "Illegal FEN" << endl << endl;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnSetoption()
 {
@@ -510,7 +517,7 @@ void OnSetoption()
 	else if (name == "Strength")
 		SetStrength(atoi(value.c_str()));
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnSN()
 {
@@ -522,7 +529,7 @@ void OnSN()
 	g_stHard = 0;
 	g_stSoft = 0;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnST()
 {
@@ -534,13 +541,13 @@ void OnST()
 	g_stHard = U32(1000 * atof(g_tokens[1].c_str()));
 	g_stSoft = U32(1000 * atof(g_tokens[1].c_str()));
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnTest()
 {
 	g_pos.SetFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -");
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnTime()
 {
@@ -561,12 +568,10 @@ void OnTime()
 		Log(ss.str());
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnUCI()
 {
-	g_uci = true;
-
 	cout << "id name " << PROGRAM_NAME << endl;
 	cout << "id author V. Medvedev, V. Shcherbyna" << endl;
 
@@ -582,7 +587,7 @@ void OnUCI()
 
 	cout << "uciok" << endl;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void OnZero()
 {
@@ -600,7 +605,7 @@ void OnZero()
 	WriteParamsToFile(x, "weights.txt");
 	InitEval(x);
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void RunCommandLine()
 {
@@ -627,7 +632,7 @@ void RunCommandLine()
 		ON_CMD(fen,        2, OnFEN())
 		ON_CMD(flip,       2, OnFlip())
 		ON_CMD(force,      2, g_force = true)
-		ON_CMD(go,         1, OnGo())
+		ON_CMD(go,         1, OnGoUci())
 		ON_CMD(isready,    1, OnIsready())
 		ON_CMD(level,      3, OnLevel())
 		ON_CMD(list,       2, OnList())
@@ -652,27 +657,9 @@ void RunCommandLine()
 		ON_CMD(undo,       1, g_pos.UnmakeMove())
 		ON_CMD(zero,       1, OnZero())
 #undef ON_CMD
-
-		if (CanBeMove(cmd))
-		{
-			Move mv = StrToMove(cmd, g_pos);
-			if (mv)
-			{
-				g_pos.MakeMove(mv);
-				string result, comment;
-				if (IsGameOver(g_pos, result, comment))
-					cout << result << " " << comment << endl << endl;
-				else if (!g_force)
-					OnGo();
-				continue;
-			}
-		}
-
-		if (!g_uci)
-			cout << "Unknown command: " << cmd << endl << endl;
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 int main(int argc, const char* argv[])
 {
@@ -705,4 +692,4 @@ int main(int argc, const char* argv[])
 
 	return 0;
 }
-////////////////////////////////////////////////////////////////////////////////
+

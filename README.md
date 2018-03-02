@@ -1,5 +1,10 @@
-# igel chess engine
-igel chess engine is a fork of chess engine GreKo 2018.01
-originally created by V. Medvedev (http://greko.su/).
+### Overview
 
-The purpose of the fork is to try different algorithms and study chess programming.
+[![Build Status](https://api.travis-ci.org/vshcherbyna/igel.svg?branch=master)](https://travis-ci.org/vshcherbyna/igel)
+
+Igel is a free UCI chess engine derived from GreKo 2018.01. It is
+not a complete chess program and requires some UCI-compatible GUI
+(e.g. XBoard with PolyGlot, eboard, Arena, Sigma Chess, Shredder, Chess
+Partner or Fritz) in order to be used comfortably. Read the
+documentation for your GUI of choice for information about how to use
+Igel with it.
