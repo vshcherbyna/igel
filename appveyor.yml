@@ -7,8 +7,8 @@ platform:
   - x64
 
 configuration:
-  - Debug
   - Release
+  - Debug
 
 matrix:
   fast_finish: true
