@@ -1,0 +1,28 @@
+version: 1.0.{build}
+clone_depth: 50
+
+os: Visual Studio 2017
+
+platform:
+  - x64
+
+configuration:
+  - Debug
+  - Release
+
+matrix:
+  fast_finish: true
+
+init:
+  - cmake --version
+
+before_build:
+  - cd src
+  
+build_script:
+  - cmake -G "Visual Studio 15 2017 Win64" .
+  - cmake --build . --target ALL_BUILD --config %CONFIGURATION%
+  - cp %CONFIGURATION%\igel.exe igel
+  - pip2 install --user python-chess futures
+  - cd ..\tests
+  - python mate_in_one.py
