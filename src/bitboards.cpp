@@ -1,6 +1,22 @@
-//   GreKo chess engine
-//   (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
-//   http://greko.su
+/*
+*  Igel - a UCI chess playing engine derived from GreKo 2018.01
+*
+*  Copyright (C) 2002-2018 Vladimir Medvedev <vrm@bk.ru> (GreKo author)
+*  Copyright (C) 2018 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+*
+*  Igel is free software: you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation, either version 3 of the License, or
+*  (at your option) any later version.
+*
+*  Igel is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*  GNU General Public License for more details.
+*
+*  You should have received a copy of the GNU General Public License
+*  along with Igel.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include "bitboards.h"
 #include "utils.h"
@@ -219,14 +235,14 @@ U64 Attacks(FLD f, U64 occ, PIECE piece)
 			return 0;
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 U64 BishopAttacks(FLD f, U64 occ)
 {
 	int index = int(((occ & B_MASK[f]) * B_MULT[f]) >> B_SHIFT[f]);
 	return B_DATA[B_OFFSET[f] + index];
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 U64 BishopAttacksTrace(FLD f, U64 occ)
 {
@@ -244,7 +260,7 @@ U64 BishopAttacksTrace(FLD f, U64 occ)
 	}
 	return att;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 int CountBits(U64 b)
 {
@@ -264,7 +280,7 @@ int CountBits(U64 b)
 	U32 y = U32(x) + U32(x >> 32);
 	return (y + (y >> 16)) & 0x3f;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 int Delta(int dir)
 {
@@ -273,7 +289,7 @@ int Delta(int dir)
 	static int delta[8] = { 1, -7, -8, -9, -1, 7, 8, 9 };
 	return delta[dir];
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 U64 EnumBits(U64 b, int n)
 {
@@ -285,7 +301,7 @@ U64 EnumBits(U64 b, int n)
 	}
 	return r;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void FindMagicLSB()
 {
@@ -333,7 +349,7 @@ void FindMagicLSB()
 			cout << endl;
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void FindMaskB()
 {
@@ -355,7 +371,7 @@ void FindMaskB()
 			cout << endl;
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void FindMaskR()
 {
@@ -385,7 +401,7 @@ void FindMaskR()
 			cout << endl;
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 U64 FindMultB(FLD f)
 {
@@ -422,7 +438,7 @@ U64 FindMultB(FLD f)
 
 	return mult;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void FindMultB()
 {
@@ -435,7 +451,7 @@ void FindMultB()
 		PrintArray(arr);
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 U64 FindMultR(FLD f)
 {
@@ -472,7 +488,7 @@ U64 FindMultR(FLD f)
 
 	return mult;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void FindMultR()
 {
@@ -485,7 +501,7 @@ void FindMultR()
 		PrintArray(arr);
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void FindShiftB()
 {
@@ -498,7 +514,7 @@ void FindShiftB()
 			cout << endl;
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void FindShiftR()
 {
@@ -511,7 +527,7 @@ void FindShiftR()
 			cout << endl;
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void InitBitboards()
 {
@@ -689,7 +705,7 @@ void InitBitboards()
 		}
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void Print(U64 b)
 {
@@ -705,7 +721,7 @@ void Print(U64 b)
 	}
 	cout << endl;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void PrintArray(const U64* arr)
 {
@@ -720,32 +736,32 @@ void PrintArray(const U64* arr)
 	}
 	cout << endl;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void PrintHex(U64 b)
 {
 	cout << "LL(0x" << setw(16) << setfill('0') << hex << b << dec << ")";
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 U64 QueenAttacks(FLD f, U64 occ)
 {
 	return BishopAttacks(f, occ) | RookAttacks(f, occ);
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 U64 QueenAttacksTrace(FLD f, U64 occ)
 {
 	return BishopAttacksTrace(f, occ) | RookAttacksTrace(f, occ);
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 U64 RookAttacks(FLD f, U64 occ)
 {
 	int index = int(((occ & R_MASK[f]) * R_MULT[f]) >> R_SHIFT[f]);
 	return R_DATA[R_OFFSET[f] + index];
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 U64 RookAttacksTrace(FLD f, U64 occ)
 {
@@ -763,7 +779,7 @@ U64 RookAttacksTrace(FLD f, U64 occ)
 	}
 	return att;
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 U64 Shift(U64 b, int dir)
 {
@@ -782,7 +798,7 @@ U64 Shift(U64 b, int dir)
 		default:     return 0;
 	}
 }
-////////////////////////////////////////////////////////////////////////////////
+
 
 void TestMagic()
 {
@@ -810,4 +826,4 @@ void TestMagic()
 	U32 t1 = GetProcTime();
 	cout << "OK - Test passed in " << (t1 - t0) / 1000. << " sec." << endl;
 }
-////////////////////////////////////////////////////////////////////////////////
+
