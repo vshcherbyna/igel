@@ -8,7 +8,6 @@ platform:
 
 configuration:
   - Release
-  - Debug
 
 matrix:
   fast_finish: true

@@ -1,16 +1,33 @@
+#
+#  Igel - a UCI chess playing engine derived from GreKo 2018.01
+#
+#  Copyright (C) 2018 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+#
+#  Igel is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  Igel is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with Igel.  If not, see <http://www.gnu.org/licenses/>.
+#
+
 #!/usr/bin/python
  
 import chess
 import chess.uci
-import datetime
+import timeit
 
 engine_move_time = 10
-engine_memory = 1
 
 def evaluate(fen):
     # setup engine
     engine = chess.uci.popen_engine("../src/igel")
-    engine.setoption({"Hash": engine_memory}) 
     
     # setup new game
     engine.uci()
@@ -19,19 +36,22 @@ def evaluate(fen):
     # setup board
     board = chess.Board(fen)
     handler = chess.uci.InfoHandler()
+    print(fen)
     print(board)
 
     # run engine
     engine.info_handlers.append(handler)
     engine.position(board)
-    a = datetime.datetime.now()
+    start_time = timeit.default_timer()
     bestmove, pondermove = engine.go(movetime=engine_move_time)
-    b = datetime.datetime.now()
-    d = (b - a).microseconds
-    if d > 500000:
-        raise Exception("exceeded a go time", d)
+    elapsed = timeit.default_timer() - start_time
+    elapsed = elapsed * 1000
+    if elapsed > engine_move_time:
+        engine.quit()
+        raise Exception("exceeded a go time", elapsed)
     print (handler.info["score"][1])
-    print("search time: %d" % d)
+    print("search time: %d ms" % elapsed)
+    print("mate in %d" % handler.info["score"][1].mate)
     engine.quit()
 
     return board.san(bestmove)
