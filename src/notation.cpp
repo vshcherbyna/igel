@@ -32,7 +32,6 @@ bool CanBeMove(const string& s)
     return true;
 }
 
-
 string FldToStr(FLD f)
 {
     char buf[3];
@@ -41,7 +40,6 @@ string FldToStr(FLD f)
     buf[2] = 0;
     return string(buf);
 }
-
 
 FLD StrToFld(const string& s)
 {
@@ -55,7 +53,6 @@ FLD StrToFld(const string& s)
 
     return 8 * row + col;
 }
-
 
 Move StrToMove(const string& s, Position& pos)
 {
@@ -101,7 +98,6 @@ Move StrToMove(const string& s, Position& pos)
     return 0;
 }
 
-
 string MoveToStrLong(Move mv)
 {
     string s = FldToStr(mv.From()) + FldToStr(mv.To());
@@ -115,7 +111,6 @@ string MoveToStrLong(Move mv)
     }
     return s;
 }
-
 
 string MoveToStrShort(Move mv, Position& pos, const MoveList& mvlist)
 {

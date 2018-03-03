@@ -83,12 +83,10 @@ void InitParamLines()
 	NUM_PARAMS = lines[NUM_LINES - 1].start + lines[NUM_LINES - 1].len;
 }
 
-
 void SetMaterialOnlyValues(vector<int>& x)
 {
 	x.resize(NUM_PARAMS);
 }
-
 
 void SetDefaultValues(vector<int>& x)
 {
@@ -105,14 +103,12 @@ void SetDefaultValues(vector<int>& x)
 	memcpy(&(x[0]), data, 192 * sizeof(int));
 }
 
-
 std::string ParamNumberToName(size_t n)
 {
 	stringstream ss;
 	ss << "Param_" << n;
 	return ss.str();
 }
-
 
 bool ReadParamsFromFile(vector<int>& x, const std::string& filename)
 {
@@ -143,7 +139,6 @@ bool ReadParamsFromFile(vector<int>& x, const std::string& filename)
 
 	return true;
 }
-
 
 void WriteParamsToFile(const vector<int>& x, const std::string& filename)
 {

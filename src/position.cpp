@@ -55,7 +55,6 @@ bool Position::CanCastle(COLOR side, U8 flank) const
 	}
 }
 
-
 void Position::Clear()
 {
 	for (FLD f = 0; f < 64; ++f)
@@ -80,7 +79,6 @@ void Position::Clear()
 	m_side = WHITE;
 	m_undoSize = 0;
 }
-
 
 string Position::FEN() const
 {
@@ -144,7 +142,6 @@ string Position::FEN() const
 	return fen.str();
 }
 
-
 U64 Position::GetAttacks(FLD to, COLOR side, U64 occ) const
 {
 	U64 att = 0;
@@ -157,12 +154,10 @@ U64 Position::GetAttacks(FLD to, COLOR side, U64 occ) const
 	return att;
 }
 
-
 U64 Position::Hash() const
 {
 	return m_hash ^ s_hashSide[m_side] ^ s_hashCastlings[m_castlings] ^ s_hashEP[m_ep];
 }
-
 
 void Position::InitHashNumbers()
 {
@@ -186,7 +181,6 @@ void Position::InitHashNumbers()
 		s_hashEP[i] = Rand64();
 	}
 }
-
 
 bool Position::IsAttacked(FLD f, COLOR side) const
 {
@@ -217,7 +211,6 @@ bool Position::IsAttacked(FLD f, COLOR side) const
 
 	return false;
 }
-
 
 bool Position::MakeMove(Move mv)
 {
@@ -311,7 +304,6 @@ bool Position::MakeMove(Move mv)
 	return true;
 }
 
-
 void Position::MakeNullMove()
 {
 	Undo& undo = m_undos[m_undoSize++];
@@ -326,7 +318,6 @@ void Position::MakeNullMove()
 	++m_ply;
 	m_side ^= 1;
 }
-
 
 void Position::Mirror()
 {
@@ -348,7 +339,6 @@ void Position::Mirror()
 	m_Kings[WHITE] = FLIP[BLACK][tmp.King(BLACK)];
 	m_Kings[BLACK] = FLIP[BLACK][tmp.King(WHITE)];
 }
-
 
 void Position::MovePiece(PIECE p, FLD from, FLD to)
 {
@@ -377,7 +367,6 @@ void Position::MovePiece(PIECE p, FLD from, FLD to)
 	m_score -= PSQ[p][from];
 }
 
-
 void Position::Print() const
 {
 	const char names[] = "-?PpNnBbRrQqKk";
@@ -402,7 +391,6 @@ void Position::Print() const
 	}
 }
 
-
 void Position::Put(FLD f, PIECE p)
 {
 	assert(f >= 0 && f < 64);
@@ -420,7 +408,6 @@ void Position::Put(FLD f, PIECE p)
 
 	m_score += PSQ[p][f];
 }
-
 
 void Position::Remove(FLD f)
 {
@@ -440,7 +427,6 @@ void Position::Remove(FLD f)
 
 	m_score -= PSQ[p][f];
 }
-
 
 int Position::Repetitions() const
 {
@@ -462,7 +448,6 @@ int Position::Repetitions() const
 	}
 	return r;
 }
-
 
 bool Position::SetFEN(const string& fen)
 {
@@ -595,12 +580,10 @@ ILLEGAL_FEN:
 	return false;
 }
 
-
 void Position::SetInitial()
 {
 	SetFEN(STD_POSITION);
 }
-
 
 void Position::UnmakeMove()
 {
@@ -654,7 +637,6 @@ void Position::UnmakeMove()
 	--m_ply;
 	m_side ^= 1;
 }
-
 
 void Position::UnmakeNullMove()
 {

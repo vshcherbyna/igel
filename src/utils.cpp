@@ -21,19 +21,6 @@
 #include "bitboards.h"
 #include "utils.h"
 
-#ifndef _MSC_VER
-U32 GetProcTime()
-{
-	return 1000 * clock() / CLOCKS_PER_SEC;
-}
-#else
-#include <windows.h>
-U32 GetProcTime()
-{
-	return GetTickCount();
-}
-#endif
-
 extern FILE* g_log;
 
 U64 g_rand64 = 42;
@@ -42,7 +29,6 @@ bool Is(const string& cmd, const string& pattern, size_t minLen)
 {
 	return (pattern.find(cmd) == 0 && cmd.length() >= minLen);
 }
-
 
 void Log(const string& s)
 {
@@ -53,12 +39,10 @@ void Log(const string& s)
 	fflush(g_log);
 }
 
-
 U32 Rand32()
 {
 	return U32(Rand64() >> 32);
 }
-
 
 U64 Rand64()
 {
@@ -67,7 +51,6 @@ U64 Rand64()
 	g_rand64 = A * g_rand64 + B;
 	return g_rand64;
 }
-
 
 U64 Rand64(int bits)
 {
@@ -85,7 +68,6 @@ U64 Rand64(int bits)
 	return r;
 }
 
-
 double RandDouble()
 {
 	double x = Rand32();
@@ -93,12 +75,10 @@ double RandDouble()
 	return x;
 }
 
-
 void RandSeed(U64 seed)
 {
 	g_rand64 = seed;
 }
-
 
 void Split(const string& s, vector<string>& tokens, const string& sep)
 {
@@ -125,7 +105,6 @@ void Split(const string& s, vector<string>& tokens, const string& sep)
 	}
 	if (inWord) tokens.push_back(s.substr(begin, i - begin));
 }
-
 
 string Timestamp()
 {

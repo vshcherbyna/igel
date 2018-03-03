@@ -236,13 +236,11 @@ U64 Attacks(FLD f, U64 occ, PIECE piece)
 	}
 }
 
-
 U64 BishopAttacks(FLD f, U64 occ)
 {
 	int index = int(((occ & B_MASK[f]) * B_MULT[f]) >> B_SHIFT[f]);
 	return B_DATA[B_OFFSET[f] + index];
 }
-
 
 U64 BishopAttacksTrace(FLD f, U64 occ)
 {
@@ -260,7 +258,6 @@ U64 BishopAttacksTrace(FLD f, U64 occ)
 	}
 	return att;
 }
-
 
 int CountBits(U64 b)
 {
@@ -281,7 +278,6 @@ int CountBits(U64 b)
 	return (y + (y >> 16)) & 0x3f;
 }
 
-
 int Delta(int dir)
 {
 	assert(dir >= 0 && dir <= 7);
@@ -289,7 +285,6 @@ int Delta(int dir)
 	static int delta[8] = { 1, -7, -8, -9, -1, 7, 8, 9 };
 	return delta[dir];
 }
-
 
 U64 EnumBits(U64 b, int n)
 {
@@ -301,7 +296,6 @@ U64 EnumBits(U64 b, int n)
 	}
 	return r;
 }
-
 
 void FindMagicLSB()
 {
@@ -350,7 +344,6 @@ void FindMagicLSB()
 	}
 }
 
-
 void FindMaskB()
 {
 	U64 mask[64];
@@ -371,7 +364,6 @@ void FindMaskB()
 			cout << endl;
 	}
 }
-
 
 void FindMaskR()
 {
@@ -401,7 +393,6 @@ void FindMaskR()
 			cout << endl;
 	}
 }
-
 
 U64 FindMultB(FLD f)
 {
@@ -439,7 +430,6 @@ U64 FindMultB(FLD f)
 	return mult;
 }
 
-
 void FindMultB()
 {
 	U64 arr[64];
@@ -451,7 +441,6 @@ void FindMultB()
 		PrintArray(arr);
 	}
 }
-
 
 U64 FindMultR(FLD f)
 {
@@ -489,7 +478,6 @@ U64 FindMultR(FLD f)
 	return mult;
 }
 
-
 void FindMultR()
 {
 	U64 arr[64];
@@ -501,7 +489,6 @@ void FindMultR()
 		PrintArray(arr);
 	}
 }
-
 
 void FindShiftB()
 {
@@ -515,7 +502,6 @@ void FindShiftB()
 	}
 }
 
-
 void FindShiftR()
 {
 	for (FLD f = 0; f < 64; ++f)
@@ -527,7 +513,6 @@ void FindShiftR()
 			cout << endl;
 	}
 }
-
 
 void InitBitboards()
 {
@@ -706,7 +691,6 @@ void InitBitboards()
 	}
 }
 
-
 void Print(U64 b)
 {
 	cout << endl;
@@ -722,7 +706,6 @@ void Print(U64 b)
 	cout << endl;
 }
 
-
 void PrintArray(const U64* arr)
 {
 	cout << endl;
@@ -737,31 +720,26 @@ void PrintArray(const U64* arr)
 	cout << endl;
 }
 
-
 void PrintHex(U64 b)
 {
 	cout << "LL(0x" << setw(16) << setfill('0') << hex << b << dec << ")";
 }
-
 
 U64 QueenAttacks(FLD f, U64 occ)
 {
 	return BishopAttacks(f, occ) | RookAttacks(f, occ);
 }
 
-
 U64 QueenAttacksTrace(FLD f, U64 occ)
 {
 	return BishopAttacksTrace(f, occ) | RookAttacksTrace(f, occ);
 }
-
 
 U64 RookAttacks(FLD f, U64 occ)
 {
 	int index = int(((occ & R_MASK[f]) * R_MULT[f]) >> R_SHIFT[f]);
 	return R_DATA[R_OFFSET[f] + index];
 }
-
 
 U64 RookAttacksTrace(FLD f, U64 occ)
 {
@@ -780,7 +758,6 @@ U64 RookAttacksTrace(FLD f, U64 occ)
 	return att;
 }
 
-
 U64 Shift(U64 b, int dir)
 {
 	assert(dir >= 0 && dir <= 7);
@@ -798,7 +775,6 @@ U64 Shift(U64 b, int dir)
 		default:     return 0;
 	}
 }
-
 
 void TestMagic()
 {
