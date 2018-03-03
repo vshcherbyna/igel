@@ -25,24 +25,20 @@ void MoveList::Add(Move mv)
 	m_data[m_size++].m_mv = mv;
 }
 
-
 void MoveList::Add(FLD from, FLD to, PIECE piece)
 {
 	m_data[m_size++].m_mv = Move(from, to, piece);
 }
-
 
 void MoveList::Add(FLD from, FLD to, PIECE piece, PIECE captured)
 {
 	m_data[m_size++].m_mv = Move(from, to, piece, captured);
 }
 
-
 void MoveList::Add(FLD from, FLD to, PIECE piece, PIECE captured, PIECE promotion)
 {
 	m_data[m_size++].m_mv = Move(from, to, piece, captured, promotion);
 }
-
 
 void GenAllMoves(const Position& pos, MoveList& mvlist)
 {
@@ -216,7 +212,6 @@ void GenAllMoves(const Position& pos, MoveList& mvlist)
 		mvlist.Add(MOVE_O_O_O[side]);
 }
 
-
 void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist)
 {
 	mvlist.Clear();
@@ -362,7 +357,6 @@ void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist)
 	}
 }
 
-
 void AddSimpleChecks(const Position& pos, MoveList& mvlist)
 {
 	COLOR side = pos.Side();
@@ -453,7 +447,6 @@ void AddSimpleChecks(const Position& pos, MoveList& mvlist)
 	}
 }
 
-
 U64 GetCheckMask(const Position& pos)
 {
 	COLOR side = pos.Side();
@@ -488,7 +481,6 @@ U64 GetCheckMask(const Position& pos)
 
 	return mask;
 }
-
 
 void GenMovesInCheck(const Position& pos, MoveList& mvlist)
 {

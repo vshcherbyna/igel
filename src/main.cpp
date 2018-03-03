@@ -67,7 +67,6 @@ void ComputeTimeLimits(U32 ourTime, U32 enemyTime, U32 inc)
 	}
 }
 
-
 void OnAnalyze()
 {
 	g_sd = 0;
@@ -82,7 +81,6 @@ void OnAnalyze()
 	Position pos = g_pos;
 	StartSearch(pos, MODE_ANALYZE);
 }
-
 
 void OnDump()
 {
@@ -106,25 +104,21 @@ void OnDump()
 	ofs << endl << "\t};" << endl;
 }
 
-
 void OnEval()
 {
 	cout << Evaluate(g_pos, -INFINITY_SCORE, INFINITY_SCORE) << endl << endl;
 }
-
 
 void OnFEN()
 {
 	cout << g_pos.FEN() << endl << endl;
 }
 
-
 void OnFlip()
 {
 	g_pos.Mirror();
 	g_pos.Print();
 }
-
 
 void OnGoUci()
 {
@@ -214,19 +208,16 @@ void OnGoUci()
 	cout << "bestmove " << MoveToStrLong(mv) << endl;
 }
 
-
 void OnIsready()
 {
 	cout << "readyok" << endl;
 }
-
 
 void OnLevel()
 {
 	if (g_tokens.size() > 3)
 		g_inc = 1000 * atoi(g_tokens[3].c_str());
 }
-
 
 void OnList()
 {
@@ -241,7 +232,6 @@ void OnList()
 	}
 	cout << " -- total: " << mvSize << endl << endl;
 }
-
 
 void OnLoad()
 {
@@ -280,7 +270,6 @@ void OnLoad()
 	}
 }
 
-
 void OnMT()
 {
 	if (g_tokens.size() < 2)
@@ -316,7 +305,6 @@ void OnMT()
 	cout << endl;
 }
 
-
 void OnNew()
 {
 	g_force = false;
@@ -327,7 +315,6 @@ void OnNew()
 	ClearKillers();
 }
 
-
 void OnPerft()
 {
 	if (g_tokens.size() < 2)
@@ -336,14 +323,12 @@ void OnPerft()
 	StartPerft(g_pos, depth);
 }
 
-
 void OnPing()
 {
 	if (g_tokens.size() < 2)
 		return;
 	cout << "pong " << g_tokens[1] << endl;
 }
-
 
 void OnPosition()
 {
@@ -390,13 +375,11 @@ void OnPosition()
 	}
 }
 
-
 void OnProtover()
 {
 	cout << "feature myname=\"" << PROGRAM_NAME <<
 		"\" setboard=1 analyze=1 colors=0 san=0 ping=1 name=1 done=1" << endl;
 }
-
 
 void OnPSQ()
 {
@@ -481,7 +464,6 @@ void OnPSQ()
 	}
 }
 
-
 void OnSD()
 {
 	if (g_tokens.size() < 2)
@@ -501,7 +483,6 @@ void OnSetboard()
 		cout << "Illegal FEN" << endl << endl;
 }
 
-
 void OnSetoption()
 {
 	if (g_tokens.size() < 5)
@@ -518,7 +499,6 @@ void OnSetoption()
 		SetStrength(atoi(value.c_str()));
 }
 
-
 void OnSN()
 {
 	if (g_tokens.size() < 2)
@@ -529,7 +509,6 @@ void OnSN()
 	g_stHard = 0;
 	g_stSoft = 0;
 }
-
 
 void OnST()
 {
@@ -542,12 +521,10 @@ void OnST()
 	g_stSoft = U32(1000 * atof(g_tokens[1].c_str()));
 }
 
-
 void OnTest()
 {
 	g_pos.SetFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -");
 }
-
 
 void OnTime()
 {
@@ -569,7 +546,6 @@ void OnTime()
 	}
 }
 
-
 void OnUCI()
 {
 	cout << "id name " << PROGRAM_NAME << endl;
@@ -588,7 +564,6 @@ void OnUCI()
 	cout << "uciok" << endl;
 }
 
-
 void OnZero()
 {
 	std::vector<int> x;
@@ -605,7 +580,6 @@ void OnZero()
 	WriteParamsToFile(x, "weights.txt");
 	InitEval(x);
 }
-
 
 void RunCommandLine()
 {
@@ -660,9 +634,9 @@ void RunCommandLine()
 	}
 }
 
-
 int main(int argc, const char* argv[])
 {
+	InitIO();
 	InitBitboards();
 	Position::InitHashNumbers();
 	InitEval();

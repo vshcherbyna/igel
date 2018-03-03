@@ -71,6 +71,7 @@ EVAL       AlphaBetaRoot(EVAL alpha, EVAL beta, int depth);
 EVAL       AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull);
 EVAL       AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply);
 void       CheckLimits();
+void       CheckInput();
 int        Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV);
 Move       GetNextBest(MoveList& mvlist, size_t i);
 bool       IsGoodCapture(Move mv);
@@ -92,6 +93,7 @@ void AdjustSpeed()
 		double expectedTime = g_nodes / g_knps;
 		while (dt < expectedTime)
 		{
+			CheckInput();
 			CheckLimits();
 			if (g_flags & SEARCH_TERMINATED)
 				return;
@@ -101,7 +103,6 @@ void AdjustSpeed()
 	}
 }
 
-
 EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
 {
 	int ply = 0;
@@ -109,10 +110,9 @@ EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
 
 	Move hashMove = 0;
 	HashEntry* pEntry = ProbeHash();
-	if (pEntry != NULL)
-	{
+
+	if (pEntry != nullptr)
 		hashMove = pEntry->m_mv;
-	}
 
 	int legalMoves = 0;
 	Move bestMove = 0;
@@ -159,6 +159,7 @@ EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
 			}
 			s_pos.UnmakeMove();
 
+			CheckInput();
 			CheckLimits();
 
 			if (g_flags & SEARCH_TERMINATED)
@@ -206,7 +207,6 @@ EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
 
 	return alpha;
 }
-
 
 EVAL AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 {
@@ -419,7 +419,6 @@ EVAL AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 	return alpha;
 }
 
-
 EVAL AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
 {
 	if (ply > MAX_PLY - 2)
@@ -495,7 +494,6 @@ EVAL AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
 	return alpha;
 }
 
-
 void CheckLimits()
 {
 	if (g_iterPVSize == 0)
@@ -520,6 +518,18 @@ void CheckLimits()
 	}
 }
 
+void CheckInput()
+{
+	if (g_iter < 2)
+		return;
+
+	if (InputAvailable())
+	{
+		string s;
+		getline(cin, s);
+		ProcessInput(s);
+	}
+}
 
 void ClearHash()
 {
@@ -528,20 +538,17 @@ void ClearHash()
 	memset(g_hash, 0, g_hashSize * sizeof(HashEntry));
 }
 
-
 void ClearHistory()
 {
 	memset(g_histTry, 0, 64 * 14 * sizeof(int));
 	memset(g_histSuccess, 0, 64 * 14 * sizeof(int));
 }
 
-
 void ClearKillers()
 {
 	memset(g_killers, 0, MAX_PLY * sizeof(Move));
 	memset(g_mateKillers, 0, MAX_PLY * sizeof(Move));
 }
-
 
 int Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV)
 {
@@ -559,7 +566,6 @@ int Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV)
 	return 0;
 }
 
-
 Move GetNextBest(MoveList& mvlist, size_t i)
 {
 	if (i == 0 && mvlist[0].m_score == SORT_HASH)
@@ -573,40 +579,6 @@ Move GetNextBest(MoveList& mvlist, size_t i)
 	}
 	return mvlist[i].m_mv;
 }
-
-
-Move GetRandomMove(const Position& pos)
-{
-	s_pos = pos;
-	EVAL e0 = AlphaBetaRoot(-INFINITY_SCORE, INFINITY_SCORE, 1);
-
-	MoveList mvlist;
-	GenAllMoves(s_pos, mvlist);
-	vector<Move> cand_moves;
-
-	auto mvSize = mvlist.Size();
-	for (size_t i = 0; i < mvSize; ++i)
-	{
-		Move mv = mvlist[i].m_mv;
-		if (s_pos.MakeMove(mv))
-		{
-			EVAL e = -AlphaBetaQ(-INFINITY_SCORE, INFINITY_SCORE, 0, 0);
-			s_pos.UnmakeMove();
-
-			if (e >= e0 - 100)
-				cand_moves.push_back(mv);
-		}
-	}
-
-	if (cand_moves.empty())
-		return 0;
-	else
-	{
-		size_t ind = Rand32() % cand_moves.size();
-		return cand_moves[ind];
-	}
-}
-
 
 bool HaveSingleMove(Position& pos)
 {
@@ -629,7 +601,6 @@ bool HaveSingleMove(Position& pos)
 
 	return (legalMoves == 1);
 }
-
 
 bool IsGameOver(Position& pos, string& result, string& comment)
 {
@@ -699,12 +670,10 @@ bool IsGameOver(Position& pos, string& result, string& comment)
 	return false;
 }
 
-
 bool IsGoodCapture(Move mv)
 {
 	return SORT_VALUE[mv.Captured()] >= SORT_VALUE[mv.Piece()];
 }
-
 
 NODES Perft(Position& pos, int depth, int ply)
 {
@@ -730,7 +699,6 @@ NODES Perft(Position& pos, int depth, int ply)
 	return total;
 }
 
-
 void PrintPV(const Position& pos, int iter, EVAL score, const Move* pv, int pvSize, const string& sign)
 {
 	if (pvSize == 0)
@@ -753,7 +721,6 @@ void PrintPV(const Position& pos, int iter, EVAL score, const Move* pv, int pvSi
 	}
 	cout << endl;
 }
-
 
 void ProcessInput(const string& s)
 {
@@ -805,7 +772,6 @@ void ProcessInput(const string& s)
 		g_flags |= TERMINATED_BY_USER;
 }
 
-
 HashEntry* ProbeHash()
 {
 	assert(g_hash != NULL);
@@ -821,7 +787,6 @@ HashEntry* ProbeHash()
 	else
 		return NULL;
 }
-
 
 void RecordHash(Move mv, EVAL score, I8 depth, int ply, U8 type)
 {
@@ -853,7 +818,6 @@ void RecordHash(Move mv, EVAL score, I8 depth, int ply, U8 type)
 	}
 }
 
-
 EVAL SEE_Exchange(FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ)
 {
 	U64 att = s_pos.GetAttacks(to, side, occ) & occ;
@@ -880,7 +844,6 @@ EVAL SEE_Exchange(FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ)
 	return (score > currScore)? score : currScore;
 }
 
-
 EVAL SEE(Move mv)
 {
 	FLD from = mv.From();
@@ -903,7 +866,6 @@ EVAL SEE(Move mv)
 	return score;
 }
 
-
 void SetHashSize(double mb)
 {
 	if (g_hash)
@@ -912,7 +874,6 @@ void SetHashSize(double mb)
 	g_hashSize = int(1024 * 1024 * mb / sizeof(HashEntry));
 	g_hash = new HashEntry[g_hashSize];
 }
-
 
 void SetStrength(int level)
 {
@@ -931,7 +892,6 @@ void SetStrength(int level)
 	else
 		g_knps = 0;
 }
-
 
 void StartPerft(Position& pos, int depth)
 {
@@ -963,7 +923,6 @@ void StartPerft(Position& pos, int depth)
 	if (dt > 0) cout << " Knps:  " << total / dt / 1000. << endl;
 	cout << endl;
 }
-
 
 Move StartSearch(const Position& pos, U8 flags)
 {
@@ -1061,8 +1020,20 @@ Move StartSearch(const Position& pos, U8 flags)
 				--g_iter;
 			}
 
-			if (dt > 1000)
+			if (dt)
 				cout << "info time " << dt << " nodes " << g_nodes << " nps " << 1000 * g_nodes / dt << endl;
+
+			dt = GetProcTime() - g_t0;
+			if (g_stSoft > 0 && dt >= g_stSoft)
+			{
+				g_flags |= TERMINATED_BY_LIMIT;
+
+				stringstream ss;
+				ss << "Search stopped by stSoft, dt = " << dt;
+				Log(ss.str());
+
+				break;
+			}
 
 			if ((flags & MODE_ANALYZE) == 0)
 			{
@@ -1105,7 +1076,6 @@ Move StartSearch(const Position& pos, U8 flags)
 		return 0;
 }
 
-
 void UpdateSortScores(MoveList& mvlist, Move hashMove, int ply)
 {
 	auto mvSize = mvlist.Size();
@@ -1138,7 +1108,6 @@ void UpdateSortScores(MoveList& mvlist, Move hashMove, int ply)
 	}
 }
 
-
 void UpdateSortScoresQ(MoveList& mvlist, int ply)
 {
 	auto mvSize = mvlist.Size();
@@ -1165,5 +1134,3 @@ void UpdateSortScoresQ(MoveList& mvlist, int ply)
 		}
 	}
 }
-
-

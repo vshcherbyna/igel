@@ -66,7 +66,6 @@ int Distance(FLD f1, FLD f2)
 	return dist[drow * drow + dcol * dcol];
 }
 
-
 int PawnShieldPenalty(const PawnHashEntry& pEntry, int fileK, COLOR side)
 {
 	static const int delta[2][8] =
@@ -89,7 +88,6 @@ int PawnShieldPenalty(const PawnHashEntry& pEntry, int fileK, COLOR side)
 
 	return penalty;
 }
-
 
 EVAL Evaluate(const Position& pos, EVAL alpha, EVAL beta)
 {
@@ -413,7 +411,6 @@ EVAL Evaluate(const Position& pos, EVAL alpha, EVAL beta)
 	return e;
 }
 
-
 int Q2(int tag, double x, double y)
 {
 	// A*x*x + B*x + C*y*y + D*y + E*x*y + F
@@ -431,7 +428,6 @@ int Q2(int tag, double x, double y)
 	return int(val);
 }
 
-
 int Q1(int tag, double x)
 {
 	// A*x*x + B*x + C
@@ -445,7 +441,6 @@ int Q1(int tag, double x)
 	double val = A * x * x + B * x + C;
 	return int(val);
 }
-
 
 void InitEval(const vector<int>& x)
 {
@@ -563,14 +558,12 @@ void InitEval(const vector<int>& x)
 		ATTACK_KING[att] = Pair(P(Mid_AttackKingZone, att), P(End_AttackKingZone, att));
 }
 
-
 void InitEval()
 {
 	InitParamLines();
 	SetDefaultValues(W);
 	InitEval(W);
 }
-
 
 void PawnHashEntry::Read(const Position& pos)
 {

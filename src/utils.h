@@ -27,6 +27,7 @@ string CurrentDateStr();
 U32    GetProcTime();
 void   Highlight(bool on);
 bool   InputAvailable();
+void   InitIO();
 bool   Is(const string& cmd, const string& pattern, size_t minLen);
 void   Log(const string& s);
 U32    Rand32();
