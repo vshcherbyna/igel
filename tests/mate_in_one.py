@@ -23,7 +23,7 @@ import chess
 import chess.uci
 import timeit
 
-engine_move_time = 10
+engine_move_time = 1000
 
 def evaluate(fen):
     # setup engine
