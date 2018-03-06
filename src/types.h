@@ -67,48 +67,48 @@ typedef I64 NODES;
 
 enum
 {
-	NOPIECE = 0,
-	PW = 2,
-	PB = 3,
-	NW = 4,
-	NB = 5,
-	BW = 6,
-	BB = 7,
-	RW = 8,
-	RB = 9,
-	QW = 10,
-	QB = 11,
-	KW = 12,
-	KB = 13
+    NOPIECE = 0,
+    PW = 2,
+    PB = 3,
+    NW = 4,
+    NB = 5,
+    BW = 6,
+    BB = 7,
+    RW = 8,
+    RB = 9,
+    QW = 10,
+    QB = 11,
+    KW = 12,
+    KB = 13
 };
 
 enum
 {
-	PAWN   = 2,
-	KNIGHT = 4,
-	BISHOP = 6,
-	ROOK   = 8,
-	QUEEN  = 10,
-	KING   = 12
+    PAWN   = 2,
+    KNIGHT = 4,
+    BISHOP = 6,
+    ROOK   = 8,
+    QUEEN  = 10,
+    KING   = 12
 };
 
 enum
 {
-	WHITE = 0,
-	BLACK = 1
+    WHITE = 0,
+    BLACK = 1
 };
 
 enum
 {
-	A8, B8, C8, D8, E8, F8, G8, H8,
-	A7, B7, C7, D7, E7, F7, G7, H7,
-	A6, B6, C6, D6, E6, F6, G6, H6,
-	A5, B5, C5, D5, E5, F5, G5, H5,
-	A4, B4, C4, D4, E4, F4, G4, H4,
-	A3, B3, C3, D3, E3, F3, G3, H3,
-	A2, B2, C2, D2, E2, F2, G2, H2,
-	A1, B1, C1, D1, E1, F1, G1, H1,
-	NF
+    A8, B8, C8, D8, E8, F8, G8, H8,
+    A7, B7, C7, D7, E7, F7, G7, H7,
+    A6, B6, C6, D6, E6, F6, G6, H6,
+    A5, B5, C5, D5, E5, F5, G5, H5,
+    A4, B4, C4, D4, E4, F4, G4, H4,
+    A3, B3, C3, D3, E3, F3, G3, H3,
+    A2, B2, C2, D2, E2, F2, G2, H2,
+    A1, B1, C1, D1, E1, F1, G1, H1,
+    NF
 };
 
 inline int Col(FLD f) { return f % 8; }
@@ -119,14 +119,14 @@ inline PIECE GetPieceType(PIECE p) { return p & 0xfe; }
 
 enum
 {
-	DIR_R  = 0,
-	DIR_UR = 1,
-	DIR_U  = 2,
-	DIR_UL = 3,
-	DIR_L  = 4,
-	DIR_DL = 5,
-	DIR_D  = 6,
-	DIR_DR = 7
+    DIR_R  = 0,
+    DIR_UR = 1,
+    DIR_U  = 2,
+    DIR_UL = 3,
+    DIR_L  = 4,
+    DIR_DL = 5,
+    DIR_D  = 6,
+    DIR_DR = 7
 };
 
 const EVAL INFINITY_SCORE  = 50000;
@@ -135,22 +135,22 @@ const EVAL DRAW_SCORE = 0;
 
 struct Pair
 {
-	Pair() : mid(0), end(0) {}
-	Pair(int m, int e) : mid(m), end(e) {}
-	Pair(const Pair& other) : mid(other.mid), end(other.end) {}
+    Pair() : mid(0), end(0) {}
+    Pair(int m, int e) : mid(m), end(e) {}
+    Pair(const Pair& other) : mid(other.mid), end(other.end) {}
 
-	void operator=(const Pair& other) { mid = other.mid; end = other.end; }
-	void operator=(int x) { mid = x; end = x; }
+    void operator=(const Pair& other) { mid = other.mid; end = other.end; }
+    void operator=(int x) { mid = x; end = x; }
 
-	void operator+=(const Pair& other) { mid += other.mid; end += other.end; }
-	void operator+=(int x) { mid += x; end += x; }
-	
-	void operator-=(const Pair& other) { mid -= other.mid; end -= other.end; }
-	
-	Pair operator-() const { return Pair(-mid, -end); }
+    void operator+=(const Pair& other) { mid += other.mid; end += other.end; }
+    void operator+=(int x) { mid += x; end += x; }
+    
+    void operator-=(const Pair& other) { mid -= other.mid; end -= other.end; }
+    
+    Pair operator-() const { return Pair(-mid, -end); }
 
-	int mid;
-	int end;
+    int mid;
+    int end;
 };
 
 inline Pair operator*(int x, const Pair& p) { return Pair(x * p.mid, x * p.end); }

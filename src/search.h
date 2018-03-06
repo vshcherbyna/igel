@@ -42,7 +42,6 @@ const U8 MODE_SILENT  = 0x10;
 void ClearHash();
 void ClearHistory();
 void ClearKillers();
-Move GetRandomMove(const Position& pos);
 bool IsGameOver(Position& pos, string& result, string& comment);
 void SetHashSize(double mb);
 void SetStrength(int level);
@@ -51,13 +50,13 @@ Move StartSearch(const Position& pos, U8 flags);
 
 struct HashEntry
 {
-	HashEntry() : m_hash(0), m_mv(0) {}
-	U64  m_hash;
-	Move m_mv;
-	EVAL m_score;
-	I8   m_depth;
-	U8   m_type;
-	U8   m_age;
+    HashEntry() : m_hash(0), m_mv(0) {}
+    U64  m_hash;
+    Move m_mv;
+    EVAL m_score;
+    I8   m_depth;
+    U8   m_type;
+    U8   m_age;
 };
 
 
