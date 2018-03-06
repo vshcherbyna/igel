@@ -25,3 +25,5 @@ if os.system('python ./mate_in_one.py') != 0:
     raise Exception("test failed:", "mate in one")
 if os.system('python ./bratko_kopec_test.py') != 0:
     raise Exception("test failed:", "bratko kopec test")
+if os.system('python ./null_move_test.py') != 0:
+    raise Exception("test failed:", "null move test")
