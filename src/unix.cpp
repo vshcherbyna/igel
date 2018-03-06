@@ -31,52 +31,52 @@ static int g_pipe = 0;
 
 U32 GetProcTime()
 {
-	return 1000 * clock() / CLOCKS_PER_SEC;
+    return 1000 * clock() / CLOCKS_PER_SEC;
 }
 
 void SleepMillisec(int msec)
 {
-	usleep(1000 * msec);
+    usleep(1000 * msec);
 }
 
 void InitIO()
 {
-	g_pipe = !isatty(0);
-	if (g_pipe) signal(SIGINT, SIG_IGN);
-	setbuf(stdout, NULL);
-	setbuf(stdin, NULL);
+    g_pipe = !isatty(0);
+    if (g_pipe) signal(SIGINT, SIG_IGN);
+    setbuf(stdout, NULL);
+    setbuf(stdin, NULL);
 }
 
 bool InputAvailable()
 {
-	static fd_set input_fd_set;
-	static fd_set except_fd_set;
+    static fd_set input_fd_set;
+    static fd_set except_fd_set;
 
-	FD_ZERO (&input_fd_set);
-	FD_ZERO (&except_fd_set);
-	FD_SET  (0, &input_fd_set);
-	FD_SET  (1, &except_fd_set);
+    FD_ZERO (&input_fd_set);
+    FD_ZERO (&except_fd_set);
+    FD_SET  (0, &input_fd_set);
+    FD_SET  (1, &except_fd_set);
 
-	static struct timeval timeout;
-	timeout.tv_sec = timeout.tv_usec = 0;
-	static int max_fd = 2;
-	// XXX -- track exceptions (in the select(2) sense) here?
+    static struct timeval timeout;
+    timeout.tv_sec = timeout.tv_usec = 0;
+    static int max_fd = 2;
+    // XXX -- track exceptions (in the select(2) sense) here?
 
-	int retval = select(max_fd, &input_fd_set, NULL, &except_fd_set, &timeout);
+    int retval = select(max_fd, &input_fd_set, NULL, &except_fd_set, &timeout);
 
-	if (retval < 0)  // Error occured.
-		return false;
+    if (retval < 0)  // Error occured.
+        return false;
 
-	if (retval == 0)  // timeout.
-		return false;
+    if (retval == 0)  // timeout.
+        return false;
 
-	if (FD_ISSET (0, &input_fd_set)) // There is input
-		return true;
+    if (FD_ISSET (0, &input_fd_set)) // There is input
+        return true;
 
-	if (FD_ISSET (1, &except_fd_set)) // Exception on write,
-		exit (1);                       // probably, connection closed.
+    if (FD_ISSET (1, &except_fd_set)) // Exception on write,
+        exit (1);                       // probably, connection closed.
 
-	return 0;
+    return 0;
 }
 
 #endif
