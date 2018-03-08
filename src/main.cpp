@@ -588,7 +588,7 @@ void RunCommandLine()
         getline(cin, g_s);
         Split(g_s, g_tokens);
         if (g_tokens.empty())
-            continue;
+            break;
 
         string cmd = g_tokens[0];
 
