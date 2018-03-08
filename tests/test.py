@@ -27,3 +27,5 @@ if os.system('python ./bratko_kopec_test.py') != 0:
     raise Exception("test failed:", "bratko kopec test")
 if os.system('python ./null_move_test.py') != 0:
     raise Exception("test failed:", "null move test")
+if os.system('python ./go_infinite_test.py') != 0:
+    raise Exception("test failed:", "go infinite test")
