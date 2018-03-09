@@ -28,7 +28,7 @@ import timeit
 #   Test-positions where Null Move may fail due to zugzwang
 #
 
-engine_def_move_time = 20000
+engine_def_move_time = 60000
 
 def evaluate(mvt, fen):
     # setup engine
@@ -77,7 +77,7 @@ def non_passing_tests():
     
 def main():
     fen_assert("Rf1",  evaluate(None, "8/8/p1p5/1p5p/1P5p/8/PPP2K1p/4R1rk w - - 0 1"))
-    fen_assert("Kh6",  evaluate(None, "1q1k4/2Rr4/8/2Q3K1/8/8/8/8 w - - 0 1"))    
+    fen_assert("Kh6",  evaluate(None, "1q1k4/2Rr4/8/2Q3K1/8/8/8/8 w - - 0 1")) 
 
 if __name__ == "__main__":
     main()

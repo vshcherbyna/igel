@@ -21,7 +21,7 @@
 
 import os
 
-if os.system('python ./mate_in_one.py') != 0:
+if os.system('python ./mate_in_n.py') != 0:
     raise Exception("test failed:", "mate in one")
 if os.system('python ./bratko_kopec_test.py') != 0:
     raise Exception("test failed:", "bratko kopec test")
