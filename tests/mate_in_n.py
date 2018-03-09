@@ -23,9 +23,9 @@ import chess
 import chess.uci
 import timeit
 
-engine_move_time = 1000
+engine_def_move_time = 1000
 
-def evaluate(fen):
+def evaluate(mvt, mate,  fen):
     # setup engine
     engine = chess.uci.popen_engine("../src/igel")
     
@@ -39,6 +39,11 @@ def evaluate(fen):
     print(fen)
     print(board)
 
+    engine_move_time = engine_def_move_time
+
+    if mvt != None:
+        engine_move_time = mvt
+        
     # run engine
     engine.info_handlers.append(handler)
     engine.position(board)
@@ -46,12 +51,14 @@ def evaluate(fen):
     bestmove, pondermove = engine.go(movetime=engine_move_time)
     elapsed = timeit.default_timer() - start_time
     elapsed = elapsed * 1000
-    if elapsed > engine_move_time:
+    if elapsed > (engine_move_time + 100):
         engine.quit()
         raise Exception("exceeded a go time", elapsed)
     print (handler.info["score"][1])
     print("search time: %d ms" % elapsed)
     print("mate in %d" % handler.info["score"][1].mate)
+    if mate != handler.info["score"][1].mate:
+        raise Exception(mate, handler.info["score"][1].mate)
     engine.quit()
 
     return board.san(bestmove)
@@ -61,8 +68,13 @@ def fen_assert(engine_move,  expected_move):
             raise Exception(engine_move, expected_move)
     
 def main():
-    fen_assert("Qg8#",  evaluate("rnbqk3/ppppp3/8/6Q1/3P4/4P3/PPP1BPPP/RNB1K1NR w - - 0 1"))
-    fen_assert("Qg7#",  evaluate("7k/8/5KQ1/8/8/8/8/8 w - - 0 1"))
+    fen_assert("Qg8#",  evaluate(1000, 1, "rnbqk3/ppppp3/8/6Q1/3P4/4P3/PPP1BPPP/RNB1K1NR w - - 0 1"))
+    fen_assert("Qxh2+",  evaluate(1000, 2, "4r1k1/pQ3pp1/7p/4q3/4r3/P7/1P2nPPP/2BR1R1K b - - 0 1"))
+    fen_assert("Rg6+",  evaluate(2000, 3, "4r1k1/3n1ppp/4r3/3n3q/Q2P4/5P2/PP2BP1P/R1B1R1K1 b - - 0 1"))
+    fen_assert("Rfe7+",  evaluate(3000, 4, "4k2r/1R3R2/p3p1pp/4b3/1BnNr3/8/P1P5/5K2 w - - 1 0"))
+    fen_assert("Rxh6+",  evaluate(4000, 5, "6r1/p3p1rk/1p1pPp1p/q3n2R/4P3/3BR2P/PPP2QP1/7K w - - 0 1"))
+    fen_assert("Bxf5",  evaluate(5000, 6, "1r3r2/3p4/2bNpB2/p3Pp1k/6R1/1p1B2P1/PP3P1P/6K1 w - - 0 1"))
+    fen_assert("Qe6+",  evaluate(7000, 7, "2k1rr2/ppp3p1/7n/2N1p3/2Q5/2PP3p/1P1q3P/R4R1K w - - 0 1"))
 
 if __name__ == "__main__":
     main()

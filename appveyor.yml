@@ -24,4 +24,4 @@ build_script:
   - cp %CONFIGURATION%\igel.exe igel
   - pip2 install --user python-chess futures
   - cd ..\tests
-  - python mate_in_one.py
+  - python mate_in_n.py

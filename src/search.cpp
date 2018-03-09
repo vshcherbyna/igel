@@ -705,8 +705,8 @@ void PrintPV(const Position& pos, int iter, EVAL score, const Move* pv, int pvSi
     U32 dt = GetProcTime() - g_t0;
 
     cout << "info depth " << iter;
-    if (score >= (CHECKMATE_SCORE - 1))
-        cout << " score mate 1";
+    if (score >= (CHECKMATE_SCORE - MAX_PLY))
+        cout << " score mate " << ((CHECKMATE_SCORE - score) / 2) + 1;
     else
         cout << " score cp " << score;
     cout << " time " << dt;
