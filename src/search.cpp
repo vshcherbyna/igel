@@ -943,6 +943,7 @@ Move StartSearch(const Position& pos, U8 flags)
     EVAL beta = INFINITY_SCORE;
     EVAL aspiration = 100;
     EVAL score = alpha;
+    Move best;
 
     string result, comment;
 
@@ -966,6 +967,7 @@ Move StartSearch(const Position& pos, U8 flags)
                 alpha = score - aspiration / 2;
                 beta = score + aspiration / 2;
 
+                best = g_pv[0][0];
                 memcpy(g_iterPV, g_pv[0], g_pvSize[0] * sizeof(Move));
                 g_iterPVSize = g_pvSize[0];
 
@@ -1067,12 +1069,10 @@ Move StartSearch(const Position& pos, U8 flags)
         }
     }
 
-    if (g_iterPVSize > 0)
-    {
-        return g_iterPV[0];
-    }
+    if (best)
+        return best;
     else
-        return 0;
+        return g_iterPV[0];
 }
 
 void UpdateSortScores(MoveList& mvlist, Move hashMove, int ply)

@@ -51,18 +51,18 @@ void ComputeTimeLimits(U32 ourTime, U32 enemyTime, U32 inc)
 
     if (ourTime <= 1000)
     {
-        g_stSoft = (ourTime / 300) + (g_inc / 2); // time is running out
+        g_stSoft = (ourTime / 100) + (g_inc / 2); // time is running out
     }
     else
     {
         if (ourTime <= enemyTime)
         {
-            g_stSoft = (ourTime / 100) + (g_inc / 2);
+            g_stSoft = (ourTime / 30) + (g_inc / 2);
         }
         else
         {
             U32 diff = ourTime - enemyTime;
-            g_stSoft = (ourTime / 100) + (g_inc / 2) + (diff / 200);
+            g_stSoft = (ourTime / 30) + (g_inc / 2) + (diff / 100);
         }
     }
 }
