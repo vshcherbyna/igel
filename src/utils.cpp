@@ -97,6 +97,12 @@ void InitIO()
     DWORD mode;
 
     g_pipe = !GetConsoleMode(g_console, &mode);
+
+    if (!g_pipe)
+    {
+        SetConsoleMode(g_console, mode & ~(ENABLE_MOUSE_INPUT | ENABLE_WINDOW_INPUT));
+        FlushConsoleInputBuffer(g_console);
+    }
 }
 
 bool InputAvailable()
