@@ -23,7 +23,7 @@ import chess
 import chess.uci
 import time
 
-def evaluate(fen):
+def evaluate(fen, t, mate):
     # setup engine
     engine = chess.uci.popen_engine("../src/igel")
     
@@ -42,10 +42,12 @@ def evaluate(fen):
     engine.position(board)
     print("starting engine in infinite mode ...")
     search = engine.go(infinite=True, async_callback=True)
-    time.sleep(3)
+    time.sleep(t)
     print("stopping engine ...")
     engine.stop()
     print (handler.info["score"][1])
+    if handler.info["score"][1].mate != mate:
+        raise Exception(mate, handler.info["score"][1].mate)
     return board.san(search.result().bestmove)
 
 def fen_assert(engine_move,  expected_move):
@@ -53,7 +55,8 @@ def fen_assert(engine_move,  expected_move):
             raise Exception(engine_move, expected_move)
     
 def main():
-    fen_assert("Qg8#",  evaluate("rnbqk3/ppppp3/8/6Q1/3P4/4P3/PPP1BPPP/RNB1K1NR w - - 0 1"))
+    fen_assert("Qg8#",  evaluate("rnbqk3/ppppp3/8/6Q1/3P4/4P3/PPP1BPPP/RNB1K1NR w - - 0 1", 3, 1))
+    fen_assert("d6",  evaluate("8/2ppppp1/rpR4k/8/8/6p1/5pP1/7K b - - 0 1", 20, 18))
 
 if __name__ == "__main__":
     main()
