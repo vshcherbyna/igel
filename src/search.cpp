@@ -962,10 +962,15 @@ Move StartSearch(const Position& pos, U8 flags)
                 break;
 
             U32 dt = GetProcTime() - g_t0;
+
+            //
+            //  We found so far a better move
+            //
+
             if (score > alpha && score < beta)
             {
-                alpha = score - aspiration / 2;
-                beta = score + aspiration / 2;
+                alpha = score - (aspiration / 2);
+                beta = score + (aspiration / 2);
 
                 best = g_pv[0][0];
                 memcpy(g_iterPV, g_pv[0], g_pvSize[0] * sizeof(Move));
@@ -1014,6 +1019,7 @@ Move StartSearch(const Position& pos, U8 flags)
                 alpha = -INFINITY_SCORE;
                 beta = INFINITY_SCORE;
 
+                best = g_pv[0][0];
                 memcpy(g_iterPV, g_pv[0], g_pvSize[0] * sizeof(Move));
                 g_iterPVSize = g_pvSize[0];
                 if (!(flags & MODE_SILENT))
@@ -1022,7 +1028,7 @@ Move StartSearch(const Position& pos, U8 flags)
             }
 
             if (dt)
-                cout << "info time " << dt << " nodes " << g_nodes << " nps " << 1000 * g_nodes / dt << endl;
+                cout << "info depth " << g_iter << " time " << dt << " nodes " << g_nodes << " nps " << 1000 * g_nodes / dt << endl;
 
             dt = GetProcTime() - g_t0;
             if (g_stSoft > 0 && dt >= g_stSoft)
