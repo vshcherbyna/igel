@@ -7,7 +7,7 @@ FILE(GLOB SRCFILES ${PROJECT_SOURCE_DIR}/*.cpp)
 FILE(GLOB HDRFILES ${PROJECT_SOURCE_DIR}/*.h)
 
 if (UNIX)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11 -O3")
 endif (UNIX)
 
 add_executable(igel ${SRCFILES} ${HDRFILES})
