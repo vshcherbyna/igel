@@ -94,16 +94,6 @@ EVAL Evaluate(const Position& pos, EVAL alpha, EVAL beta)
     int mid = pos.MatIndex(WHITE) + pos.MatIndex(BLACK);
     int end = 64 - mid;
 
-    Pair score = pos.Score();
-
-    EVAL lazy = (score.mid * mid + score.end * end) / 64;
-    if (pos.Side() == BLACK)
-        lazy = -lazy;
-    if (lazy < alpha - 250)
-        return alpha;
-    if (lazy > beta + 250)
-        return beta;
-
     U64 x, y, occ = pos.BitsAll();
     FLD f;
 
@@ -118,6 +108,8 @@ EVAL Evaluate(const Position& pos, EVAL alpha, EVAL beta)
     PawnHashEntry& ps = g_pawnHash[index];
     if (ps.m_pawnHash != pos.PawnHash())
         ps.Read(pos);
+
+    Pair score = pos.Score();
 
     // passed
     x = ps.m_passedPawns[WHITE];

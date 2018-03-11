@@ -53,6 +53,7 @@ static NODES        g_nodes = 0;
 static Move         g_pv[MAX_PLY][MAX_PLY];
 static int          g_pvSize[MAX_PLY];
 static U32          g_t0 = 0;
+static NODES        g_timeCheck = 0;
 
 const int SORT_HASH         = 7000000;
 const int SORT_CAPTURE      = 6000000;
@@ -69,7 +70,7 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
 EVAL       AlphaBetaRoot(EVAL alpha, EVAL beta, int depth);
 EVAL       AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull);
 EVAL       AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply);
-void       CheckLimits();
+bool       CheckLimits();
 void       CheckInput();
 int        Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV);
 Move       GetNextBest(MoveList& mvlist, size_t i);
@@ -93,8 +94,7 @@ void AdjustSpeed()
         while (dt < expectedTime)
         {
             CheckInput();
-            CheckLimits();
-            if (g_flags & SEARCH_TERMINATED)
+            if (CheckLimits())
                 return;
 
             dt = GetProcTime() - g_t0;
@@ -158,9 +158,8 @@ EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
             s_pos.UnmakeMove();
 
             CheckInput();
-            CheckLimits();
 
-            if (g_flags & SEARCH_TERMINATED)
+            if (CheckLimits())
                 break;
 
             if (e > alpha)
@@ -248,9 +247,7 @@ EVAL AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
         }
     }
 
-    CheckLimits();
-
-    if (g_flags & SEARCH_TERMINATED)
+    if (CheckLimits())
         return alpha;
 
     //
@@ -492,13 +489,18 @@ EVAL AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
     return alpha;
 }
 
-void CheckLimits()
+bool CheckLimits()
 {
+    if (++g_timeCheck <= 1000)
+        return false;
+
+    g_timeCheck = 0;
+
     if (g_iterPVSize == 0)
-        return;
+        return false;
 
     if (g_flags & SEARCH_TERMINATED)
-        return;
+        return false;
 
     U32 dt = GetProcTime() - g_t0;
     if (g_flags & MODE_PLAY)
@@ -514,6 +516,8 @@ void CheckLimits()
         if (g_sn > 0 && g_nodes >= g_sn)
             g_flags |= TERMINATED_BY_LIMIT;
     }
+
+    return (g_flags & SEARCH_TERMINATED);
 }
 
 void CheckInput()
