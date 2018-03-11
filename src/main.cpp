@@ -24,8 +24,8 @@
 #include "search.h"
 #include "utils.h"
 
-const string PROGRAM_NAME = "igel 1.0";
-const string RELEASE_DATE = "Feb-2018";
+const string PROGRAM_NAME   = "igel";
+const string VERSION        = "1.0";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 1024;
@@ -636,7 +636,7 @@ void RunCommandLine()
 
 int main(int argc, const char* argv[])
 {
-    cout << PROGRAM_NAME << " (" << RELEASE_DATE << ") by V. Medvedev, V. Shcherbyna" << endl;
+    cout << PROGRAM_NAME << " " << VERSION << " by V. Medvedev, V. Shcherbyna" << endl;
 
     InitIO();
     InitBitboards();
