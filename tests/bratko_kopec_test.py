@@ -31,7 +31,7 @@ import timeit
 #   Taken from https://chessprogramming.wikispaces.com/Bratko-Kopec%20Test
 #
 
-engine_def_move_time = 20000
+engine_def_move_time = 10000
 
 def evaluate(mvt, fen):
     # setup engine
@@ -102,7 +102,7 @@ def non_passing_tests():
     fen_assert("f4",  evaluate(None, "r2qnrnk/p2b2b1/1p1p2pp/2pPpp2/1PP1P3/PRNBB3/3QNPPP/5RK1 w - - 0 1"))
     
 def main():
-    fen_assert("f4",  evaluate(120000, "2r1nrk1/p2q1ppp/bp1p4/n1pPp3/P1P1P3/2PBB1N1/4QPPP/R4RK1 w - - 0 1"))
+    fen_assert("f4",  evaluate(20000, "2r1nrk1/p2q1ppp/bp1p4/n1pPp3/P1P1P3/2PBB1N1/4QPPP/R4RK1 w - - 0 1"))
     fen_assert("Qd1+",  evaluate(None, "1k1r4/pp1b1R2/3q2pp/4p3/2B5/4Q3/PPP2B2/2K5 b - - 0 1"))
     fen_assert("d5",  evaluate(None, "3r1k2/4npp1/1ppr3p/p6P/P2PPPP1/1NR5/5K2/2R5 w - - 0 1"))
     fen_assert("e6",  evaluate(None, "rnbqkb1r/p3pppp/1p6/2ppP3/3N4/2P5/PPP1QPPP/R1B1KB1R w KQkq - 0 1"))
