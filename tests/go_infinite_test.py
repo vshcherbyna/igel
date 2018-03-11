@@ -56,7 +56,7 @@ def fen_assert(engine_move,  expected_move):
     
 def main():
     fen_assert("Qg8#",  evaluate("rnbqk3/ppppp3/8/6Q1/3P4/4P3/PPP1BPPP/RNB1K1NR w - - 0 1", 3, 1))
-    fen_assert("d6",  evaluate("8/2ppppp1/rpR4k/8/8/6p1/5pP1/7K b - - 0 1", 20, 18))
+    fen_assert("d6",  evaluate("8/2ppppp1/rpR4k/8/8/6p1/5pP1/7K b - - 0 1", 10, 18))
 
 if __name__ == "__main__":
     main()

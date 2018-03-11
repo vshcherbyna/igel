@@ -922,6 +922,25 @@ void StartPerft(Position& pos, int depth)
     cout << endl;
 }
 
+Move FirstLegalMove(Position& pos)
+{
+    MoveList mvlist;
+    GenAllMoves(pos, mvlist);
+
+    auto mvSize = mvlist.Size();
+    for (size_t i = 0; i < mvSize; ++i)
+    {
+        Move mv = mvlist[i].m_mv;
+        if (s_pos.MakeMove(mv))
+        {
+            s_pos.UnmakeMove();
+            return mv;
+        }
+    }
+
+    return 0;
+}
+
 Move StartSearch(const Position& pos, U8 flags)
 {
     if ((g_stHard) && (g_pos.Side() == WHITE) && (g_pos.isInitialPosition()))
@@ -943,7 +962,7 @@ Move StartSearch(const Position& pos, U8 flags)
     EVAL beta = INFINITY_SCORE;
     EVAL aspiration = 100;
     EVAL score = alpha;
-    Move best;
+    Move best = FirstLegalMove(g_pos);
 
     string result, comment;
 
@@ -972,9 +991,11 @@ Move StartSearch(const Position& pos, U8 flags)
                 alpha = score - (aspiration / 2);
                 beta = score + (aspiration / 2);
 
-                best = g_pv[0][0];
                 memcpy(g_iterPV, g_pv[0], g_pvSize[0] * sizeof(Move));
                 g_iterPVSize = g_pvSize[0];
+
+                if (g_iterPVSize)
+                    best = g_pv[0][0];
 
                 if (!(flags & MODE_SILENT))
                     PrintPV(pos, g_iter, score, g_pv[0], g_pvSize[0], "");
@@ -1019,9 +1040,12 @@ Move StartSearch(const Position& pos, U8 flags)
                 alpha = -INFINITY_SCORE;
                 beta = INFINITY_SCORE;
 
-                best = g_pv[0][0];
                 memcpy(g_iterPV, g_pv[0], g_pvSize[0] * sizeof(Move));
                 g_iterPVSize = g_pvSize[0];
+
+                if (g_iterPVSize)
+                    best = g_pv[0][0];
+
                 if (!(flags & MODE_SILENT))
                     PrintPV(pos, g_iter, score, g_pv[0], g_pvSize[0], "!");
                 --g_iter;
@@ -1075,10 +1099,7 @@ Move StartSearch(const Position& pos, U8 flags)
         }
     }
 
-    if (best)
-        return best;
-    else
-        return g_iterPV[0];
+    return best;
 }
 
 void UpdateSortScores(MoveList& mvlist, Move hashMove, int ply)
