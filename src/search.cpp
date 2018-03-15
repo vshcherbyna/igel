@@ -431,10 +431,8 @@ EVAL AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
             return beta;
     }
 
-    /*CheckLimits();
-
-    if (g_flags & SEARCH_TERMINATED)
-        return alpha;*/
+    if (CheckLimits())
+        return alpha;
 
     MoveList& mvlist = g_lists[ply];
     if (inCheck)
@@ -447,7 +445,6 @@ EVAL AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
     }
     UpdateSortScoresQ(mvlist, ply);
 
-    CheckLimits();
     int legalMoves = 0;
     auto mvSize = mvlist.Size();
     for (size_t i = 0; i < mvSize; ++i)
