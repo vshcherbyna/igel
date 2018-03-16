@@ -1027,28 +1027,10 @@ Move StartSearch(const Position& pos, U8 flags)
                     }
                 }
             }
-            else if (score <= alpha)
+            else
             {
                 alpha = -INFINITY_SCORE;
                 beta = INFINITY_SCORE;
-
-                if (!(flags & MODE_SILENT))
-                    PrintPV(pos, g_iter, score, g_pv[0], g_pvSize[0], "?");
-                --g_iter;
-            }
-            else if (score >= beta)
-            {
-                alpha = -INFINITY_SCORE;
-                beta = INFINITY_SCORE;
-
-                memcpy(g_iterPV, g_pv[0], g_pvSize[0] * sizeof(Move));
-                g_iterPVSize = g_pvSize[0];
-
-                if (g_iterPVSize)
-                    best = g_pv[0][0];
-
-                if (!(flags & MODE_SILENT))
-                    PrintPV(pos, g_iter, score, g_pv[0], g_pvSize[0], "!");
                 --g_iter;
             }
 
