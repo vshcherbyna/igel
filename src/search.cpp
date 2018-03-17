@@ -585,7 +585,7 @@ bool HaveSingleMove(Position& pos, Move & bestMove)
     GenAllMoves(pos, mvlist);
 
     int legalMoves = 0;
-    EVAL bestScore = 0;
+    EVAL bestScore = -INFINITY_SCORE;
     auto mvSize = mvlist.Size();
 
     for (size_t i = 0; i < mvSize; ++i)
