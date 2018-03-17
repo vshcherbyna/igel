@@ -548,7 +548,7 @@ void OnTime()
 
 void OnUCI()
 {
-    cout << "id name " << PROGRAM_NAME << endl;
+    cout << "id name " << PROGRAM_NAME << " " << VERSION << endl;
     cout << "id author V. Medvedev, V. Shcherbyna" << endl;
 
     cout << "option name Hash type spin" <<
