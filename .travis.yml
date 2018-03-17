@@ -20,4 +20,5 @@ script:
       - make
       - cd ../tests
       - pip2 install --user python-chess futures
+      - python eval.py
       - python mate_in_n.py
