@@ -579,19 +579,28 @@ Move GetNextBest(MoveList& mvlist, size_t i)
     return mvlist[i].m_mv;
 }
 
-bool HaveSingleMove(Position& pos)
+bool HaveSingleMove(Position& pos, Move & bestMove)
 {
     MoveList mvlist;
     GenAllMoves(pos, mvlist);
 
     int legalMoves = 0;
+    EVAL bestScore = 0;
     auto mvSize = mvlist.Size();
+
     for (size_t i = 0; i < mvSize; ++i)
     {
         Move mv = mvlist[i].m_mv;
         if (pos.MakeMove(mv))
         {
+            EVAL score = Evaluate(pos, -INFINITY_SCORE, INFINITY_SCORE);
             pos.UnmakeMove();
+
+            if (score >= bestScore)
+            {
+                bestMove = mv;
+                bestScore = score;
+            }
             ++legalMoves;
             if (legalMoves > 1)
                 break;
@@ -963,7 +972,8 @@ Move StartSearch(const Position& pos, U8 flags)
     EVAL beta = INFINITY_SCORE;
     EVAL aspiration = 100;
     EVAL score = alpha;
-    Move best = FirstLegalMove(g_pos);
+    Move best;
+    bool singleMove = HaveSingleMove(s_pos, best);
 
     string result, comment;
 
@@ -973,7 +983,6 @@ Move StartSearch(const Position& pos, U8 flags)
     }
     else
     {
-        bool singleMove = HaveSingleMove(s_pos);
         for (g_iter = 1; g_iter < MAX_PLY; ++g_iter)
         {
             score = AlphaBetaRoot(alpha, beta, g_iter);
