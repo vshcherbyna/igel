@@ -30,18 +30,15 @@ def obtain_eval(fen):
     if fen == None:
         cmd_line = 'eval\n'
     else:
-        cmd_line = 'position fen ' + fen + '\nboard\neval\n'
+        cmd_line = 'position fen ' + fen + '\neval\n'
     stdout_data = cmd.communicate(input=cmd_line)[0]
     digits = re.findall(r'[+-]?\d+(?:\.\d+)?', stdout_data)
-    ret = int(digits[1])
-
-    board = chess.Board(fen)
-    
+    ret = int(digits[1])        
     if fen != None:
         print(fen)
+    board = chess.Board(fen)
     print(board)
     print("eval: %s" % ret)
-    #print(ret)
     return ret
 
 def eval_assert(expected_eval,  op,  engine_eval):
@@ -49,6 +46,11 @@ def eval_assert(expected_eval,  op,  engine_eval):
         raise Exception(expected_eval, op,  engine_eval)
             
 def eval_default_board():
+    
+    #
+    #   evaluation of standard position should be 0
+    #
+    
     eval_assert(0,  operator.eq,  obtain_eval(None))
     eval_assert(0,  operator.eq,  obtain_eval('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'))
     
@@ -64,17 +66,35 @@ def eval_pawn_structure():
     #   double pawn structure
     #
     
-    eval_assert(0,  operator.gt,  obtain_eval('rnbqkbnr/ppp2ppp/4p3/3p4/3P4/3P4/PPP2PPP/RNBQKBNR w KQkq - 0 1'))
-    eval_assert(0,  operator.lt,  obtain_eval('rnbqkbnr/ppp2ppp/4p3/3p4/3P4/3P4/PPP2PPP/RNBQKBNR b KQkq - 0 1'))
+    eval_assert(0,  (lambda a, b: True if a > b and b > -30 else False),  obtain_eval('rnbqkbnr/ppp2ppp/4p3/3p4/3P4/3P4/PPP2PPP/RNBQKBNR w KQkq - 0 1'))
+    eval_assert(0,  (lambda a, b: True if a < b and b <= 30 else False),  obtain_eval('rnbqkbnr/ppp2ppp/4p3/3p4/3P4/3P4/PPP2PPP/RNBQKBNR b KQkq - 0 1'))
     
 def eval_knight_position():
     
     #
+    #   symmetric knight structure
+    #
+    
+    eval_assert(0,  operator.eq,  obtain_eval('rnbqkb1r/ppp2ppp/4pn2/3p4/3P4/2N1P3/PPP2PPP/R1BQKBNR w KQkq - 0 1'))
+    eval_assert(0,  operator.eq,  obtain_eval('r1bqkb1r/ppp2ppp/2n1pn2/3p4/3P4/2N1PN2/PPP2PPP/R1BQKB1R w KQkq - 0 1'))
+
+    #
     #   central knight
     #
     
-    eval_assert(0,  operator.lt,  obtain_eval('rnbqkbnr/ppp1pppp/3p4/8/2N5/3P4/PPP1PPPP/R1BQKBNR w KQkq - 0 1'))
+    eval_assert(0,  (lambda a, b: True if a < b and b <= 45 else False),  obtain_eval('rnbqkbnr/ppp1pppp/3p4/8/2N5/3P4/PPP1PPPP/R1BQKBNR w KQkq - 0 1'))
+    eval_assert(0,  operator.eq,  obtain_eval('r1bqkb1r/ppp2ppp/2n1p3/3pN3/3Pn3/2N1P3/PPP2PPP/R1BQKB1R w KQkq - 0 1'))
+    eval_assert(0,  (lambda a, b: True if a > b and b > -30 else False),  obtain_eval('r1bqkb1r/ppp2ppp/2n1p3/3p4/3Pn3/2N1PN2/PPP2PPP/R1BQKB1R w KQkq - 0 1'))
     
+    #
+    #   knight on the rim is dim
+    #
+
+    eval_assert(0,  (lambda a, b: True if a < b and b <= 5 else False),  obtain_eval('r1bqkb1r/ppp2ppp/4p3/n2pN3/3Pn3/2N1P3/PPP2PPP/R1BQKB1R w KQkq - 0 1'))
+    eval_assert(0,  operator.eq,  obtain_eval('r1bqkb1r/ppp2ppp/4p3/n2pN3/3Pn2N/4P3/PPP2PPP/R1BQKB1R w KQkq - 0 1'))
+    eval_assert(0,  (lambda a, b: True if a < b and b <= 15 else False),  obtain_eval('r1bqkb1r/ppp2ppp/4p3/n2pN2N/3Pn3/4P3/PPP2PPP/R1BQKB1R w KQkq - 0 1'))
+    eval_assert(0,  operator.eq,  obtain_eval('r1bqkb1r/ppp2ppp/4p3/3pN2N/n2Pn3/4P3/PPP2PPP/R1BQKB1R w KQkq - 0 1'))
+
 def main():
     eval_default_board()
     eval_pawn_structure()
