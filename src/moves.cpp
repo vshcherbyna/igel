@@ -20,24 +20,40 @@
 
 #include "moves.h"
 
-void MoveList::Add(Move mv)
+bool MoveList::Add(Move mv)
 {
+    if (overflow())
+        return false;
+
     m_data[m_size++].m_mv = mv;
+    return true;
 }
 
-void MoveList::Add(FLD from, FLD to, PIECE piece)
+bool MoveList::Add(FLD from, FLD to, PIECE piece)
 {
+    if (overflow())
+        return false;
+
     m_data[m_size++].m_mv = Move(from, to, piece);
+    return true;
 }
 
-void MoveList::Add(FLD from, FLD to, PIECE piece, PIECE captured)
+bool MoveList::Add(FLD from, FLD to, PIECE piece, PIECE captured)
 {
+    if (overflow())
+        return false;
+
     m_data[m_size++].m_mv = Move(from, to, piece, captured);
+    return true;
 }
 
-void MoveList::Add(FLD from, FLD to, PIECE piece, PIECE captured, PIECE promotion)
+bool MoveList::Add(FLD from, FLD to, PIECE piece, PIECE captured, PIECE promotion)
 {
+    if (overflow())
+        return false;
+
     m_data[m_size++].m_mv = Move(from, to, piece, captured, promotion);
+    return true;
 }
 
 void GenAllMoves(const Position& pos, MoveList& mvlist)

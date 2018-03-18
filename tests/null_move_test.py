@@ -32,7 +32,7 @@ engine_def_move_time = 10000
 
 def evaluate(mvt, fen):
     # setup engine
-    engine = chess.uci.popen_engine("../src/igel")
+    engine = chess.uci.popen_engine("../igel")
     
     # setup new game
     engine.uci()

@@ -1,0 +1,28 @@
+cmake_minimum_required (VERSION 3.7)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+project (igel)
+
+include_directories(${PROJECT_SOURCE_DIR})
+
+FILE(GLOB SRCFILES ${PROJECT_SOURCE_DIR}/src/*.cpp)
+FILE(GLOB HDRFILES ${PROJECT_SOURCE_DIR}/src/*.h)
+
+if (MSVC)
+    SET(CMAKE_CXX_FLAGS_DEBUG "/MTd /Zi /Ob0 /Od /RTC1")
+    SET(CMAKE_CXX_FLAGS_RELEASE "/MT /O2 /Ob2 /DNDEBUG")
+endif (MSVC)
+
+if (UNIX)
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O3")
+endif (UNIX)
+
+add_executable(igel ${SRCFILES} ${HDRFILES})
+
+add_subdirectory(external/googletest)
+enable_testing()
+include_directories(${googletest_SOURCE_DIR}/include ${googletest_SOURCE_DIR})
+FILE(GLOB UTSRCFILES ${PROJECT_SOURCE_DIR}/src/unit/*.cpp)
+add_executable(unit ${UTSRCFILES} ${SRCFILES} ${HDRFILES})
+target_link_libraries(unit gtest gtest_main)
+target_compile_definitions(unit PRIVATE UNIT_TEST)

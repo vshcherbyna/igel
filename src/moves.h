@@ -36,10 +36,13 @@ struct SMove
 class MoveList
 {
 public:
-    void   Add(Move mv);
-    void   Add(FLD from, FLD to, PIECE piece);
-    void   Add(FLD from, FLD to, PIECE piece, PIECE captured);
-    void   Add(FLD from, FLD to, PIECE piece, PIECE captured, PIECE promotion);
+    MoveList() {Clear();}
+
+public:
+    bool   Add(Move mv);
+    bool   Add(FLD from, FLD to, PIECE piece);
+    bool   Add(FLD from, FLD to, PIECE piece, PIECE captured);
+    bool   Add(FLD from, FLD to, PIECE piece, PIECE captured, PIECE promotion);
     void   Clear() { m_size = 0; }
     size_t Size() const { return m_size; }
 
@@ -47,6 +50,9 @@ public:
     SMove& operator[](size_t i) { return m_data[i]; }
 
     void Swap(size_t i, size_t j) { std::swap(m_data[i], m_data[j]); }
+
+private:
+    bool overflow() {return (m_size >= 255);}
 
 private:
     SMove m_data[256];

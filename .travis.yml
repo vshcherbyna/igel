@@ -12,13 +12,9 @@ matrix:
           packages: ['cmake-data', 'cmake']
       env:
 
-before_script:
-  - cd src
-
 script:
       - cmake .
       - make
-      - cd ../tests
+      - cd tests
       - pip2 install --user python-chess futures
-      - python eval.py
-      - python mate_in_n.py
+      - python ci.py

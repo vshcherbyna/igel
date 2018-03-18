@@ -20,12 +20,15 @@
 #!/usr/bin/python
 
 import os
+import platform
 
-if os.system('python ./ci.py') != 0:
-    raise Exception("test failed:", "ci")
-if os.system('python ./bratko_kopec_test.py') != 0:
-    raise Exception("test failed:", "bratko kopec test")
-if os.system('python ./null_move_test.py') != 0:
-    raise Exception("test failed:", "null move test")
-if os.system('python ./go_infinite_test.py') != 0:
-    raise Exception("test failed:", "go infinite test")
+if platform.system() == 'Windows':
+    if os.system('..\\unit.exe') != 0:
+        raise Exception("test failed:", "unit")
+else:
+    if os.system('../unit') != 0:
+        raise Exception("test failed:", "unit")
+if os.system('python ./eval.py') != 0:
+    raise Exception("test failed:", "eval")
+if os.system('python ./mate_in_n.py') != 0:
+    raise Exception("test failed:", "mate in one")
