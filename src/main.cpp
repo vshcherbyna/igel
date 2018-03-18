@@ -82,36 +82,14 @@ void OnAnalyze()
     StartSearch(pos, MODE_ANALYZE);
 }
 
-void OnDump()
-{
-    ofstream ofs("default_params.cpp");
-    if (!ofs.good())
-        return;
-    ofs << "\tstatic const int data[" << NUM_PARAMS << "] =" << endl;
-    ofs << "\t{";
-    for (int i = 0; i < NUM_PARAMS; ++i)
-    {
-        if (i % 50 == 0)
-            ofs << endl << "\t\t";
-        ofs << W[i];
-        if (i < NUM_PARAMS - 1)
-        {
-            ofs << ",";
-            if (i % 50 != 49)
-                ofs << " ";
-        }
-    }
-    ofs << endl << "\t};" << endl;
-}
-
 void OnEval()
 {
-    cout << Evaluate(g_pos, -INFINITY_SCORE, INFINITY_SCORE) << endl << endl;
+    cout << Evaluate(g_pos, -INFINITY_SCORE, INFINITY_SCORE) << endl;
 }
 
 void OnFEN()
 {
-    cout << g_pos.FEN() << endl << endl;
+    cout << g_pos.FEN() << endl;
 }
 
 void OnFlip()
@@ -601,7 +579,6 @@ void RunCommandLine()
 
         ON_CMD(analyze,    1, OnAnalyze())
         ON_CMD(board,      1, g_pos.Print())
-        ON_CMD(dump,       1, OnDump())
         ON_CMD(eval,       2, OnEval())
         ON_CMD(fen,        2, OnFEN())
         ON_CMD(flip,       2, OnFlip())
@@ -634,6 +611,7 @@ void RunCommandLine()
     }
 }
 
+#if !defined(UNIT_TEST)
 int main(int argc, const char* argv[])
 {
     cout << PROGRAM_NAME << " " << VERSION << " by V. Medvedev, V. Shcherbyna" << endl;
@@ -668,4 +646,4 @@ int main(int argc, const char* argv[])
 
     return 0;
 }
-
+#endif

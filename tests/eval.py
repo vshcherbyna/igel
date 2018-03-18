@@ -26,7 +26,7 @@ import chess
 import chess.uci
     
 def obtain_eval(fen):
-    cmd = subprocess.Popen(['../src/igel'], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+    cmd = subprocess.Popen(['../igel'], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     if fen == None:
         cmd_line = 'eval\n'
     else:

@@ -25,7 +25,7 @@ import time
 
 def evaluate(fen, t, mate):
     # setup engine
-    engine = chess.uci.popen_engine("../src/igel")
+    engine = chess.uci.popen_engine("../igel")
     
     # setup new game
     engine.uci()
