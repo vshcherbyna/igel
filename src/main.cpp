@@ -293,14 +293,6 @@ void OnNew()
     ClearKillers();
 }
 
-void OnPerft()
-{
-    if (g_tokens.size() < 2)
-        return;
-    int depth = atoi(g_tokens[1].c_str());
-    StartPerft(g_pos, depth);
-}
-
 void OnPing()
 {
     if (g_tokens.size() < 2)
@@ -590,7 +582,6 @@ void RunCommandLine()
         ON_CMD(load,       2, OnLoad())
         ON_CMD(mt,         2, OnMT())
         ON_CMD(new,        1, OnNew())
-        ON_CMD(perft,      2, OnPerft())
         ON_CMD(ping,       2, OnPing())
         ON_CMD(position,   2, OnPosition())
         ON_CMD(protover,   3, OnProtover())

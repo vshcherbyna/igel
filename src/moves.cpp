@@ -20,6 +20,20 @@
 
 #include "moves.h"
 
+MoveList::MoveList()
+{
+    Clear();
+}
+
+bool MoveList::Swap(size_t i, size_t j)
+{
+    if (i > 255 || j > 255)
+        return false;
+
+    std::swap(m_data[i], m_data[j]);
+    return true;
+}
+
 bool MoveList::Add(Move mv)
 {
     if (overflow())
@@ -56,7 +70,7 @@ bool MoveList::Add(FLD from, FLD to, PIECE piece, PIECE captured, PIECE promotio
     return true;
 }
 
-void GenAllMoves(const Position& pos, MoveList& mvlist)
+bool GenAllMoves(const Position& pos, MoveList& mvlist)
 {
     mvlist.Clear();
 
@@ -68,6 +82,7 @@ void GenAllMoves(const Position& pos, MoveList& mvlist)
     PIECE piece, captured;
     U64 x, y;
     FLD from, to;
+    bool overflow = false;
 
     //
     //   PAWNS
@@ -89,20 +104,20 @@ void GenAllMoves(const Position& pos, MoveList& mvlist)
         {
             if (row == second)
             {
-                mvlist.Add(from, to, piece);
+                overflow = mvlist.Add(from, to, piece);
                 to += fwd;
                 if (!pos[to])
-                    mvlist.Add(from, to, piece);
+                    overflow = mvlist.Add(from, to, piece);
             }
             else if (row == seventh)
             {
-                mvlist.Add(from, to, piece, NOPIECE, QW | side);
-                mvlist.Add(from, to, piece, NOPIECE, RW | side);
-                mvlist.Add(from, to, piece, NOPIECE, BW | side);
-                mvlist.Add(from, to, piece, NOPIECE, NW | side);
+                overflow = mvlist.Add(from, to, piece, NOPIECE, QW | side);
+                overflow = mvlist.Add(from, to, piece, NOPIECE, RW | side);
+                overflow = mvlist.Add(from, to, piece, NOPIECE, BW | side);
+                overflow = mvlist.Add(from, to, piece, NOPIECE, NW | side);
             }
             else
-                mvlist.Add(from, to, piece);
+                overflow = mvlist.Add(from, to, piece);
         }
 
         y = BB_PAWN_ATTACKS[from][side] & pos.BitsAll(opp);
@@ -112,13 +127,13 @@ void GenAllMoves(const Position& pos, MoveList& mvlist)
             captured = pos[to];
             if (row == seventh)
             {
-                mvlist.Add(from, to, piece, captured, QW | side);
-                mvlist.Add(from, to, piece, captured, RW | side);
-                mvlist.Add(from, to, piece, captured, BW | side);
-                mvlist.Add(from, to, piece, captured, NW | side);
+                overflow = mvlist.Add(from, to, piece, captured, QW | side);
+                overflow = mvlist.Add(from, to, piece, captured, RW | side);
+                overflow = mvlist.Add(from, to, piece, captured, BW | side);
+                overflow = mvlist.Add(from, to, piece, captured, NW | side);
             }
             else
-                mvlist.Add(from, to, piece, captured);
+                overflow = mvlist.Add(from, to, piece, captured);
         }
     }
 
@@ -130,7 +145,7 @@ void GenAllMoves(const Position& pos, MoveList& mvlist)
         {
             from = PopLSB(y);
             captured = piece ^ 1;
-            mvlist.Add(from, to, piece, captured);
+            overflow = mvlist.Add(from, to, piece, captured);
         }
     }
 
@@ -148,7 +163,7 @@ void GenAllMoves(const Position& pos, MoveList& mvlist)
         {
             to = PopLSB(y);
             captured = pos[to];
-            mvlist.Add(from, to, piece, captured);
+            overflow = mvlist.Add(from, to, piece, captured);
         }
     }
 
@@ -166,7 +181,7 @@ void GenAllMoves(const Position& pos, MoveList& mvlist)
         {
             to = PopLSB(y);
             captured = pos[to];
-            mvlist.Add(from, to, piece, captured);
+            overflow = mvlist.Add(from, to, piece, captured);
         }
     }
 
@@ -184,7 +199,7 @@ void GenAllMoves(const Position& pos, MoveList& mvlist)
         {
             to = PopLSB(y);
             captured = pos[to];
-            mvlist.Add(from, to, piece, captured);
+            overflow = mvlist.Add(from, to, piece, captured);
         }
     }
 
@@ -202,7 +217,7 @@ void GenAllMoves(const Position& pos, MoveList& mvlist)
         {
             to = PopLSB(y);
             captured = pos[to];
-            mvlist.Add(from, to, piece, captured);
+            overflow = mvlist.Add(from, to, piece, captured);
         }
     }
 
@@ -217,15 +232,17 @@ void GenAllMoves(const Position& pos, MoveList& mvlist)
     {
         to = PopLSB(y);
         captured = pos[to];
-        mvlist.Add(from, to, piece, captured);
+        overflow = mvlist.Add(from, to, piece, captured);
     }
 
     // castlings
     if (pos.CanCastle(side, KINGSIDE))
-        mvlist.Add(MOVE_O_O[side]);
+        overflow = mvlist.Add(MOVE_O_O[side]);
 
     if (pos.CanCastle(side, QUEENSIDE))
-        mvlist.Add(MOVE_O_O_O[side]);
+        overflow = mvlist.Add(MOVE_O_O_O[side]);
+
+    return overflow;
 }
 
 void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist)
