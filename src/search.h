@@ -45,7 +45,6 @@ void ClearKillers();
 bool IsGameOver(Position& pos, string& result, string& comment);
 void SetHashSize(double mb);
 void SetStrength(int level);
-void StartPerft(Position& pos, int depth);
 Move StartSearch(const Position& pos, U8 flags);
 
 struct HashEntry

@@ -36,7 +36,7 @@ struct SMove
 class MoveList
 {
 public:
-    MoveList() {Clear();}
+    MoveList();
 
 public:
     bool   Add(Move mv);
@@ -49,7 +49,7 @@ public:
     const SMove& operator[](size_t i) const { return m_data[i]; }
     SMove& operator[](size_t i) { return m_data[i]; }
 
-    void Swap(size_t i, size_t j) { std::swap(m_data[i], m_data[j]); }
+    bool Swap(size_t i, size_t j);
 
 private:
     bool overflow() {return (m_size >= 255);}
@@ -59,7 +59,7 @@ private:
     size_t m_size;
 };
 
-void GenAllMoves(const Position& pos, MoveList& mvlist);
+bool GenAllMoves(const Position& pos, MoveList& mvlist);
 void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist);
 void AddSimpleChecks(const Position& pos, MoveList& mvlist);
 void GenMovesInCheck(const Position& pos, MoveList& mvlist);

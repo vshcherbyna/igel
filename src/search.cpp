@@ -683,30 +683,6 @@ bool IsGoodCapture(Move mv)
     return SORT_VALUE[mv.Captured()] >= SORT_VALUE[mv.Piece()];
 }
 
-NODES Perft(Position& pos, int depth, int ply)
-{
-    if (depth <= 0)
-        return 1;
-
-    NODES total = 0;
-
-    MoveList& mvlist = g_lists[ply];
-    GenAllMoves(pos, mvlist);
-
-    auto mvSize = mvlist.Size();
-    for (size_t i = 0; i < mvSize; ++i)
-    {
-        Move mv = mvlist[i].m_mv;
-        if (pos.MakeMove(mv))
-        {
-            total += Perft(pos, depth - 1, ply + 1);
-            pos.UnmakeMove();
-        }
-    }
-
-    return total;
-}
-
 void PrintPV(const Position& pos, int iter, EVAL score, const Move* pv, int pvSize, const string& sign)
 {
     if (pvSize == 0)
@@ -899,37 +875,6 @@ void SetStrength(int level)
     }
     else
         g_knps = 0;
-}
-
-void StartPerft(Position& pos, int depth)
-{
-    NODES total = 0;
-    U32 t0 = GetProcTime();
-
-    MoveList& mvlist = g_lists[0];
-    GenAllMoves(pos, mvlist);
-
-    cout << endl;
-    auto mvSize = mvlist.Size();
-    for (size_t i = 0; i < mvSize; ++i)
-    {
-        Move mv = mvlist[i].m_mv;
-        if (pos.MakeMove(mv))
-        {
-            NODES delta = Perft(pos, depth - 1, 1);
-            total += delta;
-            cout << " " << MoveToStrLong(mv) << " - " << delta << endl;
-            pos.UnmakeMove();
-        }
-    }
-    U32 t1 = GetProcTime();
-    double dt = (t1 - t0) / 1000.;
-
-    cout << endl;
-    cout << " Nodes: " << total << endl;
-    cout << " Time:  " << dt << endl;
-    if (dt > 0) cout << " Knps:  " << total / dt / 1000. << endl;
-    cout << endl;
 }
 
 Move FirstLegalMove(Position& pos)
