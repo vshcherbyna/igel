@@ -23,17 +23,12 @@
 #include "notation.h"
 #include "search.h"
 #include "utils.h"
+#include "time.h"
 
 extern Position g_pos;
 extern deque<string> g_queue;
 
 static Position s_pos;
-
-U32 g_stHard = 2000;
-U32 g_stSoft = 2000;
-U32 g_inc = 0;
-int g_sd = 0;
-NODES g_sn = 0;
 U32 g_level = 100;
 double g_knps = 0;
 
@@ -129,6 +124,11 @@ EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
     auto mvSize = mvlist.Size();
     for (size_t i = 0; i < mvSize; ++i)
     {
+        CheckInput();
+
+        if (CheckLimits())
+            break;
+
         Move mv = GetNextBest(mvlist, i);
         if (s_pos.MakeMove(mv))
         {
@@ -156,11 +156,6 @@ EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
                     e = -AlphaBeta(-beta, -alpha, newDepth, ply + 1, false);
             }
             s_pos.UnmakeMove();
-
-            CheckInput();
-
-            if (CheckLimits())
-                break;
 
             if (e > alpha)
             {
@@ -488,6 +483,15 @@ EVAL AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
 
 bool CheckLimits()
 {
+    if (Time::instance().getTimeMode() == Time::TimeControl::NodesLimit)
+    {
+        if (g_nodes >= Time::instance().getNodesLimit())
+            g_flags |= TERMINATED_BY_LIMIT;
+
+        return (g_flags & SEARCH_TERMINATED);
+    }
+
+    U32 dt = 0;
     if (++g_timeCheck <= 1000)
         return false;
 
@@ -499,10 +503,10 @@ bool CheckLimits()
     if (g_flags & SEARCH_TERMINATED)
         return false;
 
-    U32 dt = GetProcTime() - g_t0;
+    dt = GetProcTime() - g_t0;
     if (g_flags & MODE_PLAY)
     {
-        if (g_stHard > 0 && dt >= g_stHard)
+        if (Time::instance().getHardLimit() > 0 && dt >= Time::instance().getHardLimit())
         {
             g_flags |= TERMINATED_BY_LIMIT;
 
@@ -510,8 +514,6 @@ bool CheckLimits()
             ss << "Search stopped by stHard, dt = " << dt;
             Log(ss.str());
         }
-        if (g_sn > 0 && g_nodes >= g_sn)
-            g_flags |= TERMINATED_BY_LIMIT;
     }
 
     return (g_flags & SEARCH_TERMINATED);
@@ -896,18 +898,19 @@ Move FirstLegalMove(Position& pos)
     return 0;
 }
 
-Move StartSearch(const Position& pos, U8 flags)
+Move StartSearch(const Position& pos)
 {
-    if ((g_stHard) && (g_pos.Side() == WHITE) && (g_pos.isInitialPosition()))
+    if ((Time::instance().getHardLimit()) && (g_pos.Side() == WHITE) && (g_pos.isInitialPosition()))
     {
         Move moves[5] = { Move(B1, C3, NW), Move(G1, F3, NW), Move(D2, D4, PW), Move(E2, E4, PW), Move(E2, E3, PW) };
         RandSeed(time(0));
         return moves[Rand32() % 4];
     }
 
+    auto timeMode = Time::instance().getTimeMode();
     g_t0 = GetProcTime();
     g_nodes = 0;
-    g_flags = flags;
+    g_flags = (timeMode == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
     g_iterPVSize = 0;
     s_pos = pos;
 
@@ -952,10 +955,9 @@ Move StartSearch(const Position& pos, U8 flags)
                 if (g_iterPVSize)
                     best = g_pv[0][0];
 
-                if (!(flags & MODE_SILENT))
-                    PrintPV(pos, g_iter, score, g_pv[0], g_pvSize[0], "");
+                PrintPV(pos, g_iter, score, g_pv[0], g_pvSize[0], "");
 
-                if (g_stSoft > 0 && dt >= g_stSoft)
+                if (Time::instance().getSoftLimit() > 0 && dt >= Time::instance().getSoftLimit())
                 {
                     g_flags |= TERMINATED_BY_LIMIT;
 
@@ -966,7 +968,7 @@ Move StartSearch(const Position& pos, U8 flags)
                     break;
                 }
 
-                if ((flags & MODE_ANALYZE) == 0)
+                if ((g_flags & MODE_ANALYZE) == 0)
                 {
                     if (singleMove)
                     {
@@ -988,11 +990,12 @@ Move StartSearch(const Position& pos, U8 flags)
                 --g_iter;
             }
 
+            dt = GetProcTime() - g_t0;
+
             if (dt)
                 cout << "info depth " << g_iter << " time " << dt << " nodes " << g_nodes << " nps " << 1000 * g_nodes / dt << endl;
 
-            dt = GetProcTime() - g_t0;
-            if (g_stSoft > 0 && dt >= g_stSoft)
+            if (Time::instance().getSoftLimit() > 0 && dt >= Time::instance().getSoftLimit())
             {
                 g_flags |= TERMINATED_BY_LIMIT;
 
@@ -1003,7 +1006,7 @@ Move StartSearch(const Position& pos, U8 flags)
                 break;
             }
 
-            if ((flags & MODE_ANALYZE) == 0)
+            if ((g_flags & MODE_ANALYZE) == 0)
             {
                 if (singleMove)
                 {
@@ -1018,7 +1021,7 @@ Move StartSearch(const Position& pos, U8 flags)
                 }
             }
 
-            if (g_sd > 0 && g_iter >= g_sd)
+            if ((timeMode == Time::TimeControl::DepthLimit) && g_iter >= static_cast<int>(Time::instance().getDepthLimit()))
             {
                 g_flags |= TERMINATED_BY_LIMIT;
                 break;

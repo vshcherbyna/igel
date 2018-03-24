@@ -23,9 +23,10 @@
 #include "notation.h"
 #include "search.h"
 #include "utils.h"
+#include "time.h"
 
 const string PROGRAM_NAME   = "igel";
-const string VERSION        = "1.0";
+const string VERSION        = "0.0";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 1024;
@@ -45,43 +46,6 @@ static bool g_force = false;
 
 void OnZero();
 
-void ComputeTimeLimits(U32 ourTime, U32 enemyTime, U32 inc)
-{
-    g_stHard = ourTime / 2;
-
-    if (ourTime <= 1000)
-    {
-        g_stSoft = (ourTime / 100) + (g_inc / 2); // time is running out
-    }
-    else
-    {
-        if (ourTime <= enemyTime)
-        {
-            g_stSoft = (ourTime / 30) + (g_inc / 2);
-        }
-        else
-        {
-            U32 diff = ourTime - enemyTime;
-            g_stSoft = (ourTime / 30) + (g_inc / 2) + (diff / 100);
-        }
-    }
-}
-
-void OnAnalyze()
-{
-    g_sd = 0;
-    g_sn = 0;
-    g_stHard = 0;
-    g_stSoft = 0;
-
-    ClearHash();
-    ClearHistory();
-    ClearKillers();
-
-    Position pos = g_pos;
-    StartSearch(pos, MODE_ANALYZE);
-}
-
 void OnEval()
 {
     cout << Evaluate(g_pos, -INFINITY_SCORE, INFINITY_SCORE) << endl;
@@ -100,101 +64,16 @@ void OnFlip()
 
 void OnGoUci()
 {
-    U8 mode = MODE_PLAY;
-    int ourTime = -1;
-    int enemyTime = -1;
+    if (Time::instance().parseTime(g_tokens, g_pos.Side() == WHITE) == false)
+        cout << "Error: unable to parse command line" << endl;
 
-    for (size_t i = 1; i < g_tokens.size(); ++i)
-    {
-        string token = g_tokens[i];
-        if (token == "infinite")
-        {
-            g_sd = 0;
-            g_sn = 0;
-            g_stHard = 0;
-            g_stSoft = 0;
-            mode = MODE_ANALYZE;
-        }
-        else if (i < g_tokens.size() - 1)
-        {
-            if (token == "movetime")
-            {
-                g_sd = 0;
-                g_sn = 0;
-                int t = atoi(g_tokens[i + 1].c_str());
-                g_stHard = t;
-                g_stSoft = t;
-                ++i;
-            }
-            else if (token == "wtime")
-            {
-                if (g_pos.Side() == WHITE)
-                    ourTime = atoi(g_tokens[i + 1].c_str());
-                else
-                    enemyTime = atoi(g_tokens[i + 1].c_str());
-
-                ++i;
-            }
-            else if (token == "btime")
-            {
-                if (g_pos.Side() == BLACK)
-                    ourTime = atoi(g_tokens[i + 1].c_str());
-                else
-                    enemyTime = atoi(g_tokens[i + 1].c_str());
-                ++i;
-            }
-            else if ((token == "winc" && g_pos.Side() == WHITE) || (token == "binc" && g_pos.Side() == BLACK))
-            {
-                g_inc = atoi(g_tokens[i + 1].c_str());
-                ++i;
-            }
-            else if (token == "depth")
-            {
-                g_sd = atoi(g_tokens[i + 1].c_str());
-                g_sn = 0;
-                g_stHard = 0;
-                g_stSoft = 0;
-                ++i;
-            }
-            else if (token == "nodes")
-            {
-                g_sd = 0;
-                g_sn = atoi(g_tokens[i + 1].c_str());
-                g_stHard = 0;
-                g_stSoft = 0;
-                ++i;
-            }
-
-            if (ourTime >= 0 && enemyTime >= 0)
-            {
-                g_sd = 0;
-                g_sn = 0;
-                ComputeTimeLimits(ourTime, enemyTime, g_inc);
-
-                if (g_log)
-                {
-                    stringstream ss;
-                    ss << "Time limits: rest = " << ourTime << ", inc = " << g_inc <<
-                        " ==> stHard = " << g_stHard << ", stSoft = " << g_stSoft;
-                    Log(ss.str());
-                }
-            }
-        }
-    }
-
-    Move mv = StartSearch(g_pos, mode);
+    Move mv = StartSearch(g_pos);
     cout << "bestmove " << MoveToStrLong(mv) << endl;
 }
 
 void OnIsready()
 {
     cout << "readyok" << endl;
-}
-
-void OnLevel()
-{
-    if (g_tokens.size() > 3)
-        g_inc = 1000 * atoi(g_tokens[3].c_str());
 }
 
 void OnList()
@@ -434,17 +313,6 @@ void OnPSQ()
     }
 }
 
-void OnSD()
-{
-    if (g_tokens.size() < 2)
-        return;
-
-    g_sd = atoi(g_tokens[1].c_str());
-    g_sn = 0;
-    g_stHard = 0;
-    g_stSoft = 0;
-}
-
 void OnSetboard()
 {
     if (g_pos.SetFEN(g_s.c_str() + 9))
@@ -467,53 +335,6 @@ void OnSetoption()
         SetHashSize(atoi(value.c_str()));
     else if (name == "Strength")
         SetStrength(atoi(value.c_str()));
-}
-
-void OnSN()
-{
-    if (g_tokens.size() < 2)
-        return;
-
-    g_sd = 0;
-    g_sn = atoi(g_tokens[1].c_str());
-    g_stHard = 0;
-    g_stSoft = 0;
-}
-
-void OnST()
-{
-    if (g_tokens.size() < 2)
-        return;
-
-    g_sd = 0;
-    g_sn = 0;
-    g_stHard = U32(1000 * atof(g_tokens[1].c_str()));
-    g_stSoft = U32(1000 * atof(g_tokens[1].c_str()));
-}
-
-void OnTest()
-{
-    g_pos.SetFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -");
-}
-
-void OnTime()
-{
-    if (g_tokens.size() < 2)
-        return;
-
-    g_sd = 0;
-    g_sn = 0;
-
-    int rest = 10 * atoi(g_tokens[1].c_str());
-    ComputeTimeLimits(rest, 0, g_inc);
-
-    if (g_log)
-    {
-        stringstream ss;
-        ss << "Time limits: rest = " << rest << ", inc = " << g_inc <<
-            " ==> stHard = " << g_stHard << ", stSoft = " << g_stSoft;
-        Log(ss.str());
-    }
 }
 
 void OnUCI()
@@ -569,7 +390,6 @@ void RunCommandLine()
       continue;                         \
     }
 
-        ON_CMD(analyze,    1, OnAnalyze())
         ON_CMD(board,      1, g_pos.Print())
         ON_CMD(eval,       2, OnEval())
         ON_CMD(fen,        2, OnFEN())
@@ -577,7 +397,6 @@ void RunCommandLine()
         ON_CMD(force,      2, g_force = true)
         ON_CMD(go,         1, OnGoUci())
         ON_CMD(isready,    1, OnIsready())
-        ON_CMD(level,      3, OnLevel())
         ON_CMD(list,       2, OnList())
         ON_CMD(load,       2, OnLoad())
         ON_CMD(mt,         2, OnMT())
@@ -587,13 +406,8 @@ void RunCommandLine()
         ON_CMD(protover,   3, OnProtover())
         ON_CMD(psq,        2, OnPSQ())
         ON_CMD(quit,       1, break)
-        ON_CMD(sd,         2, OnSD())
         ON_CMD(setboard,   3, OnSetboard())
         ON_CMD(setoption,  3, OnSetoption())
-        ON_CMD(sn,         2, OnSN())
-        ON_CMD(st,         2, OnST())
-        ON_CMD(test,       2, OnTest())
-        ON_CMD(time,       2, OnTime())
         ON_CMD(uci,        1, OnUCI())
         ON_CMD(ucinewgame, 4, OnNew())
         ON_CMD(undo,       1, g_pos.UnmakeMove())

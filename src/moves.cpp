@@ -304,6 +304,24 @@ void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist)
     }
 
     //
+    //   QUEENS
+    //
+    
+    piece = QUEEN | side;
+    x = pos.Bits(piece);
+    while (x)
+    {
+        from = PopLSB(x);
+        y = QueenAttacks(from, occ) & targets;
+        while (y)
+        {
+            to = PopLSB(y);
+            captured = pos[to];
+            mvlist.Add(from, to, piece, captured);
+        }
+    }
+
+    //
     //   KNIGHTS
     //
     
@@ -349,24 +367,6 @@ void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist)
     {
         from = PopLSB(x);
         y = RookAttacks(from, occ) & targets;
-        while (y)
-        {
-            to = PopLSB(y);
-            captured = pos[to];
-            mvlist.Add(from, to, piece, captured);
-        }
-    }
-
-    //
-    //   QUEENS
-    //
-    
-    piece = QUEEN | side;
-    x = pos.Bits(piece);
-    while (x)
-    {
-        from = PopLSB(x);
-        y = QueenAttacks(from, occ) & targets;
         while (y)
         {
             to = PopLSB(y);
