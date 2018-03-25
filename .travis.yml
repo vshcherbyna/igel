@@ -12,6 +12,14 @@ matrix:
           packages: ['cmake-data', 'cmake']
       env:
 
+    - os: osx
+      compiler: gcc
+      language: generic
+      env:
+        - COMPILER=g++
+        - COMP=gcc
+        - PYTHON=3.5.1
+
 script:
       - cmake .
       - make

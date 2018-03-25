@@ -23,12 +23,6 @@
 
 #include "position.h"
 
-extern U32 g_stHard;
-extern U32 g_stSoft;
-extern U32 g_inc;
-extern int g_sd;
-extern NODES g_sn;
-
 const int MAX_PLY = 64;
 
 const U8 TERMINATED_BY_USER  = 0x01;
@@ -45,7 +39,7 @@ void ClearKillers();
 bool IsGameOver(Position& pos, string& result, string& comment);
 void SetHashSize(double mb);
 void SetStrength(int level);
-Move StartSearch(const Position& pos, U8 flags);
+Move StartSearch(const Position& pos);
 
 struct HashEntry
 {
