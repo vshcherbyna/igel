@@ -153,7 +153,7 @@ bool Time::evaluate()
     else
     {
         U32 diff = m_remainingTime - m_remainingEnemyTime;
-        m_softLimit = (m_remainingTime / 100) + (m_increment / 2) + (diff / 50);
+        m_softLimit = (m_remainingTime / 100) + (m_increment / 2) + (diff / 450);
     }
 
     return true;

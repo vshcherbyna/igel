@@ -136,7 +136,8 @@ EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
             ++legalMoves;
             g_histTry[mv.To()][mv.Piece()] += depth;
 
-            cout << "info depth " << depth << " currmove " << MoveToStrLong(mv) << " currmovenumber " << legalMoves << endl;
+            if ((GetProcTime() - g_t0) > 2000)
+                cout << "info depth " << depth << " currmove " << MoveToStrLong(mv) << " currmovenumber " << legalMoves << endl;
 
             int newDepth = depth - 1;
 
@@ -992,7 +993,7 @@ Move StartSearch(const Position& pos)
 
             dt = GetProcTime() - g_t0;
 
-            if (dt)
+            if (dt > 2000)
                 cout << "info depth " << g_iter << " time " << dt << " nodes " << g_nodes << " nps " << 1000 * g_nodes / dt << endl;
 
             if (Time::instance().getSoftLimit() > 0 && dt >= Time::instance().getSoftLimit())
