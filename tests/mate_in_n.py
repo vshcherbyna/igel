@@ -76,9 +76,9 @@ def main():
     fen_assert("Bxf5",  evaluate(5000, 6, "1r3r2/3p4/2bNpB2/p3Pp1k/6R1/1p1B2P1/PP3P1P/6K1 w - - 0 1"))
     fen_assert("Qe6+",  evaluate(7000, 7, "2k1rr2/ppp3p1/7n/2N1p3/2Q5/2PP3p/1P1q3P/R4R1K w - - 0 1"))
     fen_assert("Nc7+",  evaluate(10000, 8, "k7/pp6/1n2N2p/3p1Ppq/8/PP2P1BP/8/K1Q5 w - - 0 1"))
-    #fen_assert("Rb7",  evaluate(30000, 9, "3Q4/5q1k/4ppp1/2Kp1N1B/RR6/3P1r2/4nP1b/3b4 w - - 0 1"))
-    #fen_assert("Qh5+",  evaluate(40000, 10, "2qrr1n1/3b1kp1/2pBpn1p/1p2PP2/p2P4/1BP5/P3Q1PP/4RRK1 w - - 0 1"))
-    #fen_assert("h5",  evaluate(1000, -3, "7k/4Q2p/8/8/8/8/8/4K2R b K - 0 1"))
+    fen_assert("Rb7",  evaluate(30000, 9, "3Q4/5q1k/4ppp1/2Kp1N1B/RR6/3P1r2/4nP1b/3b4 w - - 0 1"))
+    fen_assert("Qh5+",  evaluate(40000, 10, "2qrr1n1/3b1kp1/2pBpn1p/1p2PP2/p2P4/1BP5/P3Q1PP/4RRK1 w - - 0 1"))
+    fen_assert("h5",  evaluate(1000, -3, "7k/4Q2p/8/8/8/8/8/4K2R b K - 0 1"))
 
 if __name__ == "__main__":
     main()
