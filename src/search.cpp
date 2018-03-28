@@ -484,6 +484,12 @@ EVAL AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
 
 bool CheckLimits()
 {
+    if (g_flags & SEARCH_TERMINATED)
+        return true;
+
+    if (g_iterPVSize == 0)
+        return false;
+
     if (Time::instance().getTimeMode() == Time::TimeControl::NodesLimit)
     {
         if (g_nodes >= Time::instance().getNodesLimit())
@@ -493,18 +499,13 @@ bool CheckLimits()
     }
 
     U32 dt = 0;
+
     if (++g_timeCheck <= 1000)
         return false;
 
     g_timeCheck = 0;
-
-    if (g_iterPVSize == 0)
-        return false;
-
-    if (g_flags & SEARCH_TERMINATED)
-        return false;
-
     dt = GetProcTime() - g_t0;
+
     if (g_flags & MODE_PLAY)
     {
         if (Time::instance().getHardLimit() > 0 && dt >= Time::instance().getHardLimit())

@@ -121,12 +121,12 @@ TEST(MovesToGo, Positive)
     EXPECT_EQ(true, Time::instance().parseTime(cmd, true));
     EXPECT_EQ(Time::TimeControl::TimeLimit, Time::instance().getTimeMode());
     EXPECT_EQ(true, Time::instance().getHardLimit() == 1818);
-    EXPECT_EQ(true, Time::instance().getSoftLimit() == 1818);
+    EXPECT_EQ(true, Time::instance().getSoftLimit() == (1818 / 2));
 
     EXPECT_EQ(true, Time::instance().parseTime(cmd, false));
     EXPECT_EQ(Time::TimeControl::TimeLimit, Time::instance().getTimeMode());
     EXPECT_EQ(true, Time::instance().getHardLimit() == 1818);
-    EXPECT_EQ(true, Time::instance().getSoftLimit() == 1818);
+    EXPECT_EQ(true, Time::instance().getSoftLimit() == (1818 / 2));
 }
 
 TEST(MovesToGo, Negative)
@@ -172,7 +172,7 @@ TEST(MovesToGoIncrement, Positive)
     EXPECT_EQ(true, Time::instance().parseTime(cmd, true));
     EXPECT_EQ(Time::TimeControl::TimeLimit, Time::instance().getTimeMode());
     EXPECT_EQ(true, Time::instance().getHardLimit() == 4318);
-    EXPECT_EQ(true, Time::instance().getSoftLimit() == 4318);
+    EXPECT_EQ(true, Time::instance().getSoftLimit() == (4318 / 2));
 }
 
 TEST(NormalControlNoIncrement, Positive)

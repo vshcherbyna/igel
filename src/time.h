@@ -51,6 +51,7 @@ public:
 private:
     void reset();
     bool evaluate();
+    U32 getEnemyLowTimeBonus();
 
 private:
     U32 m_defTimeSlice;
