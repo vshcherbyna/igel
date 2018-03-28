@@ -135,8 +135,8 @@ bool Time::evaluate()
 
     if (m_moves)
     {
-        m_hardLimit = (m_remainingTime / m_moves) + (m_increment / 2);
-        m_softLimit = (m_remainingTime / m_moves) + (m_increment / 2);
+        m_hardLimit = (m_remainingTime / m_moves) + (m_increment / 2) + getEnemyLowTimeBonus();
+        m_softLimit = m_hardLimit / 2;
 
         return true;
     }
@@ -145,16 +145,8 @@ bool Time::evaluate()
     //  Normal time control
     //
 
-    if (m_remainingTime)
-        m_hardLimit = m_remainingTime / 2;
-
-    if (m_remainingTime <= m_remainingEnemyTime)
-        m_softLimit = (m_remainingTime / 100) + (m_increment / 2);
-    else
-    {
-        U32 diff = m_remainingTime - m_remainingEnemyTime;
-        m_softLimit = (m_remainingTime / 100) + (m_increment / 2) + (diff / 450);
-    }
+    m_hardLimit = m_remainingTime / 2;
+    m_softLimit = (m_remainingTime / 100) + (m_increment / 2) + getEnemyLowTimeBonus();
 
     return true;
 }
@@ -191,4 +183,14 @@ Time::TimeControl Time::getTimeMode()
         return TimeControl::NodesLimit;
 
     return TimeControl::TimeLimit;
+}
+
+U32 Time::getEnemyLowTimeBonus()
+{
+    if (m_remainingTime <= m_remainingEnemyTime)
+        return 0;
+
+    U32 diff = m_remainingTime - m_remainingEnemyTime;
+
+    return (diff / 450);
 }
