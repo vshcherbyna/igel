@@ -32,3 +32,5 @@ if os.system('python ./eval.py') != 0:
     raise Exception("test failed:", "eval")
 if os.system('python ./mate_in_n.py') != 0:
     raise Exception("test failed:", "mate in one")
+if os.system('python ./king_safety.py') != 0:
+    raise Exception("test failed:", "king safety")
