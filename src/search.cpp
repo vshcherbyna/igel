@@ -920,7 +920,7 @@ Move StartSearch(const Position& pos)
 
     EVAL alpha = -INFINITY_SCORE;
     EVAL beta = INFINITY_SCORE;
-    EVAL aspiration = 100;
+    EVAL aspiration = 15;
     EVAL score = alpha;
     Move best;
     bool singleMove = HaveSingleMove(s_pos, best);
@@ -948,13 +948,14 @@ Move StartSearch(const Position& pos)
 
             if (score > alpha && score < beta)
             {
-                alpha = score - (aspiration / 2);
-                beta = score + (aspiration / 2);
+                aspiration = 15;
+                alpha = score - aspiration;
+                beta = score + aspiration;
 
                 memcpy(g_iterPV, g_pv[0], g_pvSize[0] * sizeof(Move));
                 g_iterPVSize = g_pvSize[0];
 
-                if (g_iterPVSize)
+                if (g_iterPVSize && g_pv[0][0])
                     best = g_pv[0][0];
 
                 PrintPV(pos, g_iter, score, g_pv[0], g_pvSize[0], "");
@@ -985,11 +986,32 @@ Move StartSearch(const Position& pos)
                     }
                 }
             }
-            else
+            else if (score <= alpha)
             {
                 alpha = -INFINITY_SCORE;
                 beta = INFINITY_SCORE;
+
+                if (!(g_flags & MODE_SILENT))
+                    PrintPV(pos, g_iter, score, g_pv[0], g_pvSize[0], "");
                 --g_iter;
+
+                aspiration += aspiration / 4 + 5;
+            }
+            else if (score >= beta)
+            {
+                alpha = -INFINITY_SCORE;
+                beta = INFINITY_SCORE;
+
+                memcpy(g_iterPV, g_pv[0], g_pvSize[0] * sizeof(Move));
+                g_iterPVSize = g_pvSize[0];
+
+                if (g_iterPVSize && g_pv[0][0])
+                    best = g_pv[0][0];
+
+                if (!(g_flags & MODE_SILENT))
+                    PrintPV(pos, g_iter, score, g_pv[0], g_pvSize[0], "");
+                --g_iter;
+                aspiration += aspiration / 4 + 5;
             }
 
             dt = GetProcTime() - g_t0;

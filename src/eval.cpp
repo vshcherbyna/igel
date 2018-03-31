@@ -41,6 +41,7 @@ Pair QUEEN_7TH;
 Pair ROOK_MOBILITY[15];
 Pair QUEEN_KING_DIST[10];
 Pair KING_PAWN_SHIELD[10];
+Pair KING_PAWN_STORM[10];
 Pair KING_PASSED_DIST[10];
 Pair ATTACK_KING[8];
 Pair ATTACK_STRONGER;
@@ -89,10 +90,37 @@ int PawnShieldPenalty(const PawnHashEntry& pEntry, int fileK, COLOR side)
     return penalty;
 }
 
+int PawnStormPenalty(const PawnHashEntry& pEntry, int fileK, COLOR side)
+{
+    COLOR opp = side ^ 1;
+
+    static const int delta[2][8] =
+    {
+        { 0, 0, 0, 1, 2, 3, 0, 0 },
+        { 0, 0, 3, 2, 1, 0, 0, 0 }
+    };
+
+    int penalty = 0;
+    for (int file = fileK - 1; file < fileK + 2; ++file)
+    {
+        int rank = pEntry.m_ranks[file][opp];
+        penalty += delta[side][rank];
+    }
+
+    if (penalty < 0)
+        penalty = 0;
+    if (penalty > 9)
+        penalty = 9;
+
+    return penalty;
+}
+
 EVAL Evaluate(const Position& pos, EVAL alpha, EVAL beta)
 {
     int mid = pos.MatIndex(WHITE) + pos.MatIndex(BLACK);
     int end = 64 - mid;
+
+    Pair score = pos.Score();
 
     U64 x, y, occ = pos.BitsAll();
     FLD f;
@@ -108,8 +136,6 @@ EVAL Evaluate(const Position& pos, EVAL alpha, EVAL beta)
     PawnHashEntry& ps = g_pawnHash[index];
     if (ps.m_pawnHash != pos.PawnHash())
         ps.Read(pos);
-
-    Pair score = pos.Score();
 
     // passed
     x = ps.m_passedPawns[WHITE];
@@ -369,12 +395,16 @@ EVAL Evaluate(const Position& pos, EVAL alpha, EVAL beta)
         int fileK = Col(f) + 1;
         int shield = PawnShieldPenalty(ps, fileK, WHITE);
         score += KING_PAWN_SHIELD[shield];
+        int storm = PawnStormPenalty(ps, fileK, WHITE);
+        score += KING_PAWN_STORM[storm];
     }
     {
         f = pos.King(BLACK);
         int fileK = Col(f) + 1;
         int shield = PawnShieldPenalty(ps, fileK, BLACK);
         score -= KING_PAWN_SHIELD[shield];
+        int storm = PawnStormPenalty(ps, fileK, BLACK);
+        score -= KING_PAWN_STORM[storm];
     }
 
     //
@@ -500,7 +530,7 @@ void InitEval(const vector<int>& x)
         BISHOP_STRONG[f].end = Q2(End_BishopStrong, x, y);
     }
 
-    BISHOP_PAIR = Pair(P(Mid_BishopPair, 0), P(End_BishopPair, 0));
+    BISHOP_PAIR = Pair(19, 36);
 
     BISHOP_MOBILITY[0] = 0;
     ROOK_MOBILITY[0] = 0;
@@ -543,6 +573,17 @@ void InitEval(const vector<int>& x)
         KING_PAWN_SHIELD[p].mid = Q1(Mid_KingPawnShield, z);
         KING_PAWN_SHIELD[p].end = Q1(End_KingPawnShield, z);
     }
+
+    KING_PAWN_STORM[0] = Pair(64, -56);
+    KING_PAWN_STORM[1] = Pair(58, -45);
+    KING_PAWN_STORM[2] = Pair(52, -37);
+    KING_PAWN_STORM[3] = Pair(46, -33);
+    KING_PAWN_STORM[4] = Pair(40, -31);
+    KING_PAWN_STORM[5] = Pair(33, -33);
+    KING_PAWN_STORM[6] = Pair(27, -37);
+    KING_PAWN_STORM[7] = Pair(20, -44);
+    KING_PAWN_STORM[8] = Pair(13, -54);
+    KING_PAWN_STORM[9] = Pair(6, -68);
 
     ATTACK_STRONGER = Pair(P(Mid_AttackStronger, 0), P(End_AttackStronger, 0));
 

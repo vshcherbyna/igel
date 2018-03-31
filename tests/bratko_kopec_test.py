@@ -77,11 +77,6 @@ def non_passing_tests():
 
     #
     #   Best move is f5, but igel does not return it
-    #   fen_assert("f5",  evaluate(None, "2q1rr1k/3bbnnp/p2p1pp1/2pPp3/PpP1P1P1/1P2BNNP/2BQ1PRK/7R b - - 0 1"))
-    #
-
-    #
-    #   Best move is f5, but igel does not return it
     #   fen_assert("f5",  evaluate(None, "2kr1bnr/pbpq4/2n1pp2/3p3p/3P1P1B/2N2N1Q/PPP3PP/2KR1B1R w - - 0 1"))
     #
 
@@ -101,8 +96,10 @@ def non_passing_tests():
 
     fen_assert("f4",  evaluate(None, "r2qnrnk/p2b2b1/1p1p2pp/2pPpp2/1PP1P3/PRNBB3/3QNPPP/5RK1 w - - 0 1"))
     
-def main():
-    fen_assert("f4",  evaluate(20000, "2r1nrk1/p2q1ppp/bp1p4/n1pPp3/P1P1P3/2PBB1N1/4QPPP/R4RK1 w - - 0 1"))
+def main():    
+    fen_assert("Nb3",  evaluate(30000, "r1bq1rk1/pp2ppbp/2np2p1/2n5/P3PP2/N1P2N2/1PB3PP/R1B1QRK1 b - - 0 1"))
+    fen_assert("f4",  evaluate(30000, "2r1nrk1/p2q1ppp/bp1p4/n1pPp3/P1P1P3/2PBB1N1/4QPPP/R4RK1 w - - 0 1"))
+    fen_assert("f5",  evaluate(None, "2q1rr1k/3bbnnp/p2p1pp1/2pPp3/PpP1P1P1/1P2BNNP/2BQ1PRK/7R b - - 0 1"))
     fen_assert("Qd1+",  evaluate(None, "1k1r4/pp1b1R2/3q2pp/4p3/2B5/4Q3/PPP2B2/2K5 b - - 0 1"))
     fen_assert("d5",  evaluate(None, "3r1k2/4npp1/1ppr3p/p6P/P2PPPP1/1NR5/5K2/2R5 w - - 0 1"))
     fen_assert("e6",  evaluate(None, "rnbqkb1r/p3pppp/1p6/2ppP3/3N4/2P5/PPP1QPPP/R1B1KB1R w KQkq - 0 1"))
@@ -116,8 +113,7 @@ def main():
     fen_assert("b4",  evaluate(None, "r2q1rk1/4bppp/p2p4/2pP4/3pP3/3Q4/PP1B1PPP/R3R1K1 w - - 0 1"))
     fen_assert("Qd2",  evaluate(None, "rnb2r1k/pp2p2p/2pp2p1/q2P1p2/8/1Pb2NP1/PB2PPBP/R2Q1RK1 w - - 0 1"))
     fen_assert("Qxg7+",  evaluate(None, "2r3k1/1p2q1pp/2b1pr2/p1pp4/6Q1/1P1PP1R1/P1PN2PP/5RK1 w - - 0 1"))
-    fen_assert("Ne4",  evaluate(None, "r1bqkb1r/4npp1/p1p4p/1p1pP1B1/8/1B6/PPPN1PPP/R2Q1RK1 w kq - 0 1"))
-    fen_assert("Nb3",  evaluate(None, "r1bq1rk1/pp2ppbp/2np2p1/2n5/P3PP2/N1P2N2/1PB3PP/R1B1QRK1 b - - 0 1"))
+    fen_assert("Ne4",  evaluate(None, "r1bqkb1r/4npp1/p1p4p/1p1pP1B1/8/1B6/PPPN1PPP/R2Q1RK1 w kq - 0 1"))    
     fen_assert("Rxe4",  evaluate(None, "3rr3/2pq2pk/p2p1pnp/8/2QBPP2/1P6/P5PP/4RRK1 b - - 0 1"))
     fen_assert("Nh6",  evaluate(None, "3rn2k/ppb2rpp/2ppqp2/5N2/2P1P3/1P5Q/PB3PPP/3RR1K1 w - - 0 1"))
     fen_assert("Bxe4",  evaluate(None, "2r2rk1/1bqnbpp1/1p1ppn1p/pP6/N1P1P3/P2B1N1P/1B2QPP1/R2R2K1 b - - 0 1"))
