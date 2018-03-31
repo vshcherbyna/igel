@@ -136,6 +136,10 @@ bool Time::evaluate()
     if (m_moves)
     {
         m_hardLimit = (m_remainingTime / m_moves) + (m_increment / 2) + getEnemyLowTimeBonus();
+
+        if (m_moves == 1)
+            m_hardLimit /= 2;
+
         m_softLimit = m_hardLimit / 2;
 
         return true;

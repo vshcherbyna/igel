@@ -26,7 +26,7 @@
 #include "time.h"
 
 const string PROGRAM_NAME   = "igel";
-const string VERSION        = "0.1";
+const string VERSION        = "0.2";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 1024;
