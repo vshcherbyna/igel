@@ -69,14 +69,12 @@ def evaluate(mvt, fen):
 def fen_assert(engine_move,  expected_move):
     if engine_move != expected_move:
             raise Exception(engine_move, expected_move)
-    
-def non_passing_tests():
-    fen_assert("g5",  evaluate(None, "7k/5K2/5P1p/3p4/6P1/3p4/8/8 w - - 0 1"))
-    fen_assert("Qxh4",  evaluate(None, "8/6B1/p5p1/Pp4kp/1P5r/5P1Q/4q1PK/8 w - - 0 32"))    
-    
+
 def main():
+    #fen_assert("g5",  evaluate(None, "7k/5K2/5P1p/3p4/6P1/3p4/8/8 w - - 0 1"))
+    fen_assert("Qxh4+",  evaluate(None, "8/6B1/p5p1/Pp4kp/1P5r/5P1Q/4q1PK/8 w - - 0 32"))
     fen_assert("Nxd5",  evaluate(None, "8/8/1p1r1k2/p1pPN1p1/P3KnP1/1P6/8/3R4 b - - 0 1"))
-    fen_assert("Rf1",  evaluate(20000, "8/8/p1p5/1p5p/1P5p/8/PPP2K1p/4R1rk w - - 0 1"))
+    fen_assert("Rf1",  evaluate(None, "8/8/p1p5/1p5p/1P5p/8/PPP2K1p/4R1rk w - - 0 1"))
     fen_assert("Kh6",  evaluate(None, "1q1k4/2Rr4/8/2Q3K1/8/8/8/8 w - - 0 1")) 
 
 if __name__ == "__main__":

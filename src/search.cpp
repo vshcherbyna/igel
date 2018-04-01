@@ -271,16 +271,22 @@ EVAL AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     //   NULL MOVE
     //
 
-    int R = 3;
-    if (!isNull && !onPV && !inCheck && !lateEndgame && depth >= 2)
+    int R = depth / 4 + 3;
+    if (!isNull && !onPV && !inCheck && depth >= 2 && s_pos.NonPawnMaterial())
     {
         s_pos.MakeNullMove();
         EVAL nullScore = (depth - 1 - R > 0)?
             -AlphaBeta(-beta, -beta + 1, depth - 1 - R, ply + 1, true) :
             -AlphaBetaQ(-beta, -beta + 1, ply + 1, 0);
         s_pos.UnmakeNullMove();
+
         if (nullScore >= beta)
-            return beta;
+        {
+            if (nullScore >= (CHECKMATE_SCORE - 50))
+                return beta;
+            else
+                return nullScore;
+        }
     }
 
     //
