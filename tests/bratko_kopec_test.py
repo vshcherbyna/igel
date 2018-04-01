@@ -31,7 +31,7 @@ import timeit
 #   Taken from https://chessprogramming.wikispaces.com/Bratko-Kopec%20Test
 #
 
-engine_def_move_time = 10000
+engine_def_move_time = 3000
 
 def evaluate(mvt, fen):
     # setup engine

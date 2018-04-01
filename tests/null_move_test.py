@@ -28,7 +28,7 @@ import timeit
 #   Test-positions where Null Move may fail due to zugzwang
 #
 
-engine_def_move_time = 10000
+engine_def_move_time = 3000
 
 def evaluate(mvt, fen):
     # setup engine
