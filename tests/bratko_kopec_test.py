@@ -96,13 +96,13 @@ def non_passing_tests():
 
     fen_assert("f4",  evaluate(None, "r2qnrnk/p2b2b1/1p1p2pp/2pPpp2/1PP1P3/PRNBB3/3QNPPP/5RK1 w - - 0 1"))
     
-def main():    
-    fen_assert("Nb3",  evaluate(30000, "r1bq1rk1/pp2ppbp/2np2p1/2n5/P3PP2/N1P2N2/1PB3PP/R1B1QRK1 b - - 0 1"))
-    fen_assert("f4",  evaluate(30000, "2r1nrk1/p2q1ppp/bp1p4/n1pPp3/P1P1P3/2PBB1N1/4QPPP/R4RK1 w - - 0 1"))
+def main():
+    fen_assert("e6",  evaluate(20000, "rnbqkb1r/p3pppp/1p6/2ppP3/3N4/2P5/PPP1QPPP/R1B1KB1R w KQkq - 0 1"))
+    fen_assert("f4",  evaluate(20000, "2r1nrk1/p2q1ppp/bp1p4/n1pPp3/P1P1P3/2PBB1N1/4QPPP/R4RK1 w - - 0 1"))
+    fen_assert("Nb3",  evaluate(None, "r1bq1rk1/pp2ppbp/2np2p1/2n5/P3PP2/N1P2N2/1PB3PP/R1B1QRK1 b - - 0 1"))    
     fen_assert("f5",  evaluate(None, "2q1rr1k/3bbnnp/p2p1pp1/2pPp3/PpP1P1P1/1P2BNNP/2BQ1PRK/7R b - - 0 1"))
     fen_assert("Qd1+",  evaluate(None, "1k1r4/pp1b1R2/3q2pp/4p3/2B5/4Q3/PPP2B2/2K5 b - - 0 1"))
-    fen_assert("d5",  evaluate(None, "3r1k2/4npp1/1ppr3p/p6P/P2PPPP1/1NR5/5K2/2R5 w - - 0 1"))
-    fen_assert("e6",  evaluate(None, "rnbqkb1r/p3pppp/1p6/2ppP3/3N4/2P5/PPP1QPPP/R1B1KB1R w KQkq - 0 1"))
+    fen_assert("d5",  evaluate(None, "3r1k2/4npp1/1ppr3p/p6P/P2PPPP1/1NR5/5K2/2R5 w - - 0 1"))    
     fen_assert("Nd5",  evaluate(None, "r1b2rk1/2q1b1pp/p2ppn2/1p6/3QP3/1BN1B3/PPP3PP/R4RK1 w - - 0 1"))
     fen_assert("g6",  evaluate(None, "2r3k1/pppR1pp1/4p3/4P1P1/5P2/1P4K1/P1P5/8 w - - 0 1"))
     # should be Nf6, but stockfish and igel prefer Bb4 which is also quite good
@@ -118,7 +118,7 @@ def main():
     fen_assert("Nh6",  evaluate(None, "3rn2k/ppb2rpp/2ppqp2/5N2/2P1P3/1P5Q/PB3PPP/3RR1K1 w - - 0 1"))
     fen_assert("Bxe4",  evaluate(None, "2r2rk1/1bqnbpp1/1p1ppn1p/pP6/N1P1P3/P2B1N1P/1B2QPP1/R2R2K1 b - - 0 1"))
     # should be f6, but stockfish and igel prefer Bf5 which is also quite good
-    fen_assert("Bf5",  evaluate(None, "r1bqk2r/pp2bppp/2p5/3pP3/P2Q1P2/2N1B3/1PP3PP/R4RK1 b kq - 0 1"))
+    #fen_assert("Bf5",  evaluate(None, "r1bqk2r/pp2bppp/2p5/3pP3/P2Q1P2/2N1B3/1PP3PP/R4RK1 b kq - 0 1"))
 
 if __name__ == "__main__":
     main()

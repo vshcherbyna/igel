@@ -657,3 +657,35 @@ bool Position::isInitialPosition()
     return m_initialPosition;
 }
 
+bool Position::NonPawnMaterial()
+{
+    COLOR side = Side();
+
+    if (Bits(QUEEN | side))
+        return true;
+
+    if (Bits(ROOK | side))
+        return true;
+
+    if (Bits(BISHOP | side))
+        return true;
+
+    if (Bits(KNIGHT | side))
+        return true;
+
+    COLOR opp = side ^ 1;
+
+    if (Bits(QUEEN | opp))
+        return true;
+
+    if (Bits(ROOK | opp))
+        return true;
+
+    if (Bits(BISHOP | opp))
+        return true;
+
+    if (Bits(KNIGHT | opp))
+        return true;
+
+    return false;
+}

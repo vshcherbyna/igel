@@ -97,8 +97,8 @@ public:
     void   UnmakeNullMove();
     bool   isInitialPosition();
     const PIECE& operator[] (FLD f) const { return m_board[f]; }
-
     static void  InitHashNumbers();
+    bool NonPawnMaterial();
 
 private:
     void Clear();
