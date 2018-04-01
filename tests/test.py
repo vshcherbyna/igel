@@ -21,11 +21,13 @@
 
 import os
 
-if os.system('python ./ci.py') != 0:
-    raise Exception("test failed:", "ci")
 if os.system('python ./bratko_kopec_test.py') != 0:
     raise Exception("test failed:", "bratko kopec test")
 if os.system('python ./null_move_test.py') != 0:
     raise Exception("test failed:", "null move test")
-if os.system('python ./go_infinite_test.py') != 0:
+if os.system('python ./null_move_test.py') != 0:
+    raise Exception("test failed:", "dann corbit test")
+if os.system('python ./dann_corbit_test.py') != 0:
     raise Exception("test failed:", "go infinite test")
+if os.system('python ./ci.py') != 0:
+    raise Exception("test failed:", "ci")
