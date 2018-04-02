@@ -270,6 +270,21 @@ EVAL AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     }
 
     //
+    //   RAZORING
+    //
+
+    if (!onPV && !inCheck && depth <= 2)
+    {
+        if ((Evaluate(s_pos, -INFINITY_SCORE, INFINITY_SCORE) + 200) < beta)
+        {
+            EVAL score = AlphaBetaQ(alpha, beta, ply, 0);
+
+            if (score < beta)
+                return score;
+        }
+    }
+
+    //
     //   NULL MOVE
     //
 
