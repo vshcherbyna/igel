@@ -14,7 +14,7 @@ matrix:
 
 script:
       - cmake .
-      - make
+      - make -j2
       - cd tests
       - pip2 install --user python-chess futures
       - python ci.py

@@ -20,14 +20,19 @@
 #!/usr/bin/python
 
 import os
-
-if os.system('python ./bratko_kopec_test.py') != 0:
+import epd_test
+    
+if epd_test.run_test('../igel',  10,  'epds/bk.epd') != 16:
     raise Exception("test failed:", "bratko kopec test")
-if os.system('python ./null_move_test.py') != 0:
+
+if epd_test.run_test('../igel',  10,  'epds/null_move.epd') != 4:
     raise Exception("test failed:", "null move test")
-if os.system('python ./null_move_test.py') != 0:
-    raise Exception("test failed:", "dann corbit test")
-if os.system('python ./dann_corbit_test.py') != 0:
+
+if epd_test.run_test('../igel',  10,  'epds/dann_corbit_tune.epd') != 113:
+    raise Exception("test failed:", "dann corbit tune test")
+
+if os.system('python ./go_infinite_test.py') != 0:
     raise Exception("test failed:", "go infinite test")
+
 if os.system('python ./ci.py') != 0:
     raise Exception("test failed:", "ci")
