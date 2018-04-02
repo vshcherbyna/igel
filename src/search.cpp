@@ -257,8 +257,10 @@ EVAL AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     //   FUTILITY
     //
 
+    bool nonPawnMaterial = s_pos.NonPawnMaterial();
+
     static const EVAL MARGIN[4] = { 0, 50, 350, 550 };
-    if (!onPV && !inCheck && depth >= 1 && depth <= 3)
+    if (nonPawnMaterial && !onPV && !inCheck && depth >= 1 && depth <= 3)
     {
         EVAL score = Evaluate(s_pos, alpha - MARGIN[depth], beta + MARGIN[depth]);
         if (score <= alpha - MARGIN[depth])
@@ -272,7 +274,7 @@ EVAL AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     //
 
     int R = depth / 4 + 3;
-    if (!isNull && !onPV && !inCheck && depth >= 2 && s_pos.NonPawnMaterial())
+    if (!isNull && !onPV && !inCheck && depth >= 2 && nonPawnMaterial)
     {
         s_pos.MakeNullMove();
         EVAL nullScore = (depth - 1 - R > 0)?
