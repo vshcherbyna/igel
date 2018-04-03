@@ -25,10 +25,8 @@
 #include "utils.h"
 #include "time.h"
 
-extern Position g_pos;
 extern deque<string> g_queue;
 
-static Position s_pos;
 U32 g_level = 100;
 double g_knps = 0;
 
@@ -36,17 +34,7 @@ static U8           g_flags = 0;
 static HashEntry*   g_hash = NULL;
 static U8           g_hashAge = 0;
 static int          g_hashSize = 0;
-static int          g_histTry[64][14];
-static int          g_histSuccess[64][14];
-static int          g_iter = 0;
-static Move         g_iterPV[MAX_PLY];
-static int          g_iterPVSize = 0;
-static Move         g_killers[MAX_PLY];
-static MoveList     g_lists[MAX_PLY];
-static Move         g_mateKillers[MAX_PLY];
 static NODES        g_nodes = 0;
-static Move         g_pv[MAX_PLY][MAX_PLY];
-static int          g_pvSize[MAX_PLY];
 static U32          g_t0 = 0;
 static NODES        g_timeCheck = 0;
 
@@ -62,456 +50,10 @@ const U8 HASH_BETA = 2;
 
 const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VAL_R, VAL_R, VAL_Q, VAL_Q, VAL_K, VAL_K };
 
-EVAL       AlphaBetaRoot(EVAL alpha, EVAL beta, int depth);
-EVAL       AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull);
-EVAL       AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply);
-bool       CheckLimits();
-void       CheckInput();
-int        Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV);
-Move       GetNextBest(MoveList& mvlist, size_t i);
-bool       IsGoodCapture(Move mv);
-void       ProcessInput(const string& s);
-HashEntry* ProbeHash();
-void       RecordHash(Move mv, EVAL score, I8 depth, int ply, U8 type);
-EVAL       SEE(Move mv);
-void       UpdateSortScores(MoveList& mvlist, Move hashMove, int ply);
-void       UpdateSortScoresQ(MoveList& mvlist, int ply);
-
-void AdjustSpeed()
-{
-    if (g_flags & SEARCH_TERMINATED)
-        return;
-
-    if (g_knps > 0 && g_iter > 1)
-    {
-        U32 dt = GetProcTime() - g_t0;
-        double expectedTime = g_nodes / g_knps;
-        while (dt < expectedTime)
-        {
-            CheckInput();
-            if (CheckLimits())
-                return;
-
-            dt = GetProcTime() - g_t0;
-        }
-    }
-}
-
-EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
-{
-    int ply = 0;
-    g_pvSize[ply] = 0;
-
-    Move hashMove = 0;
-    HashEntry* pEntry = ProbeHash();
-
-    if (pEntry != nullptr)
-        hashMove = pEntry->m_mv;
-
-    int legalMoves = 0;
-    Move bestMove = 0;
-    U8 type = HASH_ALPHA;
-    bool inCheck = s_pos.InCheck();
-    bool onPV = (beta - alpha > 1);
-
-    MoveList& mvlist = g_lists[ply];
-    if (inCheck)
-        GenMovesInCheck(s_pos, mvlist);
-    else
-        GenAllMoves(s_pos, mvlist);
-    UpdateSortScores(mvlist, hashMove, ply);
-
-    auto mvSize = mvlist.Size();
-    for (size_t i = 0; i < mvSize; ++i)
-    {
-        CheckInput();
-
-        if (CheckLimits())
-            break;
-
-        Move mv = GetNextBest(mvlist, i);
-        if (s_pos.MakeMove(mv))
-        {
-            ++g_nodes;
-            ++legalMoves;
-            g_histTry[mv.To()][mv.Piece()] += depth;
-
-            if ((GetProcTime() - g_t0) > 2000)
-                cout << "info depth " << depth << " currmove " << MoveToStrLong(mv) << " currmovenumber " << legalMoves << endl;
-
-            int newDepth = depth - 1;
-
-            //
-            //   EXTENSIONS
-            //
-
-            newDepth += Extensions(mv, s_pos.LastMove(), inCheck, ply, onPV);
-
-            EVAL e;
-            if (legalMoves == 1)
-                e = -AlphaBeta(-beta, -alpha, newDepth, ply + 1, false);
-            else
-            {
-                e = -AlphaBeta(-alpha - 1, -alpha, newDepth, ply + 1, false);
-                if (e > alpha && e < beta)
-                    e = -AlphaBeta(-beta, -alpha, newDepth, ply + 1, false);
-            }
-            s_pos.UnmakeMove();
-
-            if (e > alpha)
-            {
-                alpha = e;
-                bestMove = mv;
-                type = HASH_EXACT;
-
-                g_pv[ply][0] = mv;
-                memcpy(g_pv[ply] + 1, g_pv[ply + 1], g_pvSize[ply + 1] * sizeof(Move));
-                g_pvSize[ply] = 1 + g_pvSize[ply + 1];
-
-                if (!mv.Captured())
-                    g_histSuccess[mv.To()][mv.Piece()] += depth;
-            }
-
-            if (alpha >= beta)
-            {
-                type = HASH_BETA;
-                if (!mv.Captured() && !mv.Promotion())
-                {
-                    if (alpha >= CHECKMATE_SCORE - 50)
-                        g_mateKillers[ply] = mv;
-                    else
-                        g_killers[ply] = mv;
-                }
-                break;
-            }
-        }
-    }
-
-    if (legalMoves == 0)
-    {
-        if (inCheck)
-            alpha = -CHECKMATE_SCORE + ply;
-        else
-            alpha = DRAW_SCORE;
-    }
-
-    RecordHash(bestMove, alpha, depth, ply, type);
-    AdjustSpeed();
-
-    return alpha;
-}
-
-EVAL AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
-{
-    if (ply > MAX_PLY - 2)
-        return DRAW_SCORE;
-
-    g_pvSize[ply] = 0;
-
-    if (!isNull && s_pos.Repetitions() >= 2)
-        return DRAW_SCORE;
-
-    COLOR side = s_pos.Side();
-    bool inCheck = s_pos.InCheck();
-    bool onPV = (beta - alpha > 1);
-    bool lateEndgame = (s_pos.MatIndex(side) < 5);
-
-    //
-    //   PROBING HASH
-    //
-
-    Move hashMove = 0;
-    HashEntry* pEntry = ProbeHash();
-    if (pEntry != NULL)
-    {
-        hashMove = pEntry->m_mv;
-
-        if (pEntry->m_depth >= depth)
-        {
-            EVAL score = pEntry->m_score;
-            if (score > CHECKMATE_SCORE - 50 && score <= CHECKMATE_SCORE)
-                score -= ply;
-            if (score < -CHECKMATE_SCORE + 50 && score >= -CHECKMATE_SCORE)
-                score += ply;
-
-            if (pEntry->m_type == HASH_EXACT)
-                return score;
-            if (pEntry->m_type == HASH_ALPHA && score <= alpha)
-                return alpha;
-            if (pEntry->m_type == HASH_BETA && score >= beta)
-                return beta;
-        }
-    }
-
-    if (CheckLimits())
-        return alpha;
-
-    //
-    //   QSEARCH
-    //
-
-    if (!inCheck && depth <= 0)
-        return AlphaBetaQ(alpha, beta, ply, 0);
-
-    //
-    //   FUTILITY
-    //
-
-    bool nonPawnMaterial = s_pos.NonPawnMaterial();
-
-    static const EVAL MARGIN[4] = { 0, 50, 350, 550 };
-    if (nonPawnMaterial && !onPV && !inCheck && depth >= 1 && depth <= 3)
-    {
-        EVAL score = Evaluate(s_pos, alpha - MARGIN[depth], beta + MARGIN[depth]);
-        if (score <= alpha - MARGIN[depth])
-            return AlphaBetaQ(alpha, beta, ply, 0);
-        if (score >= beta + MARGIN[depth])
-            return beta;
-    }
-
-    //
-    //   RAZORING
-    //
-
-    if (!onPV && !inCheck && depth <= 2)
-    {
-        if ((Evaluate(s_pos, -INFINITY_SCORE, INFINITY_SCORE) + 200) < beta)
-        {
-            EVAL score = AlphaBetaQ(alpha, beta, ply, 0);
-
-            if (score < beta)
-                return score;
-        }
-    }
-
-    //
-    //   NULL MOVE
-    //
-
-    int R = depth / 4 + 3;
-    if (!isNull && !onPV && !inCheck && depth >= 2 && nonPawnMaterial)
-    {
-        s_pos.MakeNullMove();
-        EVAL nullScore = (depth - 1 - R > 0)?
-            -AlphaBeta(-beta, -beta + 1, depth - 1 - R, ply + 1, true) :
-            -AlphaBetaQ(-beta, -beta + 1, ply + 1, 0);
-        s_pos.UnmakeNullMove();
-
-        if (nullScore >= beta)
-        {
-            if (nullScore >= (CHECKMATE_SCORE - 50))
-                return beta;
-            else
-                return nullScore;
-        }
-    }
-
-    //
-    //   IID
-    //
-
-    if (onPV && hashMove == 0 && depth > 4)
-    {
-        AlphaBeta(alpha, beta, depth - 4, ply, isNull);
-        if (g_pvSize[ply] > 0)
-            hashMove = g_pv[ply][0];
-    }
-
-    int legalMoves = 0;
-    int quietMoves = 0;
-    Move bestMove = 0;
-    U8 type = HASH_ALPHA;
-
-    MoveList& mvlist = g_lists[ply];
-    if (inCheck)
-        GenMovesInCheck(s_pos, mvlist);
-    else
-        GenAllMoves(s_pos, mvlist);
-    UpdateSortScores(mvlist, hashMove, ply);
-
-    auto mvSize = mvlist.Size();
-    for (size_t i = 0; i < mvSize; ++i)
-    {
-        Move mv = GetNextBest(mvlist, i);
-        if (s_pos.MakeMove(mv))
-        {
-            ++g_nodes;
-            ++legalMoves;
-            g_histTry[mv.To()][mv.Piece()] += depth;
-
-            int newDepth = depth - 1;
-
-            //
-            //   EXTENSIONS
-            //
-
-            newDepth += Extensions(mv, s_pos.LastMove(), inCheck, ply, onPV);
-
-            EVAL e;
-            if (legalMoves == 1)
-                e = -AlphaBeta(-beta, -alpha, newDepth, ply + 1, false);
-            else
-            {
-                //
-                //   LMR
-                //
-
-                int reduction = 0;
-                if (depth >= 3 &&
-                    !onPV &&
-                    !inCheck &&
-                    !s_pos.InCheck() &&
-                    !mv.Captured() &&
-                    !mv.Promotion() &&
-                    mv != g_mateKillers[ply] &&
-                    mv != g_killers[ply] &&
-                    g_histSuccess[mv.Piece()][mv.To()] <= g_histTry[mv.Piece()][mv.To()] * 3 / 4 &&
-                    !lateEndgame)
-                {
-                    ++quietMoves;
-                    if (quietMoves >= 4)
-                        reduction = 1;
-                }
-
-                e = -AlphaBeta(-alpha - 1, -alpha, newDepth - reduction, ply + 1, false);
-
-                if (e > alpha && reduction > 0)
-                    e = -AlphaBeta(-alpha - 1, -alpha, newDepth, ply + 1, false);
-                if (e > alpha && e < beta)
-                    e = -AlphaBeta(-beta, -alpha, newDepth, ply + 1, false);
-            }
-            s_pos.UnmakeMove();
-
-            if (g_flags & SEARCH_TERMINATED)
-                break;
-
-            if (e > alpha)
-            {
-                alpha = e;
-                bestMove = mv;
-                type = HASH_EXACT;
-
-                g_pv[ply][0] = mv;
-                memcpy(g_pv[ply] + 1, g_pv[ply + 1], g_pvSize[ply + 1] * sizeof(Move));
-                g_pvSize[ply] = 1 + g_pvSize[ply + 1];
-
-                if (!mv.Captured())
-                    g_histSuccess[mv.To()][mv.Piece()] += depth;
-            }
-
-            if (alpha >= beta)
-            {
-                type = HASH_BETA;
-                if (!mv.Captured())
-                {
-                    if (alpha >= CHECKMATE_SCORE - 50)
-                        g_mateKillers[ply] = mv;
-                    else
-                        g_killers[ply] = mv;
-                }
-                break;
-            }
-        }
-    }
-
-    if (legalMoves == 0)
-    {
-        if (inCheck)
-            alpha = -CHECKMATE_SCORE + ply;
-        else
-            alpha = DRAW_SCORE;
-    }
-    else
-    {
-        if (s_pos.Fifty() >= 100)
-            alpha = DRAW_SCORE;
-    }
-
-    RecordHash(bestMove, alpha, depth, ply, type);
-    AdjustSpeed();
-
-    return alpha;
-}
-
-EVAL AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
-{
-    if (ply > MAX_PLY - 2)
-        return alpha;
-
-    g_pvSize[ply] = 0;
-
-    bool inCheck = s_pos.InCheck();
-    if (!inCheck)
-    {
-        EVAL staticScore = Evaluate(s_pos, alpha, beta);
-        if (staticScore > alpha)
-            alpha = staticScore;
-        if (alpha >= beta)
-            return beta;
-    }
-
-    if (CheckLimits())
-        return alpha;
-
-    MoveList& mvlist = g_lists[ply];
-    if (inCheck)
-        GenMovesInCheck(s_pos, mvlist);
-    else
-    {
-        GenCapturesAndPromotions(s_pos, mvlist);
-        if (qply < 2)
-            AddSimpleChecks(s_pos, mvlist);
-    }
-    UpdateSortScoresQ(mvlist, ply);
-
-    int legalMoves = 0;
-    auto mvSize = mvlist.Size();
-    for (size_t i = 0; i < mvSize; ++i)
-    {
-        Move mv = GetNextBest(mvlist, i);
-
-        if (!inCheck && SEE(mv) < 0)
-            continue;
-
-        if (s_pos.MakeMove(mv))
-        {
-            ++g_nodes;
-            ++legalMoves;
-
-            EVAL e = -AlphaBetaQ(-beta, -alpha, ply + 1, qply + 1);
-            s_pos.UnmakeMove();
-
-            if (g_flags & SEARCH_TERMINATED)
-                break;
-
-            if (e > alpha)
-            {
-                alpha = e;
-                g_pv[ply][0] = mv;
-                memcpy(g_pv[ply] + 1, g_pv[ply + 1], g_pvSize[ply + 1] * sizeof(Move));
-                g_pvSize[ply] = 1 + g_pvSize[ply + 1];
-            }
-            if (alpha >= beta)
-                break;
-        }
-    }
-
-    if (legalMoves == 0)
-    {
-        if (inCheck)
-            alpha = -CHECKMATE_SCORE + ply;
-    }
-
-    return alpha;
-}
-
 bool CheckLimits()
 {
     if (g_flags & SEARCH_TERMINATED)
         return true;
-
-    if (g_iterPVSize == 0)
-        return false;
 
     if (Time::instance().getTimeMode() == Time::TimeControl::NodesLimit)
     {
@@ -544,43 +86,503 @@ bool CheckLimits()
     return (g_flags & SEARCH_TERMINATED);
 }
 
-void CheckInput()
+void ProcessInput(const string& s)
 {
-    if (g_iter < 2)
+    vector<string> tokens;
+    Split(s, tokens);
+    if (tokens.empty())
         return;
 
+    string cmd = tokens[0];
+
+    if (g_flags & MODE_PLAY)
+    {
+        if (cmd == "?")
+            g_flags |= TERMINATED_BY_USER;
+        else if (Is(cmd, "result", 1))
+        {
+            //m_iterPVSize = 0;
+            g_flags |= TERMINATED_BY_USER;
+        }
+    }
+
+    if (Is(cmd, "exit", 1))
+        g_flags |= TERMINATED_BY_USER;
+    else if (Is(cmd, "quit", 1))
+        exit(0);
+    else if (Is(cmd, "stop", 1))
+        g_flags |= TERMINATED_BY_USER;
+}
+
+void CheckInput()
+{
     if (InputAvailable())
     {
         string s;
         getline(cin, s);
-        ProcessInput(s);
+        ::ProcessInput(s);
     }
 }
 
-void ClearHash()
+void AdjustSpeed()
+{
+    if (g_flags & SEARCH_TERMINATED || !g_knps)
+        return;
+
+    U32 dt = GetProcTime() - g_t0;
+    double expectedTime = g_nodes / g_knps;
+
+    while (dt < expectedTime)
+    {
+        ::CheckInput();
+        if (::CheckLimits())
+            return;
+        dt = GetProcTime() - g_t0;
+    }
+}
+
+Search::Search(): m_depth(0), m_iterPVSize(0)
+{
+
+}
+
+void Search::setPosition(Position pos)
+{
+    m_position = pos;
+}
+
+EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
+{
+    int ply = 0;
+    m_pvSize[ply] = 0;
+
+    Move hashMove = 0;
+    HashEntry* pEntry = ProbeHash();
+
+    if (pEntry != nullptr)
+        hashMove = pEntry->m_mv;
+
+    int legalMoves = 0;
+    Move bestMove = 0;
+    U8 type = HASH_ALPHA;
+    bool inCheck = m_position.InCheck();
+    bool onPV = (beta - alpha > 1);
+
+    MoveList& mvlist = m_lists[ply];
+    if (inCheck)
+        GenMovesInCheck(m_position, mvlist);
+    else
+        GenAllMoves(m_position, mvlist);
+    UpdateSortScores(mvlist, hashMove, ply);
+
+    auto mvSize = mvlist.Size();
+    for (size_t i = 0; i < mvSize; ++i)
+    {
+        ::CheckInput();
+
+        if (::CheckLimits())
+            break;
+
+        Move mv = GetNextBest(mvlist, i);
+        if (m_position.MakeMove(mv))
+        {
+            ++g_nodes;
+            ++legalMoves;
+            m_histTry[mv.To()][mv.Piece()] += depth;
+
+            if ((GetProcTime() - g_t0) > 2000)
+                cout << "info depth " << depth << " currmove " << MoveToStrLong(mv) << " currmovenumber " << legalMoves << endl;
+
+            int newDepth = depth - 1;
+
+            //
+            //   EXTENSIONS
+            //
+
+            newDepth += Extensions(mv, m_position.LastMove(), inCheck, ply, onPV);
+
+            EVAL e;
+            if (legalMoves == 1)
+                e = -AlphaBeta(-beta, -alpha, newDepth, ply + 1, false);
+            else
+            {
+                e = -AlphaBeta(-alpha - 1, -alpha, newDepth, ply + 1, false);
+                if (e > alpha && e < beta)
+                    e = -AlphaBeta(-beta, -alpha, newDepth, ply + 1, false);
+            }
+            m_position.UnmakeMove();
+
+            if (e > alpha)
+            {
+                alpha = e;
+                bestMove = mv;
+                type = HASH_EXACT;
+
+                m_pv[ply][0] = mv;
+                memcpy(m_pv[ply] + 1, m_pv[ply + 1], m_pvSize[ply + 1] * sizeof(Move));
+                m_pvSize[ply] = 1 + m_pvSize[ply + 1];
+
+                if (!mv.Captured())
+                    m_histSuccess[mv.To()][mv.Piece()] += depth;
+            }
+
+            if (alpha >= beta)
+            {
+                type = HASH_BETA;
+                if (!mv.Captured() && !mv.Promotion())
+                {
+                    if (alpha >= CHECKMATE_SCORE - 50)
+                        m_mateKillers[ply] = mv;
+                    else
+                        m_killers[ply] = mv;
+                }
+                break;
+            }
+        }
+    }
+
+    if (legalMoves == 0)
+    {
+        if (inCheck)
+            alpha = -CHECKMATE_SCORE + ply;
+        else
+            alpha = DRAW_SCORE;
+    }
+
+    RecordHash(bestMove, alpha, depth, ply, type);
+    AdjustSpeed();
+
+    return alpha;
+}
+
+EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
+{
+    if (ply > MAX_PLY - 2)
+        return DRAW_SCORE;
+
+    m_pvSize[ply] = 0;
+
+    if (!isNull && m_position.Repetitions() >= 2)
+        return DRAW_SCORE;
+
+    COLOR side = m_position.Side();
+    bool inCheck = m_position.InCheck();
+    bool onPV = (beta - alpha > 1);
+    bool lateEndgame = (m_position.MatIndex(side) < 5);
+
+    //
+    //   PROBING HASH
+    //
+
+    Move hashMove = 0;
+    HashEntry* pEntry = ProbeHash();
+    if (pEntry != NULL)
+    {
+        hashMove = pEntry->m_mv;
+
+        if (pEntry->m_depth >= depth)
+        {
+            EVAL score = pEntry->m_score;
+            if (score > CHECKMATE_SCORE - 50 && score <= CHECKMATE_SCORE)
+                score -= ply;
+            if (score < -CHECKMATE_SCORE + 50 && score >= -CHECKMATE_SCORE)
+                score += ply;
+
+            if (pEntry->m_type == HASH_EXACT)
+                return score;
+            if (pEntry->m_type == HASH_ALPHA && score <= alpha)
+                return alpha;
+            if (pEntry->m_type == HASH_BETA && score >= beta)
+                return beta;
+        }
+    }
+
+    if (::CheckLimits())
+        return alpha;
+
+    //
+    //   QSEARCH
+    //
+
+    if (!inCheck && depth <= 0)
+        return AlphaBetaQ(alpha, beta, ply, 0);
+
+    //
+    //   FUTILITY
+    //
+
+    bool nonPawnMaterial = m_position.NonPawnMaterial();
+
+    static const EVAL MARGIN[4] = { 0, 50, 350, 550 };
+    if (nonPawnMaterial && !onPV && !inCheck && depth >= 1 && depth <= 3)
+    {
+        EVAL score = Evaluate(m_position, alpha - MARGIN[depth], beta + MARGIN[depth]);
+        if (score <= alpha - MARGIN[depth])
+            return AlphaBetaQ(alpha, beta, ply, 0);
+        if (score >= beta + MARGIN[depth])
+            return beta;
+    }
+
+    //
+    //   RAZORING
+    //
+
+    if (!onPV && !inCheck && depth <= 2)
+    {
+        if ((Evaluate(m_position, -INFINITY_SCORE, INFINITY_SCORE) + 200) < beta)
+        {
+            EVAL score = AlphaBetaQ(alpha, beta, ply, 0);
+
+            if (score < beta)
+                return score;
+        }
+    }
+
+    //
+    //   NULL MOVE
+    //
+
+    int R = depth / 4 + 3;
+    if (!isNull && !onPV && !inCheck && depth >= 2 && nonPawnMaterial)
+    {
+        m_position.MakeNullMove();
+        EVAL nullScore = (depth - 1 - R > 0)?
+            -AlphaBeta(-beta, -beta + 1, depth - 1 - R, ply + 1, true) :
+            -AlphaBetaQ(-beta, -beta + 1, ply + 1, 0);
+        m_position.UnmakeNullMove();
+
+        if (nullScore >= beta)
+        {
+            if (nullScore >= (CHECKMATE_SCORE - 50))
+                return beta;
+            else
+                return nullScore;
+        }
+    }
+
+    //
+    //   IID
+    //
+
+    if (onPV && hashMove == 0 && depth > 4)
+    {
+        AlphaBeta(alpha, beta, depth - 4, ply, isNull);
+        if (m_pvSize[ply] > 0)
+            hashMove = m_pv[ply][0];
+    }
+
+    int legalMoves = 0;
+    int quietMoves = 0;
+    Move bestMove = 0;
+    U8 type = HASH_ALPHA;
+
+    MoveList& mvlist = m_lists[ply];
+    if (inCheck)
+        GenMovesInCheck(m_position, mvlist);
+    else
+        GenAllMoves(m_position, mvlist);
+    UpdateSortScores(mvlist, hashMove, ply);
+
+    auto mvSize = mvlist.Size();
+    for (size_t i = 0; i < mvSize; ++i)
+    {
+        Move mv = GetNextBest(mvlist, i);
+        if (m_position.MakeMove(mv))
+        {
+            ++g_nodes;
+            ++legalMoves;
+            m_histTry[mv.To()][mv.Piece()] += depth;
+
+            int newDepth = depth - 1;
+
+            //
+            //   EXTENSIONS
+            //
+
+            newDepth += Extensions(mv, m_position.LastMove(), inCheck, ply, onPV);
+
+            EVAL e;
+            if (legalMoves == 1)
+                e = -AlphaBeta(-beta, -alpha, newDepth, ply + 1, false);
+            else
+            {
+                //
+                //   LMR
+                //
+
+                int reduction = 0;
+                if (depth >= 3 &&
+                    !onPV &&
+                    !inCheck &&
+                    !m_position.InCheck() &&
+                    !mv.Captured() &&
+                    !mv.Promotion() &&
+                    mv != m_mateKillers[ply] &&
+                    mv != m_killers[ply] &&
+                    m_histSuccess[mv.Piece()][mv.To()] <= m_histTry[mv.Piece()][mv.To()] * 3 / 4 &&
+                    !lateEndgame)
+                {
+                    ++quietMoves;
+                    if (quietMoves >= 4)
+                        reduction = 1;
+                }
+
+                e = -AlphaBeta(-alpha - 1, -alpha, newDepth - reduction, ply + 1, false);
+
+                if (e > alpha && reduction > 0)
+                    e = -AlphaBeta(-alpha - 1, -alpha, newDepth, ply + 1, false);
+                if (e > alpha && e < beta)
+                    e = -AlphaBeta(-beta, -alpha, newDepth, ply + 1, false);
+            }
+            m_position.UnmakeMove();
+
+            if (g_flags & SEARCH_TERMINATED)
+                break;
+
+            if (e > alpha)
+            {
+                alpha = e;
+                bestMove = mv;
+                type = HASH_EXACT;
+
+                m_pv[ply][0] = mv;
+                memcpy(m_pv[ply] + 1, m_pv[ply + 1], m_pvSize[ply + 1] * sizeof(Move));
+                m_pvSize[ply] = 1 + m_pvSize[ply + 1];
+
+                if (!mv.Captured())
+                    m_histSuccess[mv.To()][mv.Piece()] += depth;
+            }
+
+            if (alpha >= beta)
+            {
+                type = HASH_BETA;
+                if (!mv.Captured())
+                {
+                    if (alpha >= CHECKMATE_SCORE - 50)
+                        m_mateKillers[ply] = mv;
+                    else
+                        m_killers[ply] = mv;
+                }
+                break;
+            }
+        }
+    }
+
+    if (legalMoves == 0)
+    {
+        if (inCheck)
+            alpha = -CHECKMATE_SCORE + ply;
+        else
+            alpha = DRAW_SCORE;
+    }
+    else
+    {
+        if (m_position.Fifty() >= 100)
+            alpha = DRAW_SCORE;
+    }
+
+    RecordHash(bestMove, alpha, depth, ply, type);
+    AdjustSpeed();
+
+    return alpha;
+}
+
+EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
+{
+    if (ply > MAX_PLY - 2)
+        return alpha;
+
+    m_pvSize[ply] = 0;
+
+    bool inCheck = m_position.InCheck();
+    if (!inCheck)
+    {
+        EVAL staticScore = Evaluate(m_position, alpha, beta);
+        if (staticScore > alpha)
+            alpha = staticScore;
+        if (alpha >= beta)
+            return beta;
+    }
+
+    if (::CheckLimits())
+        return alpha;
+
+    MoveList& mvlist = m_lists[ply];
+    if (inCheck)
+        GenMovesInCheck(m_position, mvlist);
+    else
+    {
+        GenCapturesAndPromotions(m_position, mvlist);
+        if (qply < 2)
+            AddSimpleChecks(m_position, mvlist);
+    }
+    UpdateSortScoresQ(mvlist, ply);
+
+    int legalMoves = 0;
+    auto mvSize = mvlist.Size();
+    for (size_t i = 0; i < mvSize; ++i)
+    {
+        Move mv = GetNextBest(mvlist, i);
+
+        if (!inCheck && SEE(mv) < 0)
+            continue;
+
+        if (m_position.MakeMove(mv))
+        {
+            ++g_nodes;
+            ++legalMoves;
+
+            EVAL e = -AlphaBetaQ(-beta, -alpha, ply + 1, qply + 1);
+            m_position.UnmakeMove();
+
+            if (g_flags & SEARCH_TERMINATED)
+                break;
+
+            if (e > alpha)
+            {
+                alpha = e;
+                m_pv[ply][0] = mv;
+                memcpy(m_pv[ply] + 1, m_pv[ply + 1], m_pvSize[ply + 1] * sizeof(Move));
+                m_pvSize[ply] = 1 + m_pvSize[ply + 1];
+            }
+            if (alpha >= beta)
+                break;
+        }
+    }
+
+    if (legalMoves == 0)
+    {
+        if (inCheck)
+            alpha = -CHECKMATE_SCORE + ply;
+    }
+
+    return alpha;
+}
+
+void Search::ClearHash()
 {
     assert(g_hash != NULL);
     assert(g_hashSize > 0);
     memset(g_hash, 0, g_hashSize * sizeof(HashEntry));
 }
 
-void ClearHistory()
+void Search::ClearHistory()
 {
-    memset(g_histTry, 0, 64 * 14 * sizeof(int));
-    memset(g_histSuccess, 0, 64 * 14 * sizeof(int));
+    memset(m_histTry, 0, 64 * 14 * sizeof(int));
+    memset(m_histSuccess, 0, 64 * 14 * sizeof(int));
 }
 
-void ClearKillers()
+void Search::ClearKillers()
 {
-    memset(g_killers, 0, MAX_PLY * sizeof(Move));
-    memset(g_mateKillers, 0, MAX_PLY * sizeof(Move));
+    memset(m_killers, 0, MAX_PLY * sizeof(Move));
+    memset(m_mateKillers, 0, MAX_PLY * sizeof(Move));
 }
 
-int Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV)
+int Search::Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV)
 {
     if (inCheck)
         return 1;
-    else if (ply < 2 * g_iter)
+    else if (ply < 2 * m_depth)
     {
         if (mv.Piece() == PW && Row(mv.To()) == 1)
             return 1;
@@ -592,7 +594,7 @@ int Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV)
     return 0;
 }
 
-Move GetNextBest(MoveList& mvlist, size_t i)
+Move Search::GetNextBest(MoveList& mvlist, size_t i)
 {
     if (i == 0 && mvlist[0].m_score == SORT_HASH)
         return mvlist[0].m_mv;
@@ -606,7 +608,7 @@ Move GetNextBest(MoveList& mvlist, size_t i)
     return mvlist[i].m_mv;
 }
 
-bool HaveSingleMove(Position& pos, Move & bestMove)
+bool Search::HaveSingleMove(Position& pos, Move & bestMove)
 {
     MoveList mvlist;
     GenAllMoves(pos, mvlist);
@@ -637,7 +639,7 @@ bool HaveSingleMove(Position& pos, Move & bestMove)
     return (legalMoves == 1);
 }
 
-bool IsGameOver(Position& pos, string& result, string& comment)
+bool Search::IsGameOver(Position& pos, string& result, string& comment)
 {
     if (pos.Count(PW) == 0 && pos.Count(PB) == 0)
     {
@@ -705,12 +707,12 @@ bool IsGameOver(Position& pos, string& result, string& comment)
     return false;
 }
 
-bool IsGoodCapture(Move mv)
+bool Search::IsGoodCapture(Move mv)
 {
     return SORT_VALUE[mv.Captured()] >= SORT_VALUE[mv.Piece()];
 }
 
-void PrintPV(const Position& pos, int iter, EVAL score, const Move* pv, int pvSize, const string& sign)
+void Search::PrintPV(const Position& pos, int iter, EVAL score, const Move* pv, int pvSize, const string& sign)
 {
     if (pvSize == 0)
         return;
@@ -733,62 +735,12 @@ void PrintPV(const Position& pos, int iter, EVAL score, const Move* pv, int pvSi
     cout << endl;
 }
 
-void ProcessInput(const string& s)
-{
-    vector<string> tokens;
-    Split(s, tokens);
-    if (tokens.empty())
-        return;
-
-    string cmd = tokens[0];
-
-    if (g_flags & MODE_ANALYZE)
-    {
-        if (CanBeMove(cmd))
-        {
-            Move mv = StrToMove(cmd, g_pos);
-            if (mv)
-            {
-                g_pos.MakeMove(mv);
-                g_queue.push_back("analyze");
-                g_flags |= TERMINATED_BY_USER;
-            }
-        }
-        else if (Is(cmd, "undo", 1) && (g_flags & MODE_ANALYZE))
-        {
-            g_pos.UnmakeMove();
-            g_queue.push_back("analyze");
-            g_flags |= TERMINATED_BY_USER;
-        }
-    }
-
-    if (g_flags & MODE_PLAY)
-    {
-        if (cmd == "?")
-            g_flags |= TERMINATED_BY_USER;
-        else if (Is(cmd, "result", 1))
-        {
-            g_iterPVSize = 0;
-            g_flags |= TERMINATED_BY_USER;
-        }
-    }
-
-    if (Is(cmd, "board", 1))
-        g_pos.Print();
-    else if (Is(cmd, "exit", 1))
-        g_flags |= TERMINATED_BY_USER;
-    else if (Is(cmd, "quit", 1))
-        exit(0);
-    else if (Is(cmd, "stop", 1))
-        g_flags |= TERMINATED_BY_USER;
-}
-
-HashEntry* ProbeHash()
+HashEntry* Search::ProbeHash()
 {
     assert(g_hash != NULL);
     assert(g_hashSize > 0);
 
-    U64 hash0 = s_pos.Hash();
+    U64 hash0 = m_position.Hash();
 
     int index = hash0 % g_hashSize;
     HashEntry* pEntry = g_hash + index;
@@ -799,7 +751,7 @@ HashEntry* ProbeHash()
         return NULL;
 }
 
-void RecordHash(Move mv, EVAL score, I8 depth, int ply, U8 type)
+void Search::RecordHash(Move mv, EVAL score, I8 depth, int ply, U8 type)
 {
     assert(g_hash != NULL);
     assert(g_hashSize > 0);
@@ -807,7 +759,7 @@ void RecordHash(Move mv, EVAL score, I8 depth, int ply, U8 type)
     if (g_flags & SEARCH_TERMINATED)
         return;
 
-    U64 hash0 = s_pos.Hash();
+    U64 hash0 = m_position.Hash();
 
     int index = hash0 % g_hashSize;
     HashEntry& entry = g_hash[index];
@@ -829,9 +781,9 @@ void RecordHash(Move mv, EVAL score, I8 depth, int ply, U8 type)
     }
 }
 
-EVAL SEE_Exchange(FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ)
+EVAL Search::SEE_Exchange(FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ)
 {
-    U64 att = s_pos.GetAttacks(to, side, occ) & occ;
+    U64 att = m_position.GetAttacks(to, side, occ) & occ;
     if (att == 0)
         return currScore;
 
@@ -842,7 +794,7 @@ EVAL SEE_Exchange(FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ)
     while (att)
     {
         FLD f = PopLSB(att);
-        piece = s_pos[f];
+        piece = m_position[f];
         if (SORT_VALUE[piece] < newTarget)
         {
             from = f;
@@ -855,7 +807,7 @@ EVAL SEE_Exchange(FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ)
     return (score > currScore)? score : currScore;
 }
 
-EVAL SEE(Move mv)
+EVAL Search::SEE(Move mv)
 {
     FLD from = mv.From();
     FLD to = mv.To();
@@ -871,13 +823,13 @@ EVAL SEE(Move mv)
         piece = promotion;
     }
 
-    U64 occ = s_pos.BitsAll() ^ BB_SINGLE[from];
+    U64 occ = m_position.BitsAll() ^ BB_SINGLE[from];
     EVAL score = - SEE_Exchange(to, side ^ 1, -score0, SORT_VALUE[piece], occ);
 
     return score;
 }
 
-void SetHashSize(double mb)
+void Search::SetHashSize(double mb)
 {
     if (g_hash)
         delete[] g_hash;
@@ -886,7 +838,7 @@ void SetHashSize(double mb)
     g_hash = new HashEntry[g_hashSize];
 }
 
-void SetStrength(int level)
+void Search::SetStrength(int level)
 {
     if (level < 0)
         level = 0;
@@ -904,7 +856,7 @@ void SetStrength(int level)
         g_knps = 0;
 }
 
-Move FirstLegalMove(Position& pos)
+Move Search::FirstLegalMove(Position& pos)
 {
     MoveList mvlist;
     GenAllMoves(pos, mvlist);
@@ -913,9 +865,9 @@ Move FirstLegalMove(Position& pos)
     for (size_t i = 0; i < mvSize; ++i)
     {
         Move mv = mvlist[i].m_mv;
-        if (s_pos.MakeMove(mv))
+        if (m_position.MakeMove(mv))
         {
-            s_pos.UnmakeMove();
+            m_position.UnmakeMove();
             return mv;
         }
     }
@@ -923,9 +875,9 @@ Move FirstLegalMove(Position& pos)
     return 0;
 }
 
-Move StartSearch(const Position& pos)
+Move Search::StartSearch()
 {
-    if ((Time::instance().getHardLimit()) && (g_pos.Side() == WHITE) && (g_pos.isInitialPosition()))
+    if ((Time::instance().getHardLimit()) && (m_position.Side() == WHITE) && (m_position.isInitialPosition()))
     {
         Move moves[5] = { Move(B1, C3, NW), Move(G1, F3, NW), Move(D2, D4, PW), Move(E2, E4, PW), Move(E2, E3, PW) };
         RandSeed(time(0));
@@ -936,8 +888,7 @@ Move StartSearch(const Position& pos)
     g_t0 = GetProcTime();
     g_nodes = 0;
     g_flags = (timeMode == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
-    g_iterPVSize = 0;
-    s_pos = pos;
+    m_iterPVSize = 0;
 
     ++g_hashAge;
 
@@ -946,19 +897,19 @@ Move StartSearch(const Position& pos)
     EVAL aspiration = 15;
     EVAL score = alpha;
     Move best;
-    bool singleMove = HaveSingleMove(s_pos, best);
+    bool singleMove = HaveSingleMove(m_position, best);
 
     string result, comment;
 
-    if (IsGameOver(s_pos, result, comment))
+    if (IsGameOver(m_position, result, comment))
     {
         cout << result << " " << comment << endl << endl;
     }
     else
     {
-        for (g_iter = 1; g_iter < MAX_PLY; ++g_iter)
+        for (m_depth = 1; m_depth < MAX_PLY; ++m_depth)
         {
-            score = AlphaBetaRoot(alpha, beta, g_iter);
+            score = AlphaBetaRoot(alpha, beta, m_depth);
 
             if (g_flags & SEARCH_TERMINATED)
                 break;
@@ -975,13 +926,13 @@ Move StartSearch(const Position& pos)
                 alpha = score - aspiration;
                 beta = score + aspiration;
 
-                memcpy(g_iterPV, g_pv[0], g_pvSize[0] * sizeof(Move));
-                g_iterPVSize = g_pvSize[0];
+                memcpy(m_iterPV, m_pv[0], m_pvSize[0] * sizeof(Move));
+                m_iterPVSize = m_pvSize[0];
 
-                if (g_iterPVSize && g_pv[0][0])
-                    best = g_pv[0][0];
+                if (m_iterPVSize && m_pv[0][0])
+                    best = m_pv[0][0];
 
-                PrintPV(pos, g_iter, score, g_pv[0], g_pvSize[0], "");
+                PrintPV(m_position, m_depth, score, m_pv[0], m_pvSize[0], "");
 
                 if (Time::instance().getSoftLimit() > 0 && dt >= Time::instance().getSoftLimit())
                 {
@@ -1002,7 +953,7 @@ Move StartSearch(const Position& pos)
                         break;
                     }
 
-                    if (score + g_iter >= CHECKMATE_SCORE)
+                    if (score + m_depth >= CHECKMATE_SCORE)
                     {
                         g_flags |= TERMINATED_BY_LIMIT;
                         break;
@@ -1015,8 +966,8 @@ Move StartSearch(const Position& pos)
                 beta = INFINITY_SCORE;
 
                 if (!(g_flags & MODE_SILENT))
-                    PrintPV(pos, g_iter, score, g_pv[0], g_pvSize[0], "");
-                --g_iter;
+                    PrintPV(m_position, m_depth, score, m_pv[0], m_pvSize[0], "");
+                --m_depth;
 
                 aspiration += aspiration / 4 + 5;
             }
@@ -1025,22 +976,22 @@ Move StartSearch(const Position& pos)
                 alpha = -INFINITY_SCORE;
                 beta = INFINITY_SCORE;
 
-                memcpy(g_iterPV, g_pv[0], g_pvSize[0] * sizeof(Move));
-                g_iterPVSize = g_pvSize[0];
+                memcpy(m_iterPV, m_pv[0], m_pvSize[0] * sizeof(Move));
+                m_iterPVSize = m_pvSize[0];
 
-                if (g_iterPVSize && g_pv[0][0])
-                    best = g_pv[0][0];
+                if (m_iterPVSize && m_pv[0][0])
+                    best = m_pv[0][0];
 
                 if (!(g_flags & MODE_SILENT))
-                    PrintPV(pos, g_iter, score, g_pv[0], g_pvSize[0], "");
-                --g_iter;
+                    PrintPV(m_position, m_depth, score, m_pv[0], m_pvSize[0], "");
+                --m_depth;
                 aspiration += aspiration / 4 + 5;
             }
 
             dt = GetProcTime() - g_t0;
 
             if (dt > 2000)
-                cout << "info depth " << g_iter << " time " << dt << " nodes " << g_nodes << " nps " << 1000 * g_nodes / dt << endl;
+                cout << "info depth " << m_depth << " time " << dt << " nodes " << g_nodes << " nps " << 1000 * g_nodes / dt << endl;
 
             if (Time::instance().getSoftLimit() > 0 && dt >= Time::instance().getSoftLimit())
             {
@@ -1061,14 +1012,14 @@ Move StartSearch(const Position& pos)
                     break;
                 }
 
-                if (score + g_iter >= CHECKMATE_SCORE)
+                if (score + m_depth >= CHECKMATE_SCORE)
                 {
                     g_flags |= TERMINATED_BY_LIMIT;
                     break;
                 }
             }
 
-            if ((timeMode == Time::TimeControl::DepthLimit) && g_iter >= static_cast<int>(Time::instance().getDepthLimit()))
+            if ((timeMode == Time::TimeControl::DepthLimit) && m_depth >= static_cast<int>(Time::instance().getDepthLimit()))
             {
                 g_flags |= TERMINATED_BY_LIMIT;
                 break;
@@ -1089,7 +1040,7 @@ Move StartSearch(const Position& pos)
     return best;
 }
 
-void UpdateSortScores(MoveList& mvlist, Move hashMove, int ply)
+void Search::UpdateSortScores(MoveList& mvlist, Move hashMove, int ply)
 {
     auto mvSize = mvlist.Size();
     for (size_t j = 0; j < mvSize; ++j)
@@ -1108,20 +1059,20 @@ void UpdateSortScores(MoveList& mvlist, Move hashMove, int ply)
 
             mvlist[j].m_score = SORT_CAPTURE + 10 * (s_captured + s_promotion) - s_piece;
         }
-        else if (mv == g_mateKillers[ply])
+        else if (mv == m_mateKillers[ply])
             mvlist[j].m_score = SORT_MATE_KILLER;
-        else if (mv == g_killers[ply])
+        else if (mv == m_killers[ply])
             mvlist[j].m_score = SORT_KILLER;
         else
         {
             mvlist[j].m_score = SORT_HISTORY;
-            if (g_histTry[mv.To()][mv.Piece()] > 0)
-                mvlist[j].m_score += 100 * g_histSuccess[mv.To()][mv.Piece()] / g_histTry[mv.To()][mv.Piece()];
+            if (m_histTry[mv.To()][mv.Piece()] > 0)
+                mvlist[j].m_score += 100 * m_histSuccess[mv.To()][mv.Piece()] / m_histTry[mv.To()][mv.Piece()];
         }
     }
 }
 
-void UpdateSortScoresQ(MoveList& mvlist, int ply)
+void Search::UpdateSortScoresQ(MoveList& mvlist, int ply)
 {
     auto mvSize = mvlist.Size();
     for (size_t j = 0; j < mvSize; ++j)
@@ -1135,15 +1086,15 @@ void UpdateSortScoresQ(MoveList& mvlist, int ply)
 
             mvlist[j].m_score = SORT_CAPTURE + 10 * (s_captured + s_promotion) - s_piece;
         }
-        else if (mv == g_mateKillers[ply])
+        else if (mv == m_mateKillers[ply])
             mvlist[j].m_score = SORT_MATE_KILLER;
-        else if (mv == g_killers[ply])
+        else if (mv == m_killers[ply])
             mvlist[j].m_score = SORT_KILLER;
         else
         {
             mvlist[j].m_score = SORT_HISTORY;
-            if (g_histTry[mv.To()][mv.Piece()] > 0)
-                mvlist[j].m_score += 100 * g_histSuccess[mv.To()][mv.Piece()] / g_histTry[mv.To()][mv.Piece()];
+            if (m_histTry[mv.To()][mv.Piece()] > 0)
+                mvlist[j].m_score += 100 * m_histSuccess[mv.To()][mv.Piece()] / m_histTry[mv.To()][mv.Piece()];
         }
     }
 }
