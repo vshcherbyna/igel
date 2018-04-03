@@ -21,14 +21,14 @@
 
 import os
 import epd_test
-    
-if epd_test.run_test('../igel',  10,  'epds/bk.epd') != 16:
-    raise Exception("test failed:", "bratko kopec test")
 
 if epd_test.run_test('../igel',  10,  'epds/null_move.epd') != 4:
     raise Exception("test failed:", "null move test")
 
-if epd_test.run_test('../igel',  10,  'epds/dann_corbit_tune.epd') != 113:
+if epd_test.run_test('../igel',  10,  'epds/bk.epd') != 16:
+    raise Exception("test failed:", "bratko kopec test")
+
+if epd_test.run_test('../igel',  10,  'epds/dann_corbit_tune.epd') != 114:
     raise Exception("test failed:", "dann corbit tune test")
 
 if os.system('python ./go_infinite_test.py') != 0:

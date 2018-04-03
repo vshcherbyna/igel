@@ -25,8 +25,10 @@
 #include "utils.h"
 #include "time.h"
 
+#include <thread>
+
 const string PROGRAM_NAME   = "igel";
-const string VERSION        = "0.4";
+const string VERSION        = "0.5";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 1024;
@@ -36,7 +38,8 @@ extern Pair PSQ[14][64];
 extern Pair PSQ_PP_BLOCKED[64];
 extern Pair PSQ_PP_FREE[64];
 
-Position g_pos;
+Search g_search;
+Position g_position;
 deque<string> g_queue;
 FILE* g_log = NULL;
 
@@ -48,26 +51,27 @@ void OnZero();
 
 void OnEval()
 {
-    cout << Evaluate(g_pos, -INFINITY_SCORE, INFINITY_SCORE) << endl;
+    cout << Evaluate(g_position, -INFINITY_SCORE, INFINITY_SCORE) << endl;
 }
 
 void OnFEN()
 {
-    cout << g_pos.FEN() << endl;
+    cout << g_position.FEN() << endl;
 }
 
 void OnFlip()
 {
-    g_pos.Mirror();
-    g_pos.Print();
+    g_position.Mirror();
+    g_position.Print();
 }
 
 void OnGoUci()
 {
-    if (Time::instance().parseTime(g_tokens, g_pos.Side() == WHITE) == false)
+    if (Time::instance().parseTime(g_tokens, g_position.Side() == WHITE) == false)
         cout << "Error: unable to parse command line" << endl;
 
-    Move mv = StartSearch(g_pos);
+    g_search.setPosition(g_position);
+    Move mv = g_search.StartSearch();
     cout << "bestmove " << MoveToStrLong(mv) << endl;
 }
 
@@ -79,7 +83,7 @@ void OnIsready()
 void OnList()
 {
     MoveList mvlist;
-    GenAllMoves(g_pos, mvlist);
+    GenAllMoves(g_position, mvlist);
 
     auto mvSize = mvlist.Size();
     for (size_t i = 0; i < mvSize; ++i)
@@ -116,9 +120,9 @@ void OnLoad()
         if(!getline(ifs, fen)) break;
     }
 
-    if (g_pos.SetFEN(fen))
+    if (g_position.SetFEN(fen))
     {
-        g_pos.Print();
+        g_position.Print();
         cout << fen << endl << endl;
     }
     else
@@ -165,11 +169,11 @@ void OnMT()
 void OnNew()
 {
     g_force = false;
-    g_pos.SetInitial();
+    g_position.SetInitial();
 
-    ClearHash();
-    ClearHistory();
-    ClearKillers();
+    g_search.ClearHash();
+    g_search.ClearHistory();
+    g_search.ClearKillers();
 }
 
 void OnPing()
@@ -199,11 +203,11 @@ void OnPosition()
                 fen += " ";
             fen += g_tokens[i];
         }
-        g_pos.SetFEN(fen);
+        g_position.SetFEN(fen);
     }
     else if (g_tokens[1] == "startpos")
     {
-        g_pos.SetInitial();
+        g_position.SetInitial();
         for (size_t i = 2; i < g_tokens.size(); ++i)
         {
             if (g_tokens[i] == "moves")
@@ -218,8 +222,8 @@ void OnPosition()
     {
         for (size_t i = movesTag + 1; i < g_tokens.size(); ++i)
         {
-            Move mv = StrToMove(g_tokens[i], g_pos);
-            g_pos.MakeMove(mv);
+            Move mv = StrToMove(g_tokens[i], g_position);
+            g_position.MakeMove(mv);
         }
     }
 }
@@ -315,8 +319,8 @@ void OnPSQ()
 
 void OnSetboard()
 {
-    if (g_pos.SetFEN(g_s.c_str() + 9))
-        g_pos.Print();
+    if (g_position.SetFEN(g_s.c_str() + 9))
+        g_position.Print();
     else
         cout << "Illegal FEN" << endl << endl;
 }
@@ -332,9 +336,9 @@ void OnSetoption()
     string value = g_tokens[4];
 
     if (name == "Hash")
-        SetHashSize(atoi(value.c_str()));
+        g_search.SetHashSize(atoi(value.c_str()));
     else if (name == "Strength")
-        SetStrength(atoi(value.c_str()));
+        g_search.SetStrength(atoi(value.c_str()));
 }
 
 void OnUCI()
@@ -390,7 +394,7 @@ void RunCommandLine()
       continue;                         \
     }
 
-        ON_CMD(board,      1, g_pos.Print())
+        ON_CMD(board,      1, g_position.Print())
         ON_CMD(eval,       2, OnEval())
         ON_CMD(fen,        2, OnFEN())
         ON_CMD(flip,       2, OnFlip())
@@ -410,7 +414,7 @@ void RunCommandLine()
         ON_CMD(setoption,  3, OnSetoption())
         ON_CMD(uci,        1, OnUCI())
         ON_CMD(ucinewgame, 4, OnNew())
-        ON_CMD(undo,       1, g_pos.UnmakeMove())
+        ON_CMD(undo,       1, g_position.UnmakeMove())
         ON_CMD(zero,       1, OnZero())
 #undef ON_CMD
     }
@@ -425,7 +429,7 @@ int main(int argc, const char* argv[])
     InitBitboards();
     Position::InitHashNumbers();
     InitEval();
-    g_pos.SetInitial();
+    g_position.SetInitial();
 
     double hashMb = DEFAULT_HASH_SIZE;
 
@@ -440,13 +444,13 @@ int main(int argc, const char* argv[])
         else if ((i < argc - 1) && (!strcmp(argv[i], "-s") || !strcmp(argv[i], "-S") || !strcmp(argv[i], "-strength") || !strcmp(argv[i], "-Strength")))
         {
             int level = atoi(argv[i + 1]);
-            SetStrength(level);
+            g_search.SetStrength(level);
         }
         else if (!strcmp(argv[i], "-log"))
             g_log = fopen("igel.txt", "at");
     }
 
-    SetHashSize(hashMb);
+    g_search.SetHashSize(hashMb);
     RunCommandLine();
 
     return 0;
