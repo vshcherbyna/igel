@@ -24,11 +24,13 @@ Time::Time()
     reset();
 }
 
+
 Time & Time::instance()
 {
     static Time instance;
     return instance;
 }
+
 
 
 void Time::reset()

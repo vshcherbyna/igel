@@ -24,15 +24,18 @@
 #include "search.h"
 #include "utils.h"
 #include "time.h"
+#include "tt.h"
 
 #include <thread>
+#include <memory>
+
 
 const string PROGRAM_NAME   = "igel";
-const string VERSION        = "0.5";
+const string VERSION        = "0.6";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 1024;
-const int DEFAULT_HASH_SIZE = 128;
+const int DEFAULT_HASH_SIZE = 16;
 
 extern Pair PSQ[14][64];
 extern Pair PSQ_PP_BLOCKED[64];
@@ -67,12 +70,29 @@ void OnFlip()
 
 void OnGoUci()
 {
-    if (Time::instance().parseTime(g_tokens, g_position.Side() == WHITE) == false)
+    Time time;
+
+    if (time.parseTime(g_tokens, g_position.Side() == WHITE) == false)
         cout << "Error: unable to parse command line" << endl;
 
+    TTable::instance().increaseAge();
+    int workers = 0;
+
+    unique_ptr<std::thread[]> t(new std::thread[workers]);
+    unique_ptr<Search[]> s(new Search[workers]);
+
+    for (auto i = 0; i < workers; ++i)
+    {
+        s[i].setPosition(g_position);
+        t[i] = std::thread(&Search::StartSearch, &s[i], false, 1 + 2, time);
+    }
+
     g_search.setPosition(g_position);
-    Move mv = g_search.StartSearch();
+    Move mv = g_search.StartSearch(true, 1, time);
     cout << "bestmove " << MoveToStrLong(mv) << endl;
+
+    for (auto i = 0; i < workers; ++i)
+        t[i].join();
 }
 
 void OnIsready()
@@ -171,7 +191,9 @@ void OnNew()
     g_force = false;
     g_position.SetInitial();
 
-    g_search.ClearHash();
+    TTable::instance().clearHash();
+    TTable::instance().clearAge();
+
     g_search.ClearHistory();
     g_search.ClearKillers();
 }
@@ -336,9 +358,7 @@ void OnSetoption()
     string value = g_tokens[4];
 
     if (name == "Hash")
-        g_search.SetHashSize(atoi(value.c_str()));
-    else if (name == "Strength")
-        g_search.SetStrength(atoi(value.c_str()));
+        TTable::instance().setHashSize(atoi(value.c_str()));
 }
 
 void OnUCI()
@@ -441,16 +461,11 @@ int main(int argc, const char* argv[])
             if (hashMb < MIN_HASH_SIZE || hashMb > MAX_HASH_SIZE)
                 hashMb = DEFAULT_HASH_SIZE;
         }
-        else if ((i < argc - 1) && (!strcmp(argv[i], "-s") || !strcmp(argv[i], "-S") || !strcmp(argv[i], "-strength") || !strcmp(argv[i], "-Strength")))
-        {
-            int level = atoi(argv[i + 1]);
-            g_search.SetStrength(level);
-        }
         else if (!strcmp(argv[i], "-log"))
             g_log = fopen("igel.txt", "at");
     }
 
-    g_search.SetHashSize(hashMb);
+    TTable::instance().setHashSize(hashMb);
     RunCommandLine();
 
     return 0;

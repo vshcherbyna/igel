@@ -29,8 +29,8 @@ public:
     static Time & instance();
 
     ~Time() = default;
-    Time(const Time&) = delete;
-    Time& operator=(const Time&) = delete;
+    //Time(const Time&) = delete;
+    //Time& operator=(const Time&) = delete;
 
 public:
     enum TimeControl

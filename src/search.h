@@ -22,6 +22,8 @@
 #define SEARCH_H
 
 #include "position.h"
+#include "time.h"
+#include "tt.h"
 
 const int MAX_PLY = 64;
 
@@ -33,16 +35,6 @@ const U8 MODE_PLAY    = 0x04;
 const U8 MODE_ANALYZE = 0x08;
 const U8 MODE_SILENT  = 0x10;
 
-struct HashEntry
-{
-    HashEntry() : m_hash(0), m_mv(0) {}
-    U64  m_hash;
-    Move m_mv;
-    EVAL m_score;
-    I8   m_depth;
-    U8   m_type;
-    U8   m_age;
-};
 
 class Search
 {
@@ -53,24 +45,19 @@ public:
     Search& operator=(const Search&) = delete;
 
 public:
-    Move StartSearch();
-    void ClearHash();
+    Move StartSearch(bool principal, int depth, Time time);
     void ClearHistory();
     void ClearKillers();
-    void SetHashSize(double mb);
-    void SetStrength(int level);
     void setPosition(Position pos);
 
 private:
     EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth);
     EVAL AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull);
     EVAL AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply);
-    bool CheckLimits();
-    void CheckInput();
     int Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV);
     Move GetNextBest(MoveList& mvlist, size_t i);
     bool IsGoodCapture(Move mv);
-    HashEntry* ProbeHash();
+    bool ProbeHash(TEntry & hentry);
     void RecordHash(Move mv, EVAL score, I8 depth, int ply, U8 type);
     EVAL SEE(Move mv);
     void UpdateSortScores(MoveList& mvlist, Move hashMove, int ply);
@@ -81,10 +68,19 @@ private:
     EVAL SEE_Exchange(FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ);
     Move FirstLegalMove(Position& pos);
 
+    void ProcessInput(const string& s);
+    bool CheckLimits();
+    void CheckInput();
+
 private:
-    Position m_position;
+    NODES m_timeCheck;
+    NODES m_nodes;
+    U32 m_t0;
+    U8 m_flags;
     int m_depth;
     int m_iterPVSize;
+    bool m_principalSearcher;
+    Position m_position;
     MoveList m_lists[MAX_PLY];
     Move m_pv[MAX_PLY][MAX_PLY];
     int m_pvSize[MAX_PLY];
@@ -93,6 +89,7 @@ private:
     Move m_killers[MAX_PLY];
     int m_histTry[64][14];
     int m_histSuccess[64][14];
+    Time m_time;
 };
 
 #endif

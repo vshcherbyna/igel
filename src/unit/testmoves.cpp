@@ -41,6 +41,7 @@ NODES Perft(Position & pos, int depth)
     for (size_t i = 0; i < mvSize; ++i)
     {
         Move mv = mvlist[i].m_mv;
+        EXPECT_LE(mv, 16777215); // move must be encoded as 24 bit max
         if (pos.MakeMove(mv))
         {
             total += Perft(pos, depth - 1);
@@ -53,14 +54,9 @@ NODES Perft(Position & pos, int depth)
 
 TEST(MoveGen, Positive)
 {
-    InitBitboards();
-    Position::InitHashNumbers();
-    InitEval();
-
     Position pos;
     pos.SetInitial();
 
-    return;
     // taken from https://chessprogramming.wikispaces.com/Perft%20Results
     EXPECT_EQ(1, Perft(pos, 0));
     EXPECT_EQ(20, Perft(pos, 1));

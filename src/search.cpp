@@ -23,20 +23,6 @@
 #include "notation.h"
 #include "search.h"
 #include "utils.h"
-#include "time.h"
-
-extern deque<string> g_queue;
-
-U32 g_level = 100;
-double g_knps = 0;
-
-static U8           g_flags = 0;
-static HashEntry*   g_hash = NULL;
-static U8           g_hashAge = 0;
-static int          g_hashSize = 0;
-static NODES        g_nodes = 0;
-static U32          g_t0 = 0;
-static NODES        g_timeCheck = 0;
 
 const int SORT_HASH         = 7000000;
 const int SORT_CAPTURE      = 6000000;
@@ -50,32 +36,38 @@ const U8 HASH_BETA = 2;
 
 const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VAL_R, VAL_R, VAL_Q, VAL_Q, VAL_K, VAL_K };
 
-bool CheckLimits()
+Search::Search(): m_timeCheck(0), m_nodes(0), m_t0(0), m_flags(0), m_depth(0), m_iterPVSize(0), m_principalSearcher(false)
 {
-    if (g_flags & SEARCH_TERMINATED)
+
+}
+
+bool Search::CheckLimits()
+{
+    if (m_flags & SEARCH_TERMINATED)
         return true;
 
-    if (Time::instance().getTimeMode() == Time::TimeControl::NodesLimit)
+    if (m_time.getTimeMode() == Time::TimeControl::NodesLimit)
     {
-        if (g_nodes >= Time::instance().getNodesLimit())
-            g_flags |= TERMINATED_BY_LIMIT;
+        if (m_nodes >= m_time.getNodesLimit())
+            m_flags |= TERMINATED_BY_LIMIT;
 
-        return (g_flags & SEARCH_TERMINATED);
+        return (m_flags & SEARCH_TERMINATED);
     }
 
     U32 dt = 0;
 
-    if (++g_timeCheck <= 1000)
+    if (++m_timeCheck <= 1000)
         return false;
 
-    g_timeCheck = 0;
-    dt = GetProcTime() - g_t0;
+    m_timeCheck = 0;
 
-    if (g_flags & MODE_PLAY)
+    dt = GetProcTime() - m_t0;
+
+    if (m_flags & MODE_PLAY)
     {
-        if (Time::instance().getHardLimit() > 0 && dt >= Time::instance().getHardLimit())
+        if (m_time.getHardLimit() > 0 && dt >= m_time.getHardLimit())
         {
-            g_flags |= TERMINATED_BY_LIMIT;
+            m_flags |= TERMINATED_BY_LIMIT;
 
             stringstream ss;
             ss << "Search stopped by stHard, dt = " << dt;
@@ -83,10 +75,10 @@ bool CheckLimits()
         }
     }
 
-    return (g_flags & SEARCH_TERMINATED);
+    return (m_flags & SEARCH_TERMINATED);
 }
 
-void ProcessInput(const string& s)
+void Search::ProcessInput(const string& s)
 {
     vector<string> tokens;
     Split(s, tokens);
@@ -95,55 +87,33 @@ void ProcessInput(const string& s)
 
     string cmd = tokens[0];
 
-    if (g_flags & MODE_PLAY)
+    if (m_flags & MODE_PLAY)
     {
         if (cmd == "?")
-            g_flags |= TERMINATED_BY_USER;
+            m_flags |= TERMINATED_BY_USER;
         else if (Is(cmd, "result", 1))
         {
             //m_iterPVSize = 0;
-            g_flags |= TERMINATED_BY_USER;
+            m_flags |= TERMINATED_BY_USER;
         }
     }
 
     if (Is(cmd, "exit", 1))
-        g_flags |= TERMINATED_BY_USER;
+        m_flags |= TERMINATED_BY_USER;
     else if (Is(cmd, "quit", 1))
         exit(0);
     else if (Is(cmd, "stop", 1))
-        g_flags |= TERMINATED_BY_USER;
+        m_flags |= TERMINATED_BY_USER;
 }
 
-void CheckInput()
+void Search::CheckInput()
 {
     if (InputAvailable())
     {
         string s;
         getline(cin, s);
-        ::ProcessInput(s);
+        ProcessInput(s);
     }
-}
-
-void AdjustSpeed()
-{
-    if (g_flags & SEARCH_TERMINATED || !g_knps)
-        return;
-
-    U32 dt = GetProcTime() - g_t0;
-    double expectedTime = g_nodes / g_knps;
-
-    while (dt < expectedTime)
-    {
-        ::CheckInput();
-        if (::CheckLimits())
-            return;
-        dt = GetProcTime() - g_t0;
-    }
-}
-
-Search::Search(): m_depth(0), m_iterPVSize(0)
-{
-
 }
 
 void Search::setPosition(Position pos)
@@ -155,12 +125,12 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
 {
     int ply = 0;
     m_pvSize[ply] = 0;
-
+    assert(depth > 0);
     Move hashMove = 0;
-    HashEntry* pEntry = ProbeHash();
 
-    if (pEntry != nullptr)
-        hashMove = pEntry->m_mv;
+    TEntry hEntry;
+    if (ProbeHash(hEntry))
+        hashMove = hEntry.move();
 
     int legalMoves = 0;
     Move bestMove = 0;
@@ -178,19 +148,20 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
     auto mvSize = mvlist.Size();
     for (size_t i = 0; i < mvSize; ++i)
     {
-        ::CheckInput();
+        if (m_principalSearcher)
+            CheckInput();
 
-        if (::CheckLimits())
+        if (CheckLimits())
             break;
 
         Move mv = GetNextBest(mvlist, i);
         if (m_position.MakeMove(mv))
         {
-            ++g_nodes;
+            ++m_nodes;
             ++legalMoves;
             m_histTry[mv.To()][mv.Piece()] += depth;
 
-            if ((GetProcTime() - g_t0) > 2000)
+            if ((GetProcTime() - m_t0) > 2000 && (m_principalSearcher))
                 cout << "info depth " << depth << " currmove " << MoveToStrLong(mv) << " currmovenumber " << legalMoves << endl;
 
             int newDepth = depth - 1;
@@ -249,9 +220,7 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
             alpha = DRAW_SCORE;
     }
 
-    RecordHash(bestMove, alpha, depth, ply, type);
-    AdjustSpeed();
-
+    TTable::instance().record(bestMove, alpha, depth, ply, type, m_position.Hash());
     return alpha;
 }
 
@@ -275,29 +244,30 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     //
 
     Move hashMove = 0;
-    HashEntry* pEntry = ProbeHash();
-    if (pEntry != NULL)
-    {
-        hashMove = pEntry->m_mv;
+    TEntry hEntry;
 
-        if (pEntry->m_depth >= depth)
+    if (ProbeHash(hEntry))
+    {
+        hashMove = hEntry.move();
+
+        if (hEntry.depth() >= depth)
         {
-            EVAL score = pEntry->m_score;
+            EVAL score = hEntry.score();
             if (score > CHECKMATE_SCORE - 50 && score <= CHECKMATE_SCORE)
                 score -= ply;
             if (score < -CHECKMATE_SCORE + 50 && score >= -CHECKMATE_SCORE)
                 score += ply;
 
-            if (pEntry->m_type == HASH_EXACT)
+            if (hEntry.type() == HASH_EXACT)
                 return score;
-            if (pEntry->m_type == HASH_ALPHA && score <= alpha)
+            if (hEntry.type() == HASH_ALPHA && score <= alpha)
                 return alpha;
-            if (pEntry->m_type == HASH_BETA && score >= beta)
+            if (hEntry.type() == HASH_BETA && score >= beta)
                 return beta;
         }
     }
 
-    if (::CheckLimits())
+    if (CheckLimits())
         return alpha;
 
     //
@@ -389,7 +359,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
         Move mv = GetNextBest(mvlist, i);
         if (m_position.MakeMove(mv))
         {
-            ++g_nodes;
+            ++m_nodes;
             ++legalMoves;
             m_histTry[mv.To()][mv.Piece()] += depth;
 
@@ -436,7 +406,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
             }
             m_position.UnmakeMove();
 
-            if (g_flags & SEARCH_TERMINATED)
+            if (m_flags & SEARCH_TERMINATED)
                 break;
 
             if (e > alpha)
@@ -481,9 +451,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
             alpha = DRAW_SCORE;
     }
 
-    RecordHash(bestMove, alpha, depth, ply, type);
-    AdjustSpeed();
-
+    TTable::instance().record(bestMove, alpha, depth, ply, type, m_position.Hash());
     return alpha;
 }
 
@@ -504,7 +472,7 @@ EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
             return beta;
     }
 
-    if (::CheckLimits())
+    if (CheckLimits())
         return alpha;
 
     MoveList& mvlist = m_lists[ply];
@@ -529,13 +497,13 @@ EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
 
         if (m_position.MakeMove(mv))
         {
-            ++g_nodes;
+            ++m_nodes;
             ++legalMoves;
 
             EVAL e = -AlphaBetaQ(-beta, -alpha, ply + 1, qply + 1);
             m_position.UnmakeMove();
 
-            if (g_flags & SEARCH_TERMINATED)
+            if (m_flags & SEARCH_TERMINATED)
                 break;
 
             if (e > alpha)
@@ -557,13 +525,6 @@ EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
     }
 
     return alpha;
-}
-
-void Search::ClearHash()
-{
-    assert(g_hash != NULL);
-    assert(g_hashSize > 0);
-    memset(g_hash, 0, g_hashSize * sizeof(HashEntry));
 }
 
 void Search::ClearHistory()
@@ -717,7 +678,7 @@ void Search::PrintPV(const Position& pos, int iter, EVAL score, const Move* pv, 
     if (pvSize == 0)
         return;
 
-    U32 dt = GetProcTime() - g_t0;
+    U32 dt = GetProcTime() - m_t0;
 
     cout << "info depth " << iter;
     if (abs(score) >= (CHECKMATE_SCORE - MAX_PLY))
@@ -725,7 +686,7 @@ void Search::PrintPV(const Position& pos, int iter, EVAL score, const Move* pv, 
     else
         cout << " score cp " << score;
     cout << " time " << dt;
-    cout << " nodes " << g_nodes;
+    cout << " nodes " << m_nodes;
     if (pvSize > 0)
     {
         cout << " pv";
@@ -735,50 +696,13 @@ void Search::PrintPV(const Position& pos, int iter, EVAL score, const Move* pv, 
     cout << endl;
 }
 
-HashEntry* Search::ProbeHash()
+bool Search::ProbeHash(TEntry & hentry)
 {
-    assert(g_hash != NULL);
-    assert(g_hashSize > 0);
+    U64 hash = m_position.Hash();
+    TEntry * nEntry = TTable::instance().retrieve(hash);
+    hentry = *nEntry;
 
-    U64 hash0 = m_position.Hash();
-
-    int index = hash0 % g_hashSize;
-    HashEntry* pEntry = g_hash + index;
-
-    if (pEntry->m_hash == hash0)
-        return pEntry;
-    else
-        return NULL;
-}
-
-void Search::RecordHash(Move mv, EVAL score, I8 depth, int ply, U8 type)
-{
-    assert(g_hash != NULL);
-    assert(g_hashSize > 0);
-
-    if (g_flags & SEARCH_TERMINATED)
-        return;
-
-    U64 hash0 = m_position.Hash();
-
-    int index = hash0 % g_hashSize;
-    HashEntry& entry = g_hash[index];
-
-    if (depth >= entry.m_depth || g_hashAge != entry.m_age)
-    {
-        entry.m_hash = hash0;
-        entry.m_mv = mv;
-
-        if (score > CHECKMATE_SCORE - 50 && score <= CHECKMATE_SCORE)
-            score += ply;
-        if (score < -CHECKMATE_SCORE + 50 && score >= -CHECKMATE_SCORE)
-            score -= ply;
-
-        entry.m_score = score;
-        entry.m_depth = depth;
-        entry.m_type = type;
-        entry.m_age = g_hashAge;
-    }
+    return ((hentry.m_key ^ hentry.m_data) == hash);
 }
 
 EVAL Search::SEE_Exchange(FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ)
@@ -829,33 +753,6 @@ EVAL Search::SEE(Move mv)
     return score;
 }
 
-void Search::SetHashSize(double mb)
-{
-    if (g_hash)
-        delete[] g_hash;
-
-    g_hashSize = int(1024 * 1024 * mb / sizeof(HashEntry));
-    g_hash = new HashEntry[g_hashSize];
-}
-
-void Search::SetStrength(int level)
-{
-    if (level < 0)
-        level = 0;
-    if (level > 100)
-        level = 100;
-
-    g_level = level;
-
-    if (level < 100)
-    {
-        double r = level / 20.;      // 0 - 5
-        g_knps = 0.1 * pow(10, r);   // 100 nps - 10000 knps
-    }
-    else
-        g_knps = 0;
-}
-
 Move Search::FirstLegalMove(Position& pos)
 {
     MoveList mvlist;
@@ -875,22 +772,13 @@ Move Search::FirstLegalMove(Position& pos)
     return 0;
 }
 
-Move Search::StartSearch()
+Move Search::StartSearch(bool principal, int depth, Time time)
 {
-    if ((Time::instance().getHardLimit()) && (m_position.Side() == WHITE) && (m_position.isInitialPosition()))
-    {
-        Move moves[5] = { Move(B1, C3, NW), Move(G1, F3, NW), Move(D2, D4, PW), Move(E2, E4, PW), Move(E2, E3, PW) };
-        RandSeed(time(0));
-        return moves[Rand32() % 4];
-    }
-
-    auto timeMode = Time::instance().getTimeMode();
-    g_t0 = GetProcTime();
-    g_nodes = 0;
-    g_flags = (timeMode == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
+    m_time = time;
+    m_t0 = GetProcTime();
+    m_flags = (m_time.getTimeMode() == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
     m_iterPVSize = 0;
-
-    ++g_hashAge;
+    m_principalSearcher = principal;
 
     EVAL alpha = -INFINITY_SCORE;
     EVAL beta = INFINITY_SCORE;
@@ -903,18 +791,19 @@ Move Search::StartSearch()
 
     if (IsGameOver(m_position, result, comment))
     {
-        cout << result << " " << comment << endl << endl;
+        if (m_principalSearcher)
+            cout << result << " " << comment << endl << endl;
     }
     else
     {
-        for (m_depth = 1; m_depth < MAX_PLY; ++m_depth)
+        for (m_depth = depth; m_depth < MAX_PLY; ++m_depth)
         {
             score = AlphaBetaRoot(alpha, beta, m_depth);
 
-            if (g_flags & SEARCH_TERMINATED)
+            if (m_flags & SEARCH_TERMINATED)
                 break;
 
-            U32 dt = GetProcTime() - g_t0;
+            U32 dt = GetProcTime() - m_t0;
 
             //
             //  We found so far a better move
@@ -932,11 +821,12 @@ Move Search::StartSearch()
                 if (m_iterPVSize && m_pv[0][0])
                     best = m_pv[0][0];
 
-                PrintPV(m_position, m_depth, score, m_pv[0], m_pvSize[0], "");
+                if (m_principalSearcher)
+                    PrintPV(m_position, m_depth, score, m_pv[0], m_pvSize[0], "");
 
-                if (Time::instance().getSoftLimit() > 0 && dt >= Time::instance().getSoftLimit())
+                if (m_time.getSoftLimit() > 0 && dt >= m_time.getSoftLimit())
                 {
-                    g_flags |= TERMINATED_BY_LIMIT;
+                    m_flags |= TERMINATED_BY_LIMIT;
 
                     stringstream ss;
                     ss << "Search stopped by stSoft, dt = " << dt;
@@ -945,17 +835,17 @@ Move Search::StartSearch()
                     break;
                 }
 
-                if ((g_flags & MODE_ANALYZE) == 0)
+                if ((m_flags & MODE_ANALYZE) == 0)
                 {
                     if (singleMove)
                     {
-                        g_flags |= TERMINATED_BY_LIMIT;
+                        m_flags |= TERMINATED_BY_LIMIT;
                         break;
                     }
 
                     if (score + m_depth >= CHECKMATE_SCORE)
                     {
-                        g_flags |= TERMINATED_BY_LIMIT;
+                        m_flags |= TERMINATED_BY_LIMIT;
                         break;
                     }
                 }
@@ -965,7 +855,7 @@ Move Search::StartSearch()
                 alpha = -INFINITY_SCORE;
                 beta = INFINITY_SCORE;
 
-                if (!(g_flags & MODE_SILENT))
+                if (!(m_flags & MODE_SILENT) && m_principalSearcher)
                     PrintPV(m_position, m_depth, score, m_pv[0], m_pvSize[0], "");
                 --m_depth;
 
@@ -982,20 +872,20 @@ Move Search::StartSearch()
                 if (m_iterPVSize && m_pv[0][0])
                     best = m_pv[0][0];
 
-                if (!(g_flags & MODE_SILENT))
+                if (!(m_flags & MODE_SILENT) && m_principalSearcher)
                     PrintPV(m_position, m_depth, score, m_pv[0], m_pvSize[0], "");
                 --m_depth;
                 aspiration += aspiration / 4 + 5;
             }
 
-            dt = GetProcTime() - g_t0;
+            dt = GetProcTime() - m_t0;
 
-            if (dt > 2000)
-                cout << "info depth " << m_depth << " time " << dt << " nodes " << g_nodes << " nps " << 1000 * g_nodes / dt << endl;
+            if (dt > 2000 && m_principalSearcher)
+                cout << "info depth " << m_depth << " time " << dt << " nodes " << m_nodes << " nps " << 1000 * m_nodes / dt << endl;
 
-            if (Time::instance().getSoftLimit() > 0 && dt >= Time::instance().getSoftLimit())
+            if (m_time.getSoftLimit() > 0 && dt >= m_time.getSoftLimit())
             {
-                g_flags |= TERMINATED_BY_LIMIT;
+                m_flags |= TERMINATED_BY_LIMIT;
 
                 stringstream ss;
                 ss << "Search stopped by stSoft, dt = " << dt;
@@ -1004,32 +894,32 @@ Move Search::StartSearch()
                 break;
             }
 
-            if ((g_flags & MODE_ANALYZE) == 0)
+            if ((m_flags & MODE_ANALYZE) == 0)
             {
                 if (singleMove)
                 {
-                    g_flags |= TERMINATED_BY_LIMIT;
+                    m_flags |= TERMINATED_BY_LIMIT;
                     break;
                 }
 
                 if (score + m_depth >= CHECKMATE_SCORE)
                 {
-                    g_flags |= TERMINATED_BY_LIMIT;
+                    m_flags |= TERMINATED_BY_LIMIT;
                     break;
                 }
             }
 
-            if ((timeMode == Time::TimeControl::DepthLimit) && m_depth >= static_cast<int>(Time::instance().getDepthLimit()))
+            if ((m_time.getTimeMode() == Time::TimeControl::DepthLimit) && m_depth >= static_cast<int>(m_time.getDepthLimit()))
             {
-                g_flags |= TERMINATED_BY_LIMIT;
+                m_flags |= TERMINATED_BY_LIMIT;
                 break;
             }
         }
     }
 
-    if (g_flags & MODE_ANALYZE)
+    if (m_flags & MODE_ANALYZE)
     {
-        while ((g_flags & SEARCH_TERMINATED) == 0)
+        while ((m_flags & SEARCH_TERMINATED) == 0)
         {
             string s;
             getline(cin, s);
