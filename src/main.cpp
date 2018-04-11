@@ -29,13 +29,12 @@
 #include <thread>
 #include <memory>
 
-
 const string PROGRAM_NAME   = "igel";
-const string VERSION        = "0.6";
+const string VERSION        = "0.7";
 
 const int MIN_HASH_SIZE = 1;
-const int MAX_HASH_SIZE = 1024;
-const int DEFAULT_HASH_SIZE = 16;
+const int MAX_HASH_SIZE = 131072;
+const int DEFAULT_HASH_SIZE = 128;
 
 extern Pair PSQ[14][64];
 extern Pair PSQ_PP_BLOCKED[64];
@@ -465,7 +464,12 @@ int main(int argc, const char* argv[])
             g_log = fopen("igel.txt", "at");
     }
 
-    TTable::instance().setHashSize(hashMb);
+    if (!TTable::instance().setHashSize(hashMb))
+    {
+        cout << "Unable to allocate memory for transposition table" << endl;
+        return 1;
+    }
+
     RunCommandLine();
 
     return 0;
