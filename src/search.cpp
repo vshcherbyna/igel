@@ -700,8 +700,11 @@ bool Search::ProbeHash(TEntry & hentry)
 {
     U64 hash = m_position.Hash();
     TEntry * nEntry = TTable::instance().retrieve(hash);
-    hentry = *nEntry;
 
+    if (!nEntry)
+        return false;
+
+    hentry = *nEntry;
     return ((hentry.m_key ^ hentry.m_data) == hash);
 }
 

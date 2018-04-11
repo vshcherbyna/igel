@@ -75,6 +75,13 @@ public:
     U64  m_key;
 };
 
+#define MAX_T_ENTRIES_PER_SLOT 4
+
+struct TEntries
+{
+    TEntry data[MAX_T_ENTRIES_PER_SLOT];
+};
+
 class TTable
 {
 public:
@@ -90,7 +97,7 @@ public:
     void clearAge();
 
 private:
-    TEntry * m_hash;
+    TEntries * m_hash;
     int m_hashSize;
     unsigned int m_hashAge;
 };
