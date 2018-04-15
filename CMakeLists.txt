@@ -11,11 +11,12 @@ FILE(GLOB HDRFILES ${PROJECT_SOURCE_DIR}/src/*.h)
 if (MSVC)
     SET(CMAKE_CXX_FLAGS_DEBUG "/MTd /Zi /Ob0 /Od /RTC1")
     SET(CMAKE_CXX_FLAGS_RELEASE "/MT /O2 /Ob2 /DNDEBUG")
+    SET(CMAKE_CXX_STACK_SIZE "15728640")
 endif (MSVC)
 
 if (UNIX)
     add_definitions(-DNDEBUG)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O2 -pthread")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -O3 -pthread")
 endif (UNIX)
 
 add_executable(igel ${SRCFILES} ${HDRFILES})

@@ -41,17 +41,33 @@ TEST(TranspositionTableSizeTest, Positive)
 
 TEST(TranspositionTableEntryTest, Positive)
 {
-    for (auto i = 1; i <= 128; ++i)
+    // allocate tt size of 2 mb
+    // each tt entry is 16 bytes
+    // therefore we can store 131072 positions max
+
+    for (auto i = 1; i <= 2; ++i)
     {
         EXPECT_EQ(true, TTable::instance().setHashSize(i));
-        EXPECT_EQ(true, TTable::instance().record(i, 2, 3, 0, 1, i));
 
-        auto * hentry = TTable::instance().retrieve(i);
-        EXPECT_EQ(i, hentry->m_key ^ hentry->m_data);
-        EXPECT_EQ(i, hentry->move());
-        EXPECT_EQ(2, hentry->score());
-        EXPECT_EQ(3, hentry->depth());
-        EXPECT_EQ(1, hentry->type());
+        auto j = 1;
+
+        for (j = 1; j <= ((1024 * 1024 * i) / 16); ++j)
+            EXPECT_EQ(true, TTable::instance().record(i, 2, 3, 0, 1, j));
+
+        // tt is full, now we want to store an item with less depth
+        // it has to fail storing
+        ++j;
+        EXPECT_EQ(false, TTable::instance().record(i, 2, 2, 0, 1, j));
+
+        for (j = 1; j <= ((1024 * 1024 * i) / 16); ++j)
+        {
+            auto * hentry = TTable::instance().retrieve(j);
+            EXPECT_EQ(j, hentry->m_key ^ hentry->m_data);
+            EXPECT_EQ(i, hentry->move());
+            EXPECT_EQ(2, hentry->score());
+            EXPECT_EQ(3, hentry->depth());
+            EXPECT_EQ(1, hentry->type());
+        }
     }
 }
 

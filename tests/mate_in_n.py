@@ -28,6 +28,7 @@ engine_def_move_time = 1000
 def evaluate(mvt, mate,  fen):
     # setup engine
     engine = chess.uci.popen_engine("../igel")
+    engine.setoption({"Threads": 2})
     
     # setup new game
     engine.uci()

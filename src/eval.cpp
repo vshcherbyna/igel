@@ -22,9 +22,6 @@
 #include "eval_params.h"
 #include "utils.h"
 
-static const int g_pawnHashSize = 32768;
-static PawnHashEntry g_pawnHash[g_pawnHashSize];
-
 Pair PSQ[14][64];
 Pair PSQ_PP_BLOCKED[64];
 Pair PSQ_PP_FREE[64];
@@ -115,7 +112,7 @@ int PawnStormPenalty(const PawnHashEntry& pEntry, int fileK, COLOR side)
     return penalty;
 }
 
-EVAL Evaluate(const Position& pos, EVAL alpha, EVAL beta)
+EVAL Evaluate(Position& pos)
 {
     int mid = pos.MatIndex(WHITE) + pos.MatIndex(BLACK);
     int end = 64 - mid;
@@ -132,8 +129,8 @@ EVAL Evaluate(const Position& pos, EVAL alpha, EVAL beta)
     //   PAWNS
     //
 
-    int index = pos.PawnHash() % g_pawnHashSize;
-    PawnHashEntry& ps = g_pawnHash[index];
+    int index = pos.PawnHash() % pos.m_pawnHashSize;
+    PawnHashEntry& ps = pos.m_pawnHashTable[index];
     if (ps.m_pawnHash != pos.PawnHash())
         ps.Read(pos);
 
