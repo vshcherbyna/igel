@@ -81,10 +81,11 @@ bool TTable::setHashSize(double mb)
     if (!mb)
         return false;
 
-    delete[] m_hash;
+    if (m_hash)
+        free(m_hash);
 
     m_hashSize = int(1024 * 1024 * mb / sizeof(TEntry));
-    m_hash = new (std::nothrow) TEntry[m_hashSize];
+    m_hash = reinterpret_cast<TEntry*>(malloc(sizeof(TEntry) * m_hashSize));
 
     if (m_hash)
         clearHash();
