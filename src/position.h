@@ -63,6 +63,22 @@ private:
     U32 m_data;
 };
 
+class Position;
+
+struct PawnHashEntry
+{
+    PawnHashEntry() : m_pawnHash(0) {}
+    void Read(const Position& pos);
+
+    U32 m_pawnHash;
+    I8  m_ranks[10][2];
+
+    U64 m_passedPawns[2];
+    U64 m_doubledPawns[2];
+    U64 m_isolatedPawns[2];
+    U64 m_strongFields[2];
+};
+
 class Position
 {
 public:
@@ -142,6 +158,10 @@ private:
     Undo m_undos[MAX_UNDO];
     int m_undoSize;
     bool m_initialPosition;
+
+public:
+    static const int m_pawnHashSize = 32768;
+    PawnHashEntry m_pawnHashTable[m_pawnHashSize];
 };
 
 const FLD AX[2] = { A1, A8 };

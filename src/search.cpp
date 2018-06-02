@@ -24,6 +24,8 @@
 #include "search.h"
 #include "utils.h"
 
+#include <chrono>
+
 const int SORT_HASH         = 7000000;
 const int SORT_CAPTURE      = 6000000;
 const int SORT_MATE_KILLER  = 5000000;
@@ -36,14 +38,33 @@ const U8 HASH_BETA = 2;
 
 const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VAL_R, VAL_R, VAL_Q, VAL_Q, VAL_K, VAL_K };
 
-Search::Search(): m_timeCheck(0), m_nodes(0), m_t0(0), m_flags(0), m_depth(0), m_iterPVSize(0), m_principalSearcher(false)
+Search::Search():
+m_timeCheck(0),
+m_nodes(0),
+m_t0(0),
+m_flags(0),
+m_depth(0),
+m_iterPVSize(0),
+m_principalSearcher(false),
+m_thc(0),
+m_threads(nullptr),
+m_threadParams(nullptr),
+m_lazyDepth(0),
+m_bestSmpEval(0),
+m_smpThreadExit(false),
+m_terminateSmp(false)
 {
 
 }
 
+Search::~Search()
+{
+    releaseHelperThreads();
+}
+
 bool Search::CheckLimits()
 {
-    if (m_flags & SEARCH_TERMINATED)
+    if ((m_smpThreadExit) || (m_flags & SEARCH_TERMINATED))
         return true;
 
     if (m_time.getTimeMode() == Time::TimeControl::NodesLimit)
@@ -124,13 +145,10 @@ void Search::setPosition(Position pos)
 EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
 {
     int ply = 0;
+    //bool rootNode = depth < 2;
     m_pvSize[ply] = 0;
     assert(depth > 0);
     Move hashMove = 0;
-
-    TEntry hEntry;
-    if (ProbeHash(hEntry))
-        hashMove = hEntry.move();
 
     int legalMoves = 0;
     Move bestMove = 0;
@@ -138,17 +156,29 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
     bool inCheck = m_position.InCheck();
     bool onPV = (beta - alpha > 1);
 
+    TEntry hEntry;
+
+    if (ProbeHash(hEntry))
+        hashMove = hEntry.move();
+
     MoveList& mvlist = m_lists[ply];
     if (inCheck)
         GenMovesInCheck(m_position, mvlist);
     else
         GenAllMoves(m_position, mvlist);
-    UpdateSortScores(mvlist, hashMove, ply);
 
+ //   if (!m_principalSearcher && rootNode)
+    {
+        // different move ordering
+
+    }
+
+    UpdateSortScores(mvlist, hashMove, ply);
     auto mvSize = mvlist.Size();
+
     for (size_t i = 0; i < mvSize; ++i)
     {
-        if (m_principalSearcher)
+        if (!m_principalSearcher)
             CheckInput();
 
         if (CheckLimits())
@@ -161,7 +191,7 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
             ++legalMoves;
             m_histTry[mv.To()][mv.Piece()] += depth;
 
-            if ((GetProcTime() - m_t0) > 2000 && (m_principalSearcher))
+            if (((GetProcTime() - m_t0) > 2000) && m_principalSearcher)
                 cout << "info depth " << depth << " currmove " << MoveToStrLong(mv) << " currmovenumber " << legalMoves << endl;
 
             int newDepth = depth - 1;
@@ -226,8 +256,10 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
 
 EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 {
+    bool inCheck = m_position.InCheck();
+
     if (ply > MAX_PLY - 2)
-        return DRAW_SCORE;
+        return Evaluate(m_position);
 
     m_pvSize[ply] = 0;
 
@@ -235,7 +267,6 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
         return DRAW_SCORE;
 
     COLOR side = m_position.Side();
-    bool inCheck = m_position.InCheck();
     bool onPV = (beta - alpha > 1);
     bool lateEndgame = (m_position.MatIndex(side) < 5);
 
@@ -248,8 +279,6 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
     if (ProbeHash(hEntry))
     {
-        hashMove = hEntry.move();
-
         if (hEntry.depth() >= depth)
         {
             EVAL score = hEntry.score();
@@ -265,6 +294,8 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
             if (hEntry.type() == HASH_BETA && score >= beta)
                 return beta;
         }
+
+        hashMove = hEntry.move();
     }
 
     if (CheckLimits())
@@ -286,7 +317,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     static const EVAL MARGIN[4] = { 0, 50, 350, 550 };
     if (nonPawnMaterial && !onPV && !inCheck && depth >= 1 && depth <= 3)
     {
-        EVAL score = Evaluate(m_position, alpha - MARGIN[depth], beta + MARGIN[depth]);
+        EVAL score = Evaluate(m_position);
         if (score <= alpha - MARGIN[depth])
             return AlphaBetaQ(alpha, beta, ply, 0);
         if (score >= beta + MARGIN[depth])
@@ -299,7 +330,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
     if (!onPV && !inCheck && depth <= 2)
     {
-        if ((Evaluate(m_position, -INFINITY_SCORE, INFINITY_SCORE) + 200) < beta)
+        if ((Evaluate(m_position) + 200) < beta)
         {
             EVAL score = AlphaBetaQ(alpha, beta, ply, 0);
 
@@ -351,6 +382,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
         GenMovesInCheck(m_position, mvlist);
     else
         GenAllMoves(m_position, mvlist);
+
     UpdateSortScores(mvlist, hashMove, ply);
 
     auto mvSize = mvlist.Size();
@@ -457,15 +489,16 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
 EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
 {
+    bool inCheck = m_position.InCheck();
+
     if (ply > MAX_PLY - 2)
-        return alpha;
+        return Evaluate(m_position);
 
     m_pvSize[ply] = 0;
 
-    bool inCheck = m_position.InCheck();
     if (!inCheck)
     {
-        EVAL staticScore = Evaluate(m_position, alpha, beta);
+        EVAL staticScore = Evaluate(m_position);
         if (staticScore > alpha)
             alpha = staticScore;
         if (alpha >= beta)
@@ -583,7 +616,7 @@ bool Search::HaveSingleMove(Position& pos, Move & bestMove)
         Move mv = mvlist[i].m_mv;
         if (pos.MakeMove(mv))
         {
-            EVAL score = Evaluate(pos, -INFINITY_SCORE, INFINITY_SCORE);
+            EVAL score = Evaluate(pos);
             pos.UnmakeMove();
 
             if (score >= bestScore)
@@ -675,7 +708,7 @@ bool Search::IsGoodCapture(Move mv)
 
 void Search::PrintPV(const Position& pos, int iter, EVAL score, const Move* pv, int pvSize, const string& sign)
 {
-    if (pvSize == 0)
+    if (!pvSize)
         return;
 
     U32 dt = GetProcTime() - m_t0;
@@ -700,6 +733,10 @@ bool Search::ProbeHash(TEntry & hentry)
 {
     U64 hash = m_position.Hash();
     TEntry * nEntry = TTable::instance().retrieve(hash);
+
+    if (!nEntry)
+        return false;
+
     hentry = *nEntry;
 
     return ((hentry.m_key ^ hentry.m_data) == hash);
@@ -772,116 +809,92 @@ Move Search::FirstLegalMove(Position& pos)
     return 0;
 }
 
-Move Search::StartSearch(bool principal, int depth, Time time)
+Move Search::StartSearch(Time time, int depth, EVAL alpha, EVAL beta)
 {
     m_time = time;
     m_t0 = GetProcTime();
     m_flags = (m_time.getTimeMode() == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
     m_iterPVSize = 0;
-    m_principalSearcher = principal;
 
-    EVAL alpha = -INFINITY_SCORE;
-    EVAL beta = INFINITY_SCORE;
     EVAL aspiration = 15;
     EVAL score = alpha;
-    Move best;
-    bool singleMove = HaveSingleMove(m_position, best);
+    bool singleMove = HaveSingleMove(m_position, m_best);
 
     string result, comment;
 
-    if (IsGameOver(m_position, result, comment))
+    if ((m_principalSearcher) && IsGameOver(m_position, result, comment))
     {
-        if (m_principalSearcher)
-            cout << result << " " << comment << endl << endl;
+        cout << result << " " << comment << endl << endl;
+        return m_best;
     }
-    else
+
+    bool smpStarted = false;
+    bool lazySmpWork = false;
+
+    for (m_depth = depth; m_depth < MAX_PLY; ++m_depth)
     {
-        for (m_depth = depth; m_depth < MAX_PLY; ++m_depth)
+        lazySmpWork = (m_thc) && (!smpStarted) && (m_depth > 1);
+
+        if (lazySmpWork)
         {
-            score = AlphaBetaRoot(alpha, beta, m_depth);
-
-            if (m_flags & SEARCH_TERMINATED)
-                break;
-
-            U32 dt = GetProcTime() - m_t0;
-
-            //
-            //  We found so far a better move
-            //
-
-            if (score > alpha && score < beta)
+            smpStarted = true;
+            for (unsigned int i = 0; i < m_thc; ++i)
             {
-                aspiration = 15;
-                alpha = score - aspiration;
-                beta = score + aspiration;
+                m_threadParams[i].m_lazyMutex.lock();
 
-                memcpy(m_iterPV, m_pv[0], m_pvSize[0] * sizeof(Move));
-                m_iterPVSize = m_pvSize[0];
+                m_threadParams[i].setPosition(m_position);
+                m_threadParams[i].setTime(time);
+                m_threadParams[i].m_t0 = m_t0;
+                m_threadParams[i].m_flags = m_flags;
+                m_threadParams[i].m_bestSmpEval = -INFINITY_SCORE;
+                m_threadParams[i].m_smpThreadExit = false;
 
-                if (m_iterPVSize && m_pv[0][0])
-                    best = m_pv[0][0];
+                /*memcpy(&m_threadParams[i].m_iterPV, &m_iterPV, sizeof(m_iterPV));
+                memcpy(&m_threadParams[i].m_pvSize, &m_pvSize, sizeof(m_pvSize));
+                memcpy(&m_threadParams[i].m_pv, &m_pv, sizeof(m_pv));
 
-                if (m_principalSearcher)
-                    PrintPV(m_position, m_depth, score, m_pv[0], m_pvSize[0], "");
+                memcpy(&m_threadParams[i].m_lists, &m_lists, sizeof(m_lists));
+                memcpy(&m_threadParams[i].m_histTry, &m_histTry, sizeof(m_histTry));
+                memcpy(&m_threadParams[i].m_mateKillers, &m_mateKillers, sizeof(m_mateKillers));
+                memcpy(&m_threadParams[i].m_killers, &m_killers, sizeof(m_killers));
+                memcpy(&m_threadParams[i].m_histSuccess, &m_histSuccess, sizeof(m_histSuccess));*/
 
-                if (m_time.getSoftLimit() > 0 && dt >= m_time.getSoftLimit())
-                {
-                    m_flags |= TERMINATED_BY_LIMIT;
-
-                    stringstream ss;
-                    ss << "Search stopped by stSoft, dt = " << dt;
-                    Log(ss.str());
-
-                    break;
-                }
-
-                if ((m_flags & MODE_ANALYZE) == 0)
-                {
-                    if (singleMove)
-                    {
-                        m_flags |= TERMINATED_BY_LIMIT;
-                        break;
-                    }
-
-                    if (score + m_depth >= CHECKMATE_SCORE)
-                    {
-                        m_flags |= TERMINATED_BY_LIMIT;
-                        break;
-                    }
-                }
+                m_threadParams[i].m_lazyAlpha = -INFINITY_SCORE;
+                m_threadParams[i].m_lazyBeta = INFINITY_SCORE;
+                m_threadParams[i].m_lazyDepth = m_depth + 1 + i;
+                m_threadParams[i].m_lazyMutex.unlock();
+                m_threadParams[i].m_lazycv.notify_one();
             }
-            else if (score <= alpha)
+        }
+
+        score = AlphaBetaRoot(alpha, beta, m_depth);
+
+        if (m_flags & SEARCH_TERMINATED)
+            break;
+
+        U32 dt = GetProcTime() - m_t0;
+
+        //
+        //  We found so far a better move
+        //
+
+        if (score > alpha && score < beta)
+        {
+            aspiration = 15;
+            alpha = score - aspiration;
+            beta = score + aspiration;
+
+            memcpy(m_iterPV, m_pv[0], m_pvSize[0] * sizeof(Move));
+            m_iterPVSize = m_pvSize[0];
+
+            if (m_iterPVSize && m_pv[0][0])
             {
-                alpha = -INFINITY_SCORE;
-                beta = INFINITY_SCORE;
-
-                if (!(m_flags & MODE_SILENT) && m_principalSearcher)
-                    PrintPV(m_position, m_depth, score, m_pv[0], m_pvSize[0], "");
-                --m_depth;
-
-                aspiration += aspiration / 4 + 5;
-            }
-            else if (score >= beta)
-            {
-                alpha = -INFINITY_SCORE;
-                beta = INFINITY_SCORE;
-
-                memcpy(m_iterPV, m_pv[0], m_pvSize[0] * sizeof(Move));
-                m_iterPVSize = m_pvSize[0];
-
-                if (m_iterPVSize && m_pv[0][0])
-                    best = m_pv[0][0];
-
-                if (!(m_flags & MODE_SILENT) && m_principalSearcher)
-                    PrintPV(m_position, m_depth, score, m_pv[0], m_pvSize[0], "");
-                --m_depth;
-                aspiration += aspiration / 4 + 5;
+                m_best = m_pv[0][0];
+                m_bestSmpEval = score;
             }
 
-            dt = GetProcTime() - m_t0;
-
-            if (dt > 2000 && m_principalSearcher)
-                cout << "info depth " << m_depth << " time " << dt << " nodes " << m_nodes << " nps " << 1000 * m_nodes / dt << endl;
+            if (m_principalSearcher)
+                PrintPV(m_position, m_depth, score, m_pv[0], m_pvSize[0], "");
 
             if (m_time.getSoftLimit() > 0 && dt >= m_time.getSoftLimit())
             {
@@ -908,12 +921,73 @@ Move Search::StartSearch(bool principal, int depth, Time time)
                     break;
                 }
             }
+        }
+        else if (score <= alpha)
+        {
+            alpha = -INFINITY_SCORE;
+            beta = INFINITY_SCORE;
 
-            if ((m_time.getTimeMode() == Time::TimeControl::DepthLimit) && m_depth >= static_cast<int>(m_time.getDepthLimit()))
+            if (!(m_flags & MODE_SILENT) && m_principalSearcher)
+                PrintPV(m_position, m_depth, score, m_pv[0], m_pvSize[0], "");
+            --m_depth;
+
+            aspiration += aspiration / 4 + 5;
+        }
+        else if (score >= beta)
+        {
+            alpha = -INFINITY_SCORE;
+            beta = INFINITY_SCORE;
+
+            memcpy(m_iterPV, m_pv[0], m_pvSize[0] * sizeof(Move));
+            m_iterPVSize = m_pvSize[0];
+
+            if (m_iterPVSize && m_pv[0][0])
+            {
+                m_best = m_pv[0][0];
+                m_bestSmpEval = score;
+            }
+
+            if (!(m_flags & MODE_SILENT) && m_principalSearcher)
+                PrintPV(m_position, m_depth, score, m_pv[0], m_pvSize[0], "");
+            --m_depth;
+            aspiration += aspiration / 4 + 5;
+        }
+
+        dt = GetProcTime() - m_t0;
+
+        if (dt > 2000 && m_principalSearcher)
+            cout << "info depth " << m_depth << " time " << dt << " nodes " << m_nodes << " nps " << 1000 * m_nodes / dt << endl;
+
+        if (m_time.getSoftLimit() > 0 && dt >= m_time.getSoftLimit())
+        {
+            m_flags |= TERMINATED_BY_LIMIT;
+
+            stringstream ss;
+            ss << "Search stopped by stSoft, dt = " << dt;
+            Log(ss.str());
+
+            break;
+        }
+
+        if ((m_flags & MODE_ANALYZE) == 0)
+        {
+            if (singleMove)
             {
                 m_flags |= TERMINATED_BY_LIMIT;
                 break;
             }
+
+            if (score + m_depth >= CHECKMATE_SCORE)
+            {
+                m_flags |= TERMINATED_BY_LIMIT;
+                break;
+            }
+        }
+
+        if ((m_time.getTimeMode() == Time::TimeControl::DepthLimit) && m_depth >= static_cast<int>(m_time.getDepthLimit()))
+        {
+            m_flags |= TERMINATED_BY_LIMIT;
+            break;
         }
     }
 
@@ -927,7 +1001,41 @@ Move Search::StartSearch(bool principal, int depth, Time time)
         }
     }
 
-    return best;
+    if (smpStarted)
+    {
+        volatile int j = 0;
+
+        for (unsigned int i = 0; i < m_thc; ++i)
+            m_threadParams[i].m_smpThreadExit = true;
+
+lbl_retry:
+        for (unsigned int i = 0; i < m_thc; ++i)
+        {
+            while (m_threadParams[i].m_lazyDepth)
+                ++j;
+        }
+
+        for (unsigned int i = 0; i < m_thc; ++i)
+        {
+            if (m_threadParams[i].m_lazyDepth)
+                goto lbl_retry;
+        }
+
+        /*for (unsigned int i = 0; i < m_thc; ++i)
+        {
+            //cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!depth: " << m_depth << " smp depth: " << m_threadParams[i].m_depth << " old score: " << m_bestSmpEval << " new score: " << m_threadParams[i].m_bestSmpEval << endl;
+
+            if (m_threadParams[i].m_depth > m_depth)
+            {
+                //cout << "old score: " << m_bestSmpEval << " new score: " << m_threadParams[i].m_bestSmpEval << endl;
+                m_best = m_threadParams[i].m_best;
+                m_bestSmpEval = m_threadParams[i].m_bestSmpEval;
+                m_depth = m_threadParams[i].m_depth;
+            }
+        }*/
+    }
+
+    return m_best;
 }
 
 void Search::UpdateSortScores(MoveList& mvlist, Move hashMove, int ply)
@@ -985,6 +1093,60 @@ void Search::UpdateSortScoresQ(MoveList& mvlist, int ply)
             mvlist[j].m_score = SORT_HISTORY;
             if (m_histTry[mv.To()][mv.Piece()] > 0)
                 mvlist[j].m_score += 100 * m_histSuccess[mv.To()][mv.Piece()] / m_histTry[mv.To()][mv.Piece()];
+        }
+    }
+}
+
+void Search::setThreadCount(unsigned int threads)
+{
+    if (threads == m_thc)
+        return;
+
+    releaseHelperThreads();
+
+    m_thc = threads;
+    m_threads.reset(new std::thread[threads]);
+    m_threadParams.reset(new Search[threads]);
+
+    for (unsigned int i = 0; i < m_thc; ++i)
+        m_threads[i] = std::thread(&Search::LazySmpSearcher, &m_threadParams[i]);
+}
+
+void Search::LazySmpSearcher()
+{
+    while (!m_terminateSmp)
+    {
+        int alpha, beta;
+
+        {
+            std::unique_lock<std::mutex> lk(m_lazyMutex);
+            m_lazycv.wait(lk, std::bind(&Search::getIsLazySmpWork, this));
+
+            if (m_terminateSmp)
+                return;
+
+            alpha = m_lazyAlpha;
+            beta = m_lazyBeta;
+            m_depth = m_lazyDepth;
+        }
+
+        StartSearch(m_time, m_depth, alpha, beta);
+        resetLazySmpWork();
+    }
+}
+
+void Search::releaseHelperThreads()
+{
+    for (unsigned int i = 0; i < m_thc; ++i)
+    {
+        if (m_threads[i].joinable()) {
+            m_threadParams[i].m_terminateSmp = true;
+            {
+                std::unique_lock<std::mutex> lk(m_threadParams[i].m_lazyMutex);
+                m_threadParams[i].m_lazyDepth = 1;
+            }
+            m_threadParams[i].m_lazycv.notify_one();
+            m_threads[i].join();
         }
     }
 }

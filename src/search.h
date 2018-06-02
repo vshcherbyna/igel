@@ -25,6 +25,11 @@
 #include "time.h"
 #include "tt.h"
 
+#include <thread>
+#include <memory>
+#include <mutex>
+#include <condition_variable>
+
 const int MAX_PLY = 64;
 
 const U8 TERMINATED_BY_USER  = 0x01;
@@ -40,17 +45,20 @@ class Search
 {
 public:
     Search();
-    ~Search() = default;
+    ~Search();
     Search(const Search&) = delete;
     Search& operator=(const Search&) = delete;
 
 public:
-    Move StartSearch(bool principal, int depth, Time time);
+    Move StartSearch(Time time, int depth, EVAL alpha, EVAL beta);
     void ClearHistory();
     void ClearKillers();
     void setPosition(Position pos);
+    void setTime(Time time) {m_time = time;}
+    void setThreadCount(unsigned int threads);
 
 private:
+    void LazySmpSearcher();
     EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth);
     EVAL AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull);
     EVAL AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply);
@@ -71,6 +79,7 @@ private:
     void ProcessInput(const string& s);
     bool CheckLimits();
     void CheckInput();
+    void releaseHelperThreads();
 
 private:
     NODES m_timeCheck;
@@ -79,7 +88,6 @@ private:
     U8 m_flags;
     int m_depth;
     int m_iterPVSize;
-    bool m_principalSearcher;
     Position m_position;
     MoveList m_lists[MAX_PLY];
     Move m_pv[MAX_PLY][MAX_PLY];
@@ -90,6 +98,26 @@ private:
     int m_histTry[64][14];
     int m_histSuccess[64][14];
     Time m_time;
+
+public:
+    bool m_principalSearcher;
+
+private:
+    bool getIsLazySmpWork() {return (m_lazyDepth > 0);}
+    void resetLazySmpWork() {m_lazyDepth = 0;}
+    unsigned int m_thc;
+    std::unique_ptr<std::thread[]> m_threads;
+    std::unique_ptr<Search[]> m_threadParams;
+    std::mutex m_lazyMutex;
+    std::condition_variable m_lazycv;
+    volatile int m_lazyDepth;
+    int m_lazyAlpha;
+    int m_lazyPly;
+    int m_lazyBeta;
+    EVAL m_bestSmpEval;
+    Move m_best;
+    bool m_smpThreadExit;
+    bool m_terminateSmp;
 };
 
 #endif

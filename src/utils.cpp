@@ -36,7 +36,9 @@ static int g_pipe = 0;
 
 U32 GetProcTime()
 {
-    return 1000 * clock() / CLOCKS_PER_SEC;
+    struct timespec time;
+    clock_gettime(CLOCK_MONOTONIC, &time);
+    return (U32)((uint64_t)time.tv_sec * 1000 + time.tv_nsec / 1000000);
 }
 
 void InitIO()

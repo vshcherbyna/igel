@@ -26,15 +26,16 @@
 #include "time.h"
 #include "tt.h"
 
-#include <thread>
-#include <memory>
-
 const string PROGRAM_NAME   = "igel";
-const string VERSION        = "0.7";
+const string VERSION        = "0.8";
 
 const int MIN_HASH_SIZE = 1;
-const int MAX_HASH_SIZE = 131072;
+const int MAX_HASH_SIZE = 16384;
 const int DEFAULT_HASH_SIZE = 128;
+
+const int MIN_THREADS = 1;
+const int MAX_THREADS = 128;
+const int DEFAULT_THREADS = 1;
 
 extern Pair PSQ[14][64];
 extern Pair PSQ_PP_BLOCKED[64];
@@ -53,7 +54,7 @@ void OnZero();
 
 void OnEval()
 {
-    cout << Evaluate(g_position, -INFINITY_SCORE, INFINITY_SCORE) << endl;
+    cout << Evaluate(g_position) << endl;
 }
 
 void OnFEN()
@@ -75,23 +76,10 @@ void OnGoUci()
         cout << "Error: unable to parse command line" << endl;
 
     TTable::instance().increaseAge();
-    int workers = 0;
-
-    unique_ptr<std::thread[]> t(new std::thread[workers]);
-    unique_ptr<Search[]> s(new Search[workers]);
-
-    for (auto i = 0; i < workers; ++i)
-    {
-        s[i].setPosition(g_position);
-        t[i] = std::thread(&Search::StartSearch, &s[i], false, 1 + 2, time);
-    }
-
     g_search.setPosition(g_position);
-    Move mv = g_search.StartSearch(true, 1, time);
+    g_search.m_principalSearcher = true;
+    Move mv = g_search.StartSearch(time, 1, -INFINITY_SCORE, INFINITY_SCORE);
     cout << "bestmove " << MoveToStrLong(mv) << endl;
-
-    for (auto i = 0; i < workers; ++i)
-        t[i].join();
 }
 
 void OnIsready()
@@ -169,9 +157,9 @@ void OnMT()
         if (pos.SetFEN(s))
         {
             cout << s << endl;
-            EVAL e1 = Evaluate(pos, -INFINITY_SCORE, INFINITY_SCORE);
+            EVAL e1 = Evaluate(pos);
             pos.Mirror();
-            EVAL e2 = Evaluate(pos, -INFINITY_SCORE, INFINITY_SCORE);
+            EVAL e2 = Evaluate(pos);
             if (e1 != e2)
             {
                 pos.Mirror();
@@ -350,14 +338,37 @@ void OnSetoption()
 {
     if (g_tokens.size() < 5)
         return;
+
     if (g_tokens[1] != "name" && g_tokens[3] != "value")
         return;
 
-    string name = g_tokens[2];
-    string value = g_tokens[4];
+    auto name = g_tokens[2];
+    auto value = g_tokens[4];
 
     if (name == "Hash")
-        TTable::instance().setHashSize(atoi(value.c_str()));
+    {
+        if (!TTable::instance().setHashSize(atoi(value.c_str())))
+        {
+            cout << "Unable to allocate memory for transposition table" << endl;
+            exit(1);
+        }
+    }
+    else if (name == "Threads")
+    {
+        auto threads = atoi(value.c_str());
+
+        if (threads > MAX_THREADS || threads < MIN_THREADS)
+        {
+            cout << "Unable set threads value. Make sure number is correct" << endl;
+            exit(1);
+        }
+        g_search.setThreadCount(threads - 1);
+    }
+    else
+    {
+        cout << "Unknown option " << name << endl;
+        exit(1);
+    }
 }
 
 void OnUCI()
@@ -369,6 +380,11 @@ void OnUCI()
         " default " << DEFAULT_HASH_SIZE <<
         " min " << MIN_HASH_SIZE <<
         " max " << MAX_HASH_SIZE << endl;
+
+    cout << "option name Threads type spin" <<
+            " default " << DEFAULT_THREADS <<
+            " min " << MIN_THREADS <<
+            " max " << MAX_THREADS << endl;
 
     cout << "option name Strength type spin" <<
         " default " << 100 <<
