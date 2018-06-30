@@ -1,5 +1,27 @@
-GREKO CHESS ENGINE
+igel chess engine
+
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
+(c) 2018 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+
+igel 0.8
+-------------
+30-Jun-2018
+
+First release of igel engine, derivative of GreKo 2018.01
+
+What's new:
+- lazy smp
+- more compact tt (30% smaller than in GreKo)
+- max tt size increased from 1024 Mb to 16384 Mb
+- razoring at depth <= 2
+- futility check improvements
+- variable reduction depth in null move prunning
+- smaller, variable aspiration window
+- variable time management that takes into account opponent time
+- miscellaneous improvements
+
+Removed features:
+- xboard
 
 GreKo 2018.01
 -------------
