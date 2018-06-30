@@ -348,27 +348,18 @@ void OnSetoption()
     if (name == "Hash")
     {
         if (!TTable::instance().setHashSize(atoi(value.c_str())))
-        {
             cout << "Unable to allocate memory for transposition table" << endl;
-            exit(1);
-        }
     }
     else if (name == "Threads")
     {
         auto threads = atoi(value.c_str());
 
         if (threads > MAX_THREADS || threads < MIN_THREADS)
-        {
             cout << "Unable set threads value. Make sure number is correct" << endl;
-            exit(1);
-        }
         g_search.setThreadCount(threads - 1);
     }
     else
-    {
         cout << "Unknown option " << name << endl;
-        exit(1);
-    }
 }
 
 void OnUCI()
