@@ -26,8 +26,26 @@
 #include "time.h"
 #include "tt.h"
 
+// Check windows
+#if _WIN32 || _WIN64
+#if _WIN64
+#define ENV64BIT
+#else
+#define ENV32BIT
+#endif
+#endif
+
+// Check GCC
+#if __GNUC__
+#if __x86_64__ || __ppc64__
+#define ENV64BIT
+#else
+#define ENV32BIT
+#endif
+#endif
+
 const string PROGRAM_NAME   = "igel";
-const string VERSION        = "0.8";
+const string VERSION        = "1.1";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 16384;
@@ -364,8 +382,11 @@ void OnSetoption()
 
 void OnUCI()
 {
-    cout << "id name " << PROGRAM_NAME << " " << VERSION << endl;
-    cout << "id author V. Medvedev, V. Shcherbyna" << endl;
+    cout << "id name " << PROGRAM_NAME << " " << VERSION;
+#if defined(ENV64BIT)
+    cout << " 64";
+#endif
+    cout << endl << "id author V. Medvedev, V. Shcherbyna" << endl;
 
     cout << "option name Hash type spin" <<
         " default " << DEFAULT_HASH_SIZE <<
@@ -376,11 +397,6 @@ void OnUCI()
             " default " << DEFAULT_THREADS <<
             " min " << MIN_THREADS <<
             " max " << MAX_THREADS << endl;
-
-    cout << "option name Strength type spin" <<
-        " default " << 100 <<
-        " min " << 0 <<
-        " max " << 100 << endl;
 
     cout << "uciok" << endl;
 }
