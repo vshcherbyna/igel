@@ -3,6 +3,11 @@ igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+igel 1.1
+-------------
+03-Jul-2018
+- Remove leftovers of Strength option to allow running in ChessGUI software 
+
 igel 0.8
 -------------
 30-Jun-2018
