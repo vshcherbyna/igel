@@ -815,6 +815,7 @@ Move Search::StartSearch(Time time, int depth, EVAL alpha, EVAL beta)
     m_t0 = GetProcTime();
     m_flags = (m_time.getTimeMode() == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
     m_iterPVSize = 0;
+    m_nodes = 0;
 
     EVAL aspiration = 15;
     EVAL score = alpha;
