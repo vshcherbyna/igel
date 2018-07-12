@@ -23,12 +23,12 @@ import chess
 import chess.uci
 import timeit
 
-engine_def_move_time = 500
+engine_def_move_time = 1000
 
 def evaluate(mate,  fen):
     # setup engine
     engine = chess.uci.popen_engine("../igel")
-    engine.setoption({"Threads": 2})
+    engine.setoption({"Threads": 1})
     
     # setup new game
     engine.uci()

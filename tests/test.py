@@ -23,17 +23,23 @@ import os
 import epd_test
 import warnings
 
-if epd_test.run_test('../igel',  10,  'epds/null_move.epd') < 4:
-    warnings.warn("test failed: null move test (expected at least 4)")
-
-if epd_test.run_test('../igel',  10,  'epds/bk.epd') < 17:
-    warnings.warn("test failed: bratko kopec test (expected at least 17)")
-
-if epd_test.run_test('../igel',  10,  'epds/dann_corbit_tune.epd') < 116:
-    warnings.warn("test failed: dann corbit tune test (expected at least 116)")
+if os.system('python ./ci.py') != 0:
+    raise Exception("test failed:", "ci")
 
 if os.system('python ./go_infinite_test.py') != 0:
     raise Exception("test failed:", "go infinite test")
 
-if os.system('python ./ci.py') != 0:
-    raise Exception("test failed:", "ci")
+if epd_test.run_test('../igel',  10000,  'epds/null_move.epd') < 4:
+    warnings.warn("test failed: null move test (expected at least 4)")
+
+if epd_test.run_test('../igel',  10000,  'epds/bk.epd') < 17:
+    warnings.warn("test failed: bratko kopec test (expected at least 17)")
+
+if epd_test.run_test('../igel',  1000,  'epds/wacnew.epd') < 286:
+    warnings.warn("test failed: win at chess test (expected at least 286)")
+	
+if epd_test.run_test('../igel',  1000,  'epds/sts1-sts15.epd') < 800:
+    warnings.warn("test failed: strategic test suit (expected at least 800)")
+
+if epd_test.run_test('../igel',  10000,  'epds/dann_corbit_tune.epd') < 116:
+    warnings.warn("test failed: dann corbit tune test (expected at least 116)")

@@ -33,7 +33,7 @@ def test_epd(engine, epd,  wait_time):
     engine.ucinewgame()
     engine.position(position)
 
-    enginemove, pondermove = engine.go(movetime=wait_time * 1000)
+    enginemove, pondermove = engine.go(movetime=wait_time)
 
     if enginemove in epd_info["bm"]:
         print ("%s (expecting %s): +1" % (
@@ -92,7 +92,7 @@ def test_epd_with_fractional_scores(engine, epd,  wait_time):
 def run_test(eng,  wt,  f):
     engine = chess.uci.popen_engine(eng)
     engine.setoption({"Hash": 8192})
-    engine.setoption({"Threads": 2})
+    engine.setoption({"Threads": 1})
     engine.uci()
 
     file = open(f, 'r') 
