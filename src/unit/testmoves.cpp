@@ -26,7 +26,6 @@
 namespace unit
 {
 
-
 NODES Perft(Position & pos, int depth)
 {
     if (depth == 0)
@@ -116,6 +115,47 @@ TEST(Move, Positive)
     EXPECT_EQ(true, mvlist.Swap(0, 1));
     EXPECT_EQ(2, mvlist[0].m_mv);
     EXPECT_EQ(1, mvlist[1].m_mv);
+}
+
+NODES PerftChecks(Position & pos, int depth)
+{
+    NODES checks = 0;
+
+    if (depth == 0)
+        return checks;
+
+    MoveList mvlist;
+
+    EXPECT_EQ(true, GenAllMoves(pos, mvlist));
+
+    for (size_t i = 0; i < mvlist.Size(); ++i)
+    {
+        Move mv = mvlist[i].m_mv;
+        EXPECT_LE(mv, 16777215); // move must be encoded as 24 bit max
+
+        if (pos.MakeMove(mv))
+        {
+            if (pos.InCheck())
+                ++checks;
+            else
+                checks += PerftChecks(pos, depth - 1);
+            pos.UnmakeMove();
+        }
+    }
+
+    return checks;
+}
+
+TEST(MoveGenChecks, Positive)
+{
+    Position pos;
+    pos.SetInitial();
+
+    // taken from https://chessprogramming.wikispaces.com/Perft%20Results
+    EXPECT_EQ(0, PerftChecks(pos, 0));
+    EXPECT_EQ(0, PerftChecks(pos, 1));
+    EXPECT_EQ(0, PerftChecks(pos, 2));
+    EXPECT_EQ(12, PerftChecks(pos, 3));
 }
 
 }

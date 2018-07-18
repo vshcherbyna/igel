@@ -214,6 +214,7 @@ bool Position::IsAttacked(FLD f, COLOR side) const
 
 bool Position::MakeMove(Move mv)
 {
+    assert(m_undoSize <= MAX_UNDO);
     Undo& undo = m_undos[m_undoSize++];
     undo.m_castlings = m_castlings;
     undo.m_ep = m_ep;
@@ -226,6 +227,9 @@ bool Position::MakeMove(Move mv)
     PIECE piece = mv.Piece();
     PIECE captured = mv.Captured();
     PIECE promotion = mv.Promotion();
+
+    assert(!(captured && promotion));
+    assert((piece >= 2) && (piece <= 13));
 
     COLOR side = m_side;
     COLOR opp = side ^ 1;
@@ -588,7 +592,10 @@ void Position::SetInitial()
 void Position::UnmakeMove()
 {
     if (m_undoSize == 0)
+    {
+        assert(false);
         return;
+    }
 
     const Undo& undo = m_undos[--m_undoSize];
     Move mv = undo.m_mv;

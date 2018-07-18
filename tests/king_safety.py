@@ -49,7 +49,7 @@ def evaluate(mate,  fen):
     bestmove, pondermove = engine.go(movetime=engine_move_time)
     elapsed = timeit.default_timer() - start_time
     elapsed = elapsed * 1000
-    if elapsed > (engine_move_time + 100):
+    if elapsed > (engine_move_time + 200):
         engine.quit()
         raise Exception("exceeded a go time", elapsed)
     print (handler.info["score"][1])
