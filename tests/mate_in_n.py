@@ -31,10 +31,6 @@ def evaluate(mvt, mate,  fen):
     engine = chess.uci.popen_engine("../igel")
     engine.setoption({"Threads": multiprocessing.cpu_count()})
     
-    # setup new game
-    engine.uci()
-    engine.ucinewgame()
-    
     # setup board
     board = chess.Board(fen)
     handler = chess.uci.InfoHandler()
@@ -45,15 +41,17 @@ def evaluate(mvt, mate,  fen):
 
     if mvt != None:
         engine_move_time = mvt
-        
+
     # run engine
     engine.info_handlers.append(handler)
+    engine.ucinewgame()
     engine.position(board)
     start_time = timeit.default_timer()
+
     bestmove, pondermove = engine.go(movetime=engine_move_time)
     elapsed = timeit.default_timer() - start_time
     elapsed = elapsed * 1000
-    if elapsed > (engine_move_time + 100):
+    if elapsed > (engine_move_time + 200):
         engine.quit()
         raise Exception("exceeded a go time", elapsed)
     print (handler.info["score"][1])

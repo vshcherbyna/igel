@@ -163,7 +163,10 @@ void OnSetoption()
     if (name == "Hash")
     {
         if (!TTable::instance().setHashSize(atoi(value.c_str())))
+        {
             cout << "Unable to allocate memory for transposition table" << endl;
+            exit(1);
+        }
     }
     else if (name == "Threads")
     {

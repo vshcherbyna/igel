@@ -27,13 +27,9 @@ import multiprocessing
 def evaluate(fen, t, mate):
     # setup engine
     engine = chess.uci.popen_engine("../igel")
-    engine.setoption({"Hash": 8192})
+    engine.setoption({"Hash": 1024})
     engine.setoption({"Threads": multiprocessing.cpu_count()})
-    
-    # setup new game
-    engine.uci()
-    engine.ucinewgame()
-    
+
     # setup board
     board = chess.Board(fen)
     handler = chess.uci.InfoHandler()
@@ -42,7 +38,9 @@ def evaluate(fen, t, mate):
 
     # run engine
     engine.info_handlers.append(handler)
+    engine.ucinewgame()
     engine.position(board)
+
     print("starting engine in infinite mode ...")
     search = engine.go(infinite=True, async_callback=True)
     time.sleep(t)
