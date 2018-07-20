@@ -112,7 +112,6 @@ private:
     std::condition_variable m_lazycv;
     volatile int m_lazyDepth;
     int m_lazyAlpha;
-    int m_lazyPly;
     int m_lazyBeta;
     EVAL m_bestSmpEval;
     Move m_best;

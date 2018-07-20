@@ -37,7 +37,7 @@ if epd_test.run_test('../igel',  10000,  'epds/bk.epd') < 17:
 
 if epd_test.run_test('../igel',  1000,  'epds/wacnew.epd') < 286:
     warnings.warn("test failed: win at chess test (expected at least 286)")
-	
+
 if epd_test.run_test('../igel',  1000,  'epds/sts1-sts15.epd') < 800:
     warnings.warn("test failed: strategic test suit (expected at least 800)")
 
