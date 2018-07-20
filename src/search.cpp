@@ -24,8 +24,6 @@
 #include "search.h"
 #include "utils.h"
 
-#include <chrono>
-
 const int SORT_HASH         = 7000000;
 const int SORT_CAPTURE      = 6000000;
 const int SORT_MATE_KILLER  = 5000000;
@@ -50,6 +48,8 @@ m_thc(0),
 m_threads(nullptr),
 m_threadParams(nullptr),
 m_lazyDepth(0),
+m_lazyAlpha(-INFINITY_SCORE),
+m_lazyBeta(INFINITY_SCORE),
 m_bestSmpEval(0),
 m_smpThreadExit(false),
 m_terminateSmp(false)
@@ -178,7 +178,7 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
 
     for (size_t i = 0; i < mvSize; ++i)
     {
-        if (!m_principalSearcher)
+        if (m_principalSearcher)
             CheckInput();
 
         if (CheckLimits())
