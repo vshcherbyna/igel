@@ -228,7 +228,7 @@ bool Position::MakeMove(Move mv)
     PIECE captured = mv.Captured();
     PIECE promotion = mv.Promotion();
 
-    assert(!(captured && promotion));
+    //assert(!(captured && promotion));
     assert((piece >= 2) && (piece <= 13));
 
     COLOR side = m_side;

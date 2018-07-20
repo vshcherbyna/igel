@@ -48,6 +48,7 @@ TEST(TranspositionTableEntryTest, Positive)
     for (auto i = 1; i <= 2; ++i)
     {
         EXPECT_EQ(true, TTable::instance().setHashSize(i));
+        EXPECT_EQ(true, TTable::instance().clearHash());
 
         auto j = 1;
 

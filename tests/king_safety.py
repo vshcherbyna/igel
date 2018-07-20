@@ -30,11 +30,7 @@ def evaluate(mate,  fen):
     # setup engine
     engine = chess.uci.popen_engine("../igel")
     engine.setoption({"Threads": multiprocessing.cpu_count()})
-    
-    # setup new game
-    engine.uci()
-    engine.ucinewgame()
-    
+
     # setup board
     board = chess.Board(fen)
     handler = chess.uci.InfoHandler()
@@ -45,6 +41,7 @@ def evaluate(mate,  fen):
         
     # run engine
     engine.info_handlers.append(handler)
+    engine.ucinewgame()
     engine.position(board)
     start_time = timeit.default_timer()
     bestmove, pondermove = engine.go(movetime=engine_move_time)

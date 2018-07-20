@@ -92,9 +92,9 @@ def test_epd_with_fractional_scores(engine, epd,  wait_time):
 
 def run_test(eng,  wt,  f):
     engine = chess.uci.popen_engine(eng)
-    engine.setoption({"Hash": 8192})
+    engine.setoption({"Hash": 1024})
     engine.setoption({"Threads": multiprocessing.cpu_count()})
-    engine.uci()
+    engine.ucinewgame()
 
     file = open(f, 'r') 
     epds = file.read()
