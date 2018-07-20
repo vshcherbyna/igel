@@ -124,7 +124,11 @@ void Search::ProcessInput(const string& s)
     else if (Is(cmd, "quit", 1))
         exit(0);
     else if (Is(cmd, "stop", 1))
+    {
+        for (unsigned int i = 0; i < m_thc; ++i)
+            m_threadParams[i].m_flags |= TERMINATED_BY_USER;
         m_flags |= TERMINATED_BY_USER;
+    }
 }
 
 void Search::CheckInput()
