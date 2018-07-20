@@ -22,13 +22,14 @@
 import chess
 import chess.uci
 import timeit
+import multiprocessing
 
 engine_def_move_time = 1000
 
 def evaluate(mate,  fen):
     # setup engine
     engine = chess.uci.popen_engine("../igel")
-    engine.setoption({"Threads": 1})
+    engine.setoption({"Threads": multiprocessing.cpu_count()})
     
     # setup new game
     engine.uci()

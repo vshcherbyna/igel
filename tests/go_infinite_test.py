@@ -22,10 +22,13 @@
 import chess
 import chess.uci
 import time
+import multiprocessing
 
 def evaluate(fen, t, mate):
     # setup engine
     engine = chess.uci.popen_engine("../igel")
+    engine.setoption({"Hash": 8192})
+    engine.setoption({"Threads": multiprocessing.cpu_count()})
     
     # setup new game
     engine.uci()
