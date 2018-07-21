@@ -201,6 +201,45 @@ void OnUCI()
     cout << "uciok" << endl;
 }
 
+NODES Perft(Position & pos, int depth)
+{
+    if (depth == 0)
+        return 1;
+
+    NODES total = 0;
+    MoveList mvlist;
+
+    GenAllMoves(pos, mvlist);
+
+    auto mvSize = mvlist.Size();
+    for (size_t i = 0; i < mvSize; ++i)
+    {
+        Move mv = mvlist[i].m_mv;
+
+        if (pos.MakeMove(mv))
+        {
+            total += Perft(pos, depth - 1);
+            pos.UnmakeMove();
+        }
+    }
+
+    return total;
+}
+
+void OnBench()
+{
+    Position pos;
+    pos.SetInitial();
+
+    auto start = GetProcTime();
+    auto nodes = Perft(pos, 6);
+    auto end = GetProcTime();
+
+    cout << "Total time (ms)\t: " << (end - start) << endl;
+    cout << "Nodes searched\t: " << nodes << endl;
+    cout << "Nodes/second\t: " << nodes / ((end - start) / 1000) << endl;
+}
+
 void RunCommandLine()
 {
     while (1)
@@ -229,6 +268,7 @@ void RunCommandLine()
         ON_CMD(setoption,  3, OnSetoption())
         ON_CMD(uci,        1, OnUCI())
         ON_CMD(ucinewgame, 4, OnNew())
+        ON_CMD(bench,      1, OnBench())
 #undef ON_CMD
     }
 }

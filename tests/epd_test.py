@@ -26,7 +26,6 @@
 import chess
 import chess.uci
 import time
-import multiprocessing
 
 def test_epd(engine, epd,  wait_time):
     position = chess.Board()
@@ -93,7 +92,7 @@ def test_epd_with_fractional_scores(engine, epd,  wait_time):
 def run_test(eng,  wt,  f):
     engine = chess.uci.popen_engine(eng)
     engine.setoption({"Hash": 1024})
-    engine.setoption({"Threads": multiprocessing.cpu_count()})
+    engine.setoption({"Threads": 1})
     engine.ucinewgame()
 
     file = open(f, 'r') 
