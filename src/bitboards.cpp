@@ -259,25 +259,6 @@ U64 BishopAttacksTrace(FLD f, U64 occ)
     return att;
 }
 
-int CountBits(U64 b)
-{
-    if (b == 0)
-        return 0;
-
-    static const U64 mask_1 = LL(0x5555555555555555);   // 0101 0101 0101 0101 0101 0101 0101 0101 ...
-    static const U64 mask_2 = LL(0x3333333333333333);   // 0011 0011 0011 0011 0011 0011 0011 0011 ...
-    static const U64 mask_4 = LL(0x0f0f0f0f0f0f0f0f);   // 0000 1111 0000 1111 0000 1111 0000 1111 ...
-    static const U64 mask_8 = LL(0x00ff00ff00ff00ff);   // 0000 0000 1111 1111 0000 0000 1111 1111 ...
-
-    U64 x = (b & mask_1) + ((b >> 1) & mask_1);
-    x = (x & mask_2) + ((x >> 2) & mask_2);
-    x = (x & mask_4) + ((x >> 4) & mask_4);
-    x = (x & mask_8) + ((x >> 8) & mask_8);
-
-    U32 y = U32(x) + U32(x >> 32);
-    return (y + (y >> 16)) & 0x3f;
-}
-
 int Delta(int dir)
 {
     assert(dir >= 0 && dir <= 7);
