@@ -23,6 +23,10 @@
 
 #include "types.h"
 
+#if _WIN32 || _WIN64
+#include <intrin.h>
+#endif
+
 extern U64 BB_SINGLE[64];
 extern U64 BB_DIR[64][8];
 extern U64 BB_BETWEEN[64][64];
@@ -86,11 +90,39 @@ inline FLD PopLSB(U64& b)
     return f;
 }
 
+inline int CountBits(U64 b)
+{
+#if _WIN32 || _WIN64
+    return __popcnt64(b);
+#else
+    return __builtin_popcountl(b);
+#endif
+
+    //
+    //  Old implementation
+    //
+
+    /*if (b == 0)
+        return 0;
+
+    static const U64 mask_1 = LL(0x5555555555555555);   // 0101 0101 0101 0101 0101 0101 0101 0101 ...
+    static const U64 mask_2 = LL(0x3333333333333333);   // 0011 0011 0011 0011 0011 0011 0011 0011 ...
+    static const U64 mask_4 = LL(0x0f0f0f0f0f0f0f0f);   // 0000 1111 0000 1111 0000 1111 0000 1111 ...
+    static const U64 mask_8 = LL(0x00ff00ff00ff00ff);   // 0000 0000 1111 1111 0000 0000 1111 1111 ...
+
+    U64 x = (b & mask_1) + ((b >> 1) & mask_1);
+    x = (x & mask_2) + ((x >> 2) & mask_2);
+    x = (x & mask_4) + ((x >> 4) & mask_4);
+    x = (x & mask_8) + ((x >> 8) & mask_8);
+
+    U32 y = U32(x) + U32(x >> 32);
+    return (y + (y >> 16)) & 0x3f;*/
+}
+
 
 U64  Attacks(FLD f, U64 occ, PIECE piece);
 U64  BishopAttacks(FLD f, U64 occ);
 U64  BishopAttacksTrace(FLD f, U64 occ);
-int  CountBits(U64 b);
 int  Delta(int dir);
 U64  EnumBits(U64 b, int n);
 void FindMagicLSB();

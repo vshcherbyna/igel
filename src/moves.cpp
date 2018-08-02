@@ -442,7 +442,7 @@ void AddSimpleChecks(const Position& pos, MoveList& mvlist)
         while (y)
         {
             to = PopLSB(y);
-            if ((BB_BETWEEN[from][to] & occ) == 0 && (BB_BETWEEN[to][K] & occ) == 0)
+            if ((BB_BETWEEN[from][to] & occ) == 0)
                 mvlist.Add(from, to, piece);
         }
     }
@@ -460,7 +460,7 @@ void AddSimpleChecks(const Position& pos, MoveList& mvlist)
         while (y)
         {
             to = PopLSB(y);
-            if ((BB_BETWEEN[from][to] & occ) == 0 && (BB_BETWEEN[to][K] & occ) == 0)
+            if ((BB_BETWEEN[from][to] & occ) == 0)
                 mvlist.Add(from, to, piece);
         }
     }
@@ -478,7 +478,7 @@ void AddSimpleChecks(const Position& pos, MoveList& mvlist)
         while (y)
         {
             to = PopLSB(y);
-            if ((BB_BETWEEN[from][to] & occ) == 0 && (BB_BETWEEN[to][K] & occ) == 0)
+            if ((BB_BETWEEN[from][to] & occ) == 0)
                 mvlist.Add(from, to, piece);
         }
     }

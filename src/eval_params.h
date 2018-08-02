@@ -92,12 +92,9 @@ extern Line lines[NUM_LINES];
 extern int NUM_PARAMS;
 
 void InitParamLines();
-std::string ParamNumberToName(size_t n);
 
 void SetDefaultValues(vector<int>& x);
 void SetMaterialOnlyValues(vector<int>& x);
 
-bool ReadParamsFromFile(vector<int>& x, const std::string& filename);
-void WriteParamsToFile(const vector<int>& x, const std::string& filename);
 
 #endif
