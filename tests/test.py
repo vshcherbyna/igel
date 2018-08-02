@@ -34,7 +34,7 @@ improvements = 0
 def run_epd_test(name,  expected_pass,  epd,  tc):
     global improvements
     global skip_errors
-    print ("running test: %s") % (name)
+    print ("running test:" + name)
     passed = int(epd_test.run_test('../igel',  tc,  epd))
     if passed < expected_pass:
         if "skip" != skip_errors:
@@ -42,7 +42,7 @@ def run_epd_test(name,  expected_pass,  epd,  tc):
         else:
             warnings.warn("test failed:"  + name + ": required " + str(expected_pass) + " got only " + str(passed))
     elif passed > expected_pass:
-        print ("\033[1;32;40mImprovement detected in %s: %s\x1b[0m") % (name,  passed - expected_pass)
+        print ("\033[1;32;40mImprovement detected in " + name + " " + str(passed - expected_pass) + "\x1b[0m")
         improvements = improvements + 1
 
 if os.system('python ./ci.py') != 0:
@@ -58,32 +58,27 @@ if os.system('python ./go_infinite_test.py') != 0:
 run_epd_test('null move test',  4,  'epds/null_move.epd',  10000)
 run_epd_test('bratko kopec test',  18,  'epds/bk.epd',  10000)
 run_epd_test('win at chess test',  286,  'epds/wacnew.epd',  1000)
+run_epd_test('dann corbit tune test',  117,  'epds/dann_corbit_tune.epd',  10000)
 
 #
 #   strategic test suites
 #
 
-run_epd_test('sts undermine test',  76,  'epds/sts1.epd',  10000)
-run_epd_test('sts open files and diagonals test',  64,  'epds/sts2.epd',  10000)
-run_epd_test('sts centralization test',  67,  'epds/sts3.epd',  10000)
-run_epd_test('sts square vacancy test',  60,  'epds/sts4.epd',  10000)
-run_epd_test('sts bishop vs knight test',  70,  'epds/sts5.epd',  10000)
-run_epd_test('sts recapturing test',  62,  'epds/sts6.epd',  10000)
-run_epd_test('sts offer of simplication test',  54,  'epds/sts7.epd',  10000)
-run_epd_test('sts advacement of f/h/g pawns test',  44,  'epds/sts8.epd',  10000)
-run_epd_test('sts advacement of a/b/c pawns test',  55,  'epds/sts9.epd',  10000)
-run_epd_test('sts simplification test',  73,  'epds/sts10.epd',  10000)
-run_epd_test('sts king activity test',  53,  'epds/sts11.epd',  10000)
-run_epd_test('sts central control test',  68,  'epds/sts12.epd',  10000)
-run_epd_test('sts pawn play in the center test',  63,  'epds/sts13.epd',  10000)
-run_epd_test('sts rooks/queens on 7th test',  68,  'epds/sts14.epd',  10000)
-run_epd_test('sts pointless exchange test',  35,  'epds/sts15.epd',  10000)        
-
-#
-#   one day I can enable this one :)
-#
-
-#run_epd_test('dann corbit tune test',  116,  'epds/dann_corbit_tune.epd',  10000)
+run_epd_test('sts undermine test',  83,  'epds/sts1.epd',  10000)
+run_epd_test('sts open files and diagonals test',  80,  'epds/sts2.epd',  10000)
+run_epd_test('sts centralization test',  79,  'epds/sts3.epd',  10000)
+run_epd_test('sts square vacancy test',  77,  'epds/sts4.epd',  10000)
+run_epd_test('sts bishop vs knight test',  78,  'epds/sts5.epd',  10000)
+run_epd_test('sts recapturing test',  70,  'epds/sts6.epd',  10000)
+run_epd_test('sts offer of simplication test',  60,  'epds/sts7.epd',  10000)
+run_epd_test('sts advacement of f/h/g pawns test',  59,  'epds/sts8.epd',  10000)
+run_epd_test('sts advacement of a/b/c pawns test',  67,  'epds/sts9.epd',  10000)
+run_epd_test('sts simplification test',  77,  'epds/sts10.epd',  10000)
+run_epd_test('sts king activity test',  66,  'epds/sts11.epd',  10000)
+run_epd_test('sts central control test',  75,  'epds/sts12.epd',  10000)
+run_epd_test('sts pawn play in the center test',  71,  'epds/sts13.epd',  10000)
+run_epd_test('sts rooks/queens on 7th test',  74,  'epds/sts14.epd',  10000)
+run_epd_test('sts pointless exchange test',  35,  'epds/sts15.epd',  10000) 
 
 if improvements > 0:
-    print ("\033[1;32;40mImprovement detected: %s\x1b[0m") % (improvements)
+    print ("\033[1;32;40mImprovement detected: " + str(improvements)  +"\x1b[0m")
