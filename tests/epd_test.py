@@ -17,7 +17,7 @@
 #  You should have received a copy of the GNU General Public License
 #  
 
-#!/usr/bin/python
+#!/usr/bin/python3
 
 #
 #   Based on work from https://gist.github.com/niklasf/73c9565719d124af64ff

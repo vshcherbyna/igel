@@ -9,8 +9,12 @@ platform:
 configuration:
   - Release
 
-matrix:
-  fast_finish: true
+environment:
+  matrix:
+    - PYTHON: "C:\Python36-x64"
+
+install:
+  - SET PATH=%PYTHON%;%path%
 
 init:
   - cmake --version
