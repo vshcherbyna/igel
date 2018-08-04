@@ -17,7 +17,7 @@
 #  along with Igel.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import operator
 import subprocess
@@ -31,14 +31,14 @@ def obtain_eval(fen):
         cmd_line = 'eval\n'
     else:
         cmd_line = 'position fen ' + fen + '\neval\n'
-    stdout_data = cmd.communicate(input=cmd_line)[0]
-    digits = re.findall(r'[+-]?\d+(?:\.\d+)?', stdout_data)
+    stdout_data = cmd.communicate(input=cmd_line.encode())[0]
+    digits = re.findall(r'[+-]?\d+(?:\.\d+)?', stdout_data.decode('utf-8'))
     ret = int(digits[1])        
     if fen != None:
         print(fen)
     board = chess.Board(fen)
     print(board)
-    print("eval: %s" % ret)
+    print("eval: " + str(ret))
     return ret
 
 def eval_assert(expected_eval,  op,  engine_eval):

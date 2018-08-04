@@ -17,7 +17,7 @@
 #  along with Igel.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-#!/usr/bin/python
+#!/usr/bin/python3
  
 import chess
 import chess.uci
