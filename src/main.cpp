@@ -184,7 +184,7 @@ void OnUCI()
 {
     cout << "id name " << PROGRAM_NAME << " " << VERSION;
 #if defined(ENV64BIT)
-    cout << " 64";
+    cout << " 64 POPCNT";
 #endif
     cout << endl << "id author V. Medvedev, V. Shcherbyna" << endl;
 
