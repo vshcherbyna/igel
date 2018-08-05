@@ -45,11 +45,12 @@ def run_epd_test(name,  expected_pass,  epd,  tc):
         print ("\033[1;32;40mImprovement detected in " + name + " " + str(passed - expected_pass) + "\x1b[0m")
         improvements = improvements + 1
 
-if os.system('python ./ci.py') != 0:
-    raise Exception("test failed:", "ci")
+if "skip" != skip_errors:
+    if os.system('python ./ci.py') != 0:
+        raise Exception("test failed:", "ci")
 
-if os.system('python ./go_infinite_test.py') != 0:
-    raise Exception("test failed:", "go infinite test")
+    if os.system('python ./go_infinite_test.py') != 0:
+        raise Exception("test failed:", "go infinite test")
 
 #
 #   fundamental test suites
