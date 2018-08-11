@@ -21,6 +21,7 @@
 #include "../position.h"
 #include "../eval.h"
 #include "../utils.h"
+#include "../notation.h"
 #include <gtest/gtest.h>
 
 namespace unit
@@ -146,6 +147,48 @@ NODES PerftChecks(Position & pos, int depth)
     return checks;
 }
 
+void ValidateChecksGen(const char * fen, const char * expectedMoves)
+{
+    Position position;
+    position.SetFEN(fen);
+
+    MoveList moves;
+    AddSimpleChecks(position, moves);
+
+    return;
+    /*std::string s = expectedMoves;
+    std::string delimiter = ";";
+    size_t pos = 0;
+    std::string token;
+    std::set<std::string> expMoves;
+
+    while ((pos = s.find(delimiter)) != std::string::npos)
+    {
+        token = s.substr(0, pos);
+        expMoves.insert(token);
+        s.erase(0, pos + delimiter.length());
+    }
+
+    cout << "tokens " << expMoves.size() << endl;*/
+    //Position position;
+    //position.SetInitial();
+
+    //cout << "fen set to " << fen << endl;
+    //position.SetFEN(fen);
+
+    //cout << "fen set " << endl;
+
+    //MoveList moves;
+    //AddSimpleChecks(position, moves);
+
+    /*EXPECT_EQ(expMoves.size(), moves.Size());
+
+    cout << "sizes " << moves.Size() << endl;
+
+    for (size_t i = 0; i < moves.Size(); ++i)
+        EXPECT_EQ(true, expMoves.find(MoveToStrLong(moves[i].m_mv)) != expMoves.end());*/
+}
+
 TEST(MoveGenChecks, Positive)
 {
     Position pos;
@@ -156,6 +199,97 @@ TEST(MoveGenChecks, Positive)
     EXPECT_EQ(0, PerftChecks(pos, 1));
     EXPECT_EQ(0, PerftChecks(pos, 2));
     EXPECT_EQ(12, PerftChecks(pos, 3));
+}
+
+TEST(SimpleChecksKnights, Positive)
+{
+    Position pos;
+    pos.SetInitial();
+
+    {
+        MoveList mvs;
+        AddSimpleChecks(pos, mvs); // we do not expect checks in initial position
+        EXPECT_EQ(0, mvs.Size());
+    }
+
+    {
+        MoveList mvs;
+        // testing checks with knight in 7th rank
+        pos.SetFEN("4k3/8/8/8/3n4/8/8/4K3 b KQkq -");
+        AddSimpleChecks(pos, mvs);
+        EXPECT_EQ(2, mvs.Size());
+        EXPECT_EQ("d4c2", MoveToStrLong(mvs[0].m_mv));
+        EXPECT_EQ("d4f3", MoveToStrLong(mvs[1].m_mv));
+    }
+
+    {
+        // knight on the rim
+
+        MoveList mvs;
+        pos.SetFEN("4k3/8/8/8/8/n7/8/K7 b KQkq -");
+        AddSimpleChecks(pos, mvs);
+        EXPECT_EQ(1, mvs.Size());
+        EXPECT_EQ("a3c2", MoveToStrLong(mvs[0].m_mv));
+    }
+
+    {
+        // complicated opening
+
+        MoveList mvs;
+        pos.SetFEN("r1b1kbnr/ppp2ppp/8/2np4/4Pp2/5N2/PPPP2PP/RNBQKB1R b KQkq -");
+        AddSimpleChecks(pos, mvs);
+
+        for (size_t i = 0; i < mvs.Size(); ++i)
+            cout << MoveToStrLong(mvs[i].m_mv) << endl;
+
+        EXPECT_EQ(1, mvs.Size());
+        EXPECT_EQ("c5d3", MoveToStrLong(mvs[0].m_mv));
+    }
+
+}
+
+TEST(SimpleChecksByPawns, Positive)
+{
+    ValidateChecksGen("8/8/8/4k3/8/3p4/8/4K3 b KQkq -", "d3d2;");
+
+    Position pos;
+
+    MoveList mvs;
+    pos.SetFEN("8/8/8/4k3/8/3p4/8/4K3 b KQkq -");
+
+    AddSimpleChecks(pos, mvs);
+    EXPECT_EQ(1, mvs.Size());
+    EXPECT_EQ("d3d2", MoveToStrLong(mvs[0].m_mv));
+}
+
+TEST(SimpleChecksQueens, Positive)
+{
+    Position pos;
+    pos.SetInitial();
+
+    {
+        // complicated opening
+
+        MoveList mvs;
+        pos.SetFEN("r1bqkbnr/ppp2ppp/8/3p4/4Pp2/5N2/PPPP2PP/RNBQKB1R b KQkq -");
+        AddSimpleChecks(pos, mvs);
+        EXPECT_EQ(1, mvs.Size());
+        EXPECT_EQ("d8h4", MoveToStrLong(mvs[0].m_mv));
+    }
+
+    {
+            // complicated opening
+
+        MoveList mvs;
+        pos.SetFEN("rnb1kbnr/pppp1ppp/8/8/3pP3/2Pq1P2/PP4PP/RNBQKBNR b KQkq -");
+        AddSimpleChecks(pos, mvs);
+        //cout << "queen checks " << mvs.Size() << endl;
+        //for (size_t i = 0; i < mvs.Size(); ++i)
+        //    cout << MoveToStrLong(mvs[i].m_mv) << endl;
+        EXPECT_EQ(3, mvs.Size());
+        //EXPECT_EQ("d8h4", MoveToStrLong(mvs[0].m_mv));
+    }
+
 }
 
 }

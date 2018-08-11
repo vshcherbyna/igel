@@ -413,6 +413,27 @@ void AddSimpleChecks(const Position& pos, MoveList& mvlist)
     U64 zoneQ = BB_QUEEN_ATTACKS[K] & free;
 
     //
+    //  PAWNS
+    //
+
+    piece = PAWN | side;
+    x = pos.Bits(piece);
+    int fwd = -8 + 16 * side;
+
+    while (x)
+    {
+        from = PopLSB(x);
+        to = from + fwd;
+
+        if (!pos[to])
+        {
+            y = BB_PAWN_ATTACKS[to][side] & (pos.Bits(KING | opp));
+            if (y)
+                mvlist.Add(from, to, piece);
+        }
+    }
+
+    //
     //   KNIGHTS
     //
 
@@ -442,7 +463,7 @@ void AddSimpleChecks(const Position& pos, MoveList& mvlist)
         while (y)
         {
             to = PopLSB(y);
-            if ((BB_BETWEEN[from][to] & occ) == 0)
+            if ((BB_BETWEEN[from][to] & occ) == 0 && (BB_BETWEEN[to][K] & occ) == 0)
                 mvlist.Add(from, to, piece);
         }
     }
@@ -460,7 +481,7 @@ void AddSimpleChecks(const Position& pos, MoveList& mvlist)
         while (y)
         {
             to = PopLSB(y);
-            if ((BB_BETWEEN[from][to] & occ) == 0)
+            if ((BB_BETWEEN[from][to] & occ) == 0 && (BB_BETWEEN[to][K] & occ) == 0)
                 mvlist.Add(from, to, piece);
         }
     }
@@ -478,11 +499,12 @@ void AddSimpleChecks(const Position& pos, MoveList& mvlist)
         while (y)
         {
             to = PopLSB(y);
-            if ((BB_BETWEEN[from][to] & occ) == 0)
+            if ((BB_BETWEEN[from][to] & occ) == 0 && (BB_BETWEEN[to][K] & occ) == 0)
                 mvlist.Add(from, to, piece);
         }
     }
 }
+
 
 U64 GetCheckMask(const Position& pos)
 {

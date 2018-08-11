@@ -63,5 +63,6 @@ bool GenAllMoves(const Position& pos, MoveList& mvlist);
 void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist);
 void AddSimpleChecks(const Position& pos, MoveList& mvlist);
 void GenMovesInCheck(const Position& pos, MoveList& mvlist);
+U64 GetCheckMask(const Position& pos);
 
 #endif
