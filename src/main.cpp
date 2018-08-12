@@ -45,7 +45,7 @@
 #endif
 
 const string PROGRAM_NAME   = "Igel";
-const string VERSION = "1.2";
+const string VERSION = "1.3 experimental";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 131072;
@@ -184,7 +184,7 @@ void OnUCI()
 {
     cout << "id name " << PROGRAM_NAME << " " << VERSION;
 #if defined(ENV64BIT)
-    cout << " 64 POPCNT";
+    cout << " 64";
 #endif
     cout << endl << "id author V. Medvedev, V. Shcherbyna" << endl;
 

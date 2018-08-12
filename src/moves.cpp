@@ -48,6 +48,14 @@ bool MoveList::Add(FLD from, FLD to, PIECE piece)
     if (overflow())
         return false;
 
+#ifdef _DEBUG
+    Move m = Move(from, to, piece);
+    for (size_t i = 0; i < m_size; ++i)
+    {
+        assert(m_data[i].m_mv != m);
+    }
+#endif
+
     m_data[m_size++].m_mv = Move(from, to, piece);
     return true;
 }
@@ -276,7 +284,12 @@ void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist)
         if (!pos[to])
         {
             if (row == seventh)
+            {
                 mvlist.Add(from, to, piece, NOPIECE, QW | side);
+                mvlist.Add(from, to, piece, NOPIECE, RW | side);
+                mvlist.Add(from, to, piece, NOPIECE, BW | side);
+                mvlist.Add(from, to, piece, NOPIECE, NW | side);
+            }
         }
 
         y = BB_PAWN_ATTACKS[from][side] & pos.BitsAll(opp);
@@ -285,7 +298,12 @@ void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist)
             to = PopLSB(y);
             captured = pos[to];
             if (row == seventh)
+            {
                 mvlist.Add(from, to, piece, captured, QW | side);
+                mvlist.Add(from, to, piece, captured, RW | side);
+                mvlist.Add(from, to, piece, captured, BW | side);
+                mvlist.Add(from, to, piece, captured, NW | side);
+            }
             else
                 mvlist.Add(from, to, piece, captured);
         }
@@ -304,33 +322,33 @@ void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist)
     }
 
     //
-    //  Menace high value pieces first
+    //   KNIGHTS
     //
 
-    //
-    //   KINGS
-    //
-
-    piece = KING | side;
-    from = pos.King(side);
-    y = BB_KING_ATTACKS[from] & targets;
-    while (y)
-    {
-        to = PopLSB(y);
-        captured = pos[to];
-        mvlist.Add(from, to, piece, captured);
-    }
-
-    //
-    //   QUEENS
-    //
-
-    piece = QUEEN | side;
+    piece = KNIGHT | side;
     x = pos.Bits(piece);
     while (x)
     {
         from = PopLSB(x);
-        y = QueenAttacks(from, occ) & targets;
+        y = BB_KNIGHT_ATTACKS[from] & targets;
+        while (y)
+        {
+            to = PopLSB(y);
+            captured = pos[to];
+            mvlist.Add(from, to, piece, captured);
+        }
+    }
+
+    //
+    //   BISHOPS
+    //
+
+    piece = BISHOP | side;
+    x = pos.Bits(piece);
+    while (x)
+    {
+        from = PopLSB(x);
+        y = BishopAttacks(from, occ) & targets;
         while (y)
         {
             to = PopLSB(y);
@@ -358,15 +376,15 @@ void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist)
     }
 
     //
-    //   BISHOPS
+    //   QUEENS
     //
-    
-    piece = BISHOP | side;
+
+    piece = QUEEN | side;
     x = pos.Bits(piece);
     while (x)
     {
         from = PopLSB(x);
-        y = BishopAttacks(from, occ) & targets;
+        y = QueenAttacks(from, occ) & targets;
         while (y)
         {
             to = PopLSB(y);
@@ -376,21 +394,17 @@ void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist)
     }
 
     //
-    //   KNIGHTS
+    //   KINGS
     //
-    
-    piece = KNIGHT | side;
-    x = pos.Bits(piece);
-    while (x)
+
+    piece = KING | side;
+    from = pos.King(side);
+    y = BB_KING_ATTACKS[from] & targets;
+    while (y)
     {
-        from = PopLSB(x);
-        y = BB_KNIGHT_ATTACKS[from] & targets;
-        while (y)
-        {
-            to = PopLSB(y);
-            captured = pos[to];
-            mvlist.Add(from, to, piece, captured);
-        }
+        to = PopLSB(y);
+        captured = pos[to];
+        mvlist.Add(from, to, piece, captured);
     }
 }
 
@@ -486,9 +500,9 @@ void AddSimpleChecks(const Position& pos, MoveList& mvlist)
         }
     }
 
-    //
-    //   QUEENS
-    //
+    ///
+    ///   QUEENS
+    ///
 
     piece = QUEEN | side;
     x = pos.Bits(piece);
@@ -504,7 +518,6 @@ void AddSimpleChecks(const Position& pos, MoveList& mvlist)
         }
     }
 }
-
 
 U64 GetCheckMask(const Position& pos)
 {
