@@ -445,6 +445,23 @@ void AddSimpleChecks(const Position& pos, MoveList& mvlist)
             if (y)
                 mvlist.Add(from, to, piece);
         }
+
+        int row = Row(from);
+        int second = 6 - 5 * side;
+
+        if (row == second)
+        {
+            if (!pos[to])
+            {
+                to += fwd;
+                if (!pos[to])
+                {
+                    y = BB_PAWN_ATTACKS[to][side] & (pos.Bits(KING | opp));
+                    if (y)
+                        mvlist.Add(from, to, piece);
+                }
+            }
+        }
     }
 
     //

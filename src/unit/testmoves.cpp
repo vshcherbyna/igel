@@ -208,6 +208,20 @@ TEST(MoveGenChecks, Positive)
     EXPECT_EQ(12, PerftChecks(pos, 3));
 }
 
+TEST(SimpleChecksByPawns, Positive)
+{
+    ValidateMoveGen("8/8/8/4k3/8/3p4/8/4K3 b KQkq -", "d3d2", AddSimpleChecks);
+    ValidateMoveGen("k7/8/8/8/p7/p7/8/1K6 b - -", "a3a2", AddSimpleChecks);
+    ValidateMoveGen("k7/p7/p7/8/p7/p7/8/1K6 b - -", "a3a2", AddSimpleChecks);
+    ValidateMoveGen("k7/8/8/8/p7/p7/P7/1K6 b - -", "", AddSimpleChecks);
+    ValidateMoveGen("k7/8/8/8/p7/p7/R7/1K6 b - -", "", AddSimpleChecks);
+    ValidateMoveGen("r1b1kbnr/pp1ppppp/8/4K3/8/8/PPPP1PPP/RNBQ1BNR b KQkq -", "d7d6,f7f6", AddSimpleChecks);
+    ValidateMoveGen("r1b1kb1r/pp1ppppp/8/8/4K3/8/PPPP1PPP/RNBQ1BNR b KQkq -", "d7d5,f7f5", AddSimpleChecks);
+    ValidateMoveGen("r1b1kb1r/pp1ppppp/3N4/8/4K3/8/PPPP1PPP/RNBQ1B1R b kq -", "f7f5", AddSimpleChecks);
+    ValidateMoveGen("r1b1kb1r/pp1ppppp/3N4/3B4/4K3/8/PPPP1PPP/RNBQ1B1R b kq -", "f7f5", AddSimpleChecks);
+    ValidateMoveGen("r1b1kb1r/1p1ppppp/p2N4/3B4/8/1K6/PPPP1PPP/RNBQ1B1R b kq -", "", AddSimpleChecks);
+}
+
 TEST(SimpleChecksKnights, Positive)
 {
     ValidateMoveGen("4k3/8/8/8/3n4/8/8/4K3 b KQkq -", "d4c2,d4f3", AddSimpleChecks);
@@ -235,14 +249,6 @@ TEST(SimpleChecksRooks, Positive)
 
     // special case: checking via long castling, currently not supported
     ValidateMoveGen("rnbq1b1r/pppkpppp/5n2/8/8/8/PPP2PPP/R3K1NR w KQ -", "a1d1", AddSimpleChecks);
-}
-
-TEST(SimpleChecksByPawns, Positive)
-{
-    ValidateMoveGen("8/8/8/4k3/8/3p4/8/4K3 b KQkq -", "d3d2", AddSimpleChecks);
-    ValidateMoveGen("k7/8/8/8/p7/p7/8/1K6 b - -", "a3a2", AddSimpleChecks);
-    ValidateMoveGen("k7/8/8/8/p7/p7/P7/1K6 b - -", "", AddSimpleChecks);
-    ValidateMoveGen("k7/8/8/8/p7/p7/R7/1K6 b - -", "", AddSimpleChecks);
 }
 
 TEST(SimpleChecksQueens, Positive)
