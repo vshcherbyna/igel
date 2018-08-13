@@ -74,8 +74,6 @@ private:
     bool IsGameOver(Position& pos, string& result, string& comment);
     void PrintPV(const Position& pos, int iter, EVAL score, const Move* pv, int pvSize, const string& sign);
     EVAL SEE_Exchange(FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ);
-    Move FirstLegalMove(Position& pos);
-
     void ProcessInput(const string& s);
     bool CheckLimits();
     void CheckInput();

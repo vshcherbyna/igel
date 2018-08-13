@@ -260,8 +260,6 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
 
 EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 {
-    bool inCheck = m_position.InCheck();
-
     if (ply > MAX_PLY - 2)
         return Evaluate(m_position);
 
@@ -269,10 +267,6 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
     if (!isNull && m_position.Repetitions() >= 2)
         return DRAW_SCORE;
-
-    COLOR side = m_position.Side();
-    bool onPV = (beta - alpha > 1);
-    bool lateEndgame = (m_position.MatIndex(side) < 5);
 
     //
     //   PROBING HASH
@@ -305,6 +299,11 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     if (CheckLimits())
         return alpha;
 
+    COLOR side = m_position.Side();
+    bool onPV = (beta - alpha > 1);
+    bool lateEndgame = (m_position.MatIndex(side) < 5);
+    bool inCheck = m_position.InCheck();
+    
     //
     //   QSEARCH
     //
@@ -493,12 +492,11 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
 EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
 {
-    bool inCheck = m_position.InCheck();
-
     if (ply > MAX_PLY - 2)
         return Evaluate(m_position);
 
     m_pvSize[ply] = 0;
+    bool inCheck = m_position.InCheck();
 
     if (!inCheck)
     {
@@ -792,25 +790,6 @@ EVAL Search::SEE(Move mv)
     EVAL score = - SEE_Exchange(to, side ^ 1, -score0, SORT_VALUE[piece], occ);
 
     return score;
-}
-
-Move Search::FirstLegalMove(Position& pos)
-{
-    MoveList mvlist;
-    GenAllMoves(pos, mvlist);
-
-    auto mvSize = mvlist.Size();
-    for (size_t i = 0; i < mvSize; ++i)
-    {
-        Move mv = mvlist[i].m_mv;
-        if (m_position.MakeMove(mv))
-        {
-            m_position.UnmakeMove();
-            return mv;
-        }
-    }
-
-    return 0;
 }
 
 Move Search::StartSearch(Time time, int depth, EVAL alpha, EVAL beta)

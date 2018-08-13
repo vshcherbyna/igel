@@ -59,9 +59,9 @@ private:
     size_t m_size;
 };
 
-bool GenAllMoves(const Position& pos, MoveList& mvlist);
+void GenAllMoves(const Position& pos, MoveList& mvlist);
 void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist);
 void AddSimpleChecks(const Position& pos, MoveList& mvlist);
 void GenMovesInCheck(const Position& pos, MoveList& mvlist);
 
-#endif
+#endif // MOVES_H
