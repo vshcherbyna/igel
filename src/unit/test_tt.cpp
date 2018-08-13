@@ -127,7 +127,7 @@ TEST(TranspositionTableEntryMoveTest, Positive)
     Position pos;
     pos.SetInitial();
 
-    EXPECT_EQ(true, GenAllMoves(pos, mvlist));
+    GenAllMoves(pos, mvlist);
 
     auto mvSize = mvlist.Size();
     for (size_t i = 0; i < mvSize; ++i)

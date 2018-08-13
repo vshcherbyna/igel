@@ -39,7 +39,7 @@ NODES Perft(Position & pos, int depth)
     NODES total = 0;
     MoveList mvlist;
 
-    EXPECT_EQ(true, GenAllMoves(pos, mvlist));
+    GenAllMoves(pos, mvlist);
 
     auto mvSize = mvlist.Size();
     for (size_t i = 0; i < mvSize; ++i)
@@ -131,7 +131,7 @@ NODES PerftChecks(Position & pos, int depth)
 
     MoveList mvlist;
 
-    EXPECT_EQ(true, GenAllMoves(pos, mvlist));
+    GenAllMoves(pos, mvlist);
 
     for (size_t i = 0; i < mvlist.Size(); ++i)
     {
@@ -206,6 +206,7 @@ TEST(MoveGenChecks, Positive)
     EXPECT_EQ(0, PerftChecks(pos, 1));
     EXPECT_EQ(0, PerftChecks(pos, 2));
     EXPECT_EQ(12, PerftChecks(pos, 3));
+    //EXPECT_EQ(477, PerftChecks(pos, 4));
 }
 
 TEST(SimpleChecksByPawns, Positive)
@@ -311,6 +312,31 @@ TEST(CapturesQueen, Positive)
 TEST(CapturesComposite, Positive)
 {
     ValidateMoveGen("rnb1kb1r/ppp2pp1/B3pn2/1q1PNNB1/1Q1P3p/6P1/PPP2P1P/R3K2R w KQkq -", "a6b5,a6b7,b4b5,b4f8,d5e6,e5f7,f5g7,g5f6,g5h4,g3h4,f5h4", GenCapturesAndPromotions);
+}
+
+TEST(CheckByPawnEvasions, Positive)
+{
+    // king moves
+    ValidateMoveGen("rnbqkbnr/p1pppppp/8/8/1p6/2K5/PPP2PPP/RNBQ1BNR w KQkq -", "c3b4,c3b3,c3c4,c3d4,c3d2,c3d3", GenMovesInCheck);
+    ValidateMoveGen("rnbqkbnr/p1pppppp/8/8/1p6/P1K5/1PP2PPP/RNBQ1BNR w KQkq -", "c3b4,c3b3,c3c4,c3d4,c3d2,c3d3,a3b4", GenMovesInCheck);
+    ValidateMoveGen("rnbqkbnr/p1pppppp/8/8/1p6/PNK5/1PP2PPP/RNBQ1BNR w KQkq -", "c3b4,c3c4,c3d4,c3d2,c3d3,a3b4", GenMovesInCheck);
+    ValidateMoveGen("rnbqkbnr/2pppppp/8/8/1pp5/PNK5/1PP2PPP/RNBQ1BNR w KQkq -", "c3b4,c3c4,c3d4,c3d2,c3d3,a3b4", GenMovesInCheck);
+    ValidateMoveGen("rnbqkbnr/2pppppp/8/8/1pN5/PNK5/1PP2PPP/RNBQ1B1R w KQkq -", "c3b4,c3d4,c3d2,c3d3,a3b4", GenMovesInCheck);
+
+    // pawn moves
+    ValidateMoveGen("rnbqkbnr/2pppppp/8/8/1pNQ4/PNKB4/1PPP1PPP/RNBQ1B1R w KQkq -", "c3b4,a3b4", GenMovesInCheck);
+
+    // knight moves
+    ValidateMoveGen("rnbqkbnr/2pppppp/8/8/PpNQ4/1NKN4/1PPP1PPP/RNBQ1B1R w KQkq -", "c3b4,d3b4", GenMovesInCheck);
+
+    // bishop moves
+    ValidateMoveGen("rnbqkbnr/2pppppp/8/B7/PpNQ4/1NKB4/1PPP1PPP/RN1Q3R w KQkq -", "c3b4,a5b4", GenMovesInCheck);
+
+    // rook moves
+    ValidateMoveGen("rnbqkbnr/2pppp1p/8/1R6/PpNNR3/1NKB4/1PPP2PP/1N1Q3R w kq -", "c3b4,b5b4", GenMovesInCheck);
+
+    // queen moves
+    ValidateMoveGen("rnbqkbnr/1Qpppp1p/3Q4/Q7/PpNNR3/1NKB4/1PPP2PP/1N1Q3R w kq -", "c3b4,a5b4,b7b4,d6b4", GenMovesInCheck);
 }
 
 }
