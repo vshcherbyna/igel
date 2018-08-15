@@ -112,27 +112,18 @@ int PawnStormPenalty(const PawnHashEntry& pEntry, int fileK, COLOR side)
     return penalty;
 }
 
-EVAL Evaluate(Position& pos)
+inline Pair evalPawns(Position & pos, PawnHashEntry ** pps, U64 occ)
 {
-    int mid = pos.MatIndex(WHITE) + pos.MatIndex(BLACK);
-    int end = 64 - mid;
-
-    Pair score = pos.Score();
-
-    U64 x, y, occ = pos.BitsAll();
+    Pair score;
+    U64 x;
     FLD f;
 
-    U64 KingZone[2] = { BB_KING_ATTACKS[pos.King(WHITE)], BB_KING_ATTACKS[pos.King(BLACK)] };
-    int attK[2] = { 0, 0 };
-
-    //
-    //   PAWNS
-    //
-
     int index = pos.PawnHash() % pos.m_pawnHashSize;
-    PawnHashEntry& ps = pos.m_pawnHashTable[index];
+    PawnHashEntry & ps = pos.m_pawnHashTable[index];
     if (ps.m_pawnHash != pos.PawnHash())
         ps.Read(pos);
+
+    *pps = &ps;
 
     // passed
     x = ps.m_passedPawns[WHITE];
@@ -188,33 +179,42 @@ EVAL Evaluate(Position& pos)
         score -= PAWN_ISOLATED[FLIP[BLACK][f]];
     }
 
-    // attacks
-    {
-        x = pos.Bits(PW);
-        y = UpRight(x) | UpLeft(x);
-        y &= (pos.Bits(NB) | pos.Bits(BB) | pos.Bits(RB) | pos.Bits(QB));
-        score += CountBits(y) * ATTACK_STRONGER;
-    }
-    {
-        x = pos.Bits(PB);
-        y = DownRight(x) | DownLeft(x);
-        y &= (pos.Bits(NW) | pos.Bits(BW) | pos.Bits(RW) | pos.Bits(QW));
-        score -= CountBits(y) * ATTACK_STRONGER;
-    }
+    return score;
+}
 
-    //
-    //   KNIGHTS
-    //
+inline Pair evalStrongAttacks(Position & pos)
+{
+    Pair score;
+    U64 x, y;
+    
+    x = pos.Bits(PW);
+    y = UpRight(x) | UpLeft(x);
+    y &= (pos.Bits(NB) | pos.Bits(BB) | pos.Bits(RB) | pos.Bits(QB));
+    score += CountBits(y) * ATTACK_STRONGER;
 
-    if (ps.m_strongFields[WHITE])
+    x = pos.Bits(PB);
+    y = DownRight(x) | DownLeft(x);
+    y &= (pos.Bits(NW) | pos.Bits(BW) | pos.Bits(RW) | pos.Bits(QW));
+    score -= CountBits(y) * ATTACK_STRONGER;
+
+    return score;
+}
+
+inline Pair evalStrongFields(Position & pos, PawnHashEntry * pps)
+{
+    Pair score;
+    U64 x;
+    FLD f;
+
+    if (pps->m_strongFields[WHITE])
     {
-        x = ps.m_strongFields[WHITE] & pos.Bits(NW);
+        x = pps->m_strongFields[WHITE] & pos.Bits(NW);
         while (x)
         {
             f = PopLSB(x);
             score += KNIGHT_STRONG[f];
         }
-        x = ps.m_strongFields[WHITE] & pos.Bits(BW);
+        x = pps->m_strongFields[WHITE] & pos.Bits(BW);
         while (x)
         {
             f = PopLSB(x);
@@ -222,21 +222,30 @@ EVAL Evaluate(Position& pos)
         }
     }
 
-    if (ps.m_strongFields[BLACK])
+    if (pps->m_strongFields[BLACK])
     {
-        x = ps.m_strongFields[BLACK] & pos.Bits(NB);
+        x = pps->m_strongFields[BLACK] & pos.Bits(NB);
         while (x)
         {
             f = PopLSB(x);
             score -= KNIGHT_STRONG[FLIP[BLACK][f]];
         }
-        x = ps.m_strongFields[BLACK] & pos.Bits(BB);
+        x = pps->m_strongFields[BLACK] & pos.Bits(BB);
         while (x)
         {
             f = PopLSB(x);
             score -= BISHOP_STRONG[FLIP[BLACK][f]];
         }
     }
+
+    return score;
+}
+
+inline Pair evalKnights(Position & pos, U64 KingZone[2], int * attK)
+{
+    Pair score;
+    U64 x, y;
+    FLD f;
 
     x = pos.Bits(NW);
     while (x)
@@ -260,14 +269,14 @@ EVAL Evaluate(Position& pos)
         score -= CountBits(y) * ATTACK_STRONGER;
     }
 
-    //
-    //   BISHOPS
-    //
+    return score;
+}
 
-    if (pos.Count(BW) == 2)
-        score += BISHOP_PAIR;
-    if (pos.Count(BB) == 2)
-        score -= BISHOP_PAIR;
+inline Pair evalBishops(Position & pos, U64 KingZone[2], int * attK, U64 occ)
+{
+    Pair score;
+    U64 x, y;
+    FLD f;
 
     x = pos.Bits(BW);
     while (x)
@@ -293,9 +302,14 @@ EVAL Evaluate(Position& pos)
         score -= CountBits(y) * ATTACK_STRONGER;
     }
 
-    //
-    //   ROOKS
-    //
+    return score;
+}
+
+inline Pair evalRooks(Position & pos, PawnHashEntry * pps, U64 KingZone[2], int * attK, U64 occ)
+{
+    Pair score;
+    U64 x, y;
+    FLD f;
 
     x = pos.Bits(RW);
     while (x)
@@ -311,7 +325,7 @@ EVAL Evaluate(Position& pos)
         score += CountBits(y) * ATTACK_STRONGER;
 
         int file = Col(f) + 1;
-        if (ps.m_ranks[file][WHITE] == 0)
+        if (pps->m_ranks[file][WHITE] == 0)
             score += ROOK_OPEN;
 
         if (Row(f) == 1)
@@ -335,7 +349,7 @@ EVAL Evaluate(Position& pos)
         score -= CountBits(y) * ATTACK_STRONGER;
 
         int file = Col(f) + 1;
-        if (ps.m_ranks[file][BLACK] == 7)
+        if (pps->m_ranks[file][BLACK] == 7)
             score -= ROOK_OPEN;
 
         if (Row(f) == 6)
@@ -345,9 +359,14 @@ EVAL Evaluate(Position& pos)
         }
     }
 
-    //
-    //   QUEENS
-    //
+    return score;
+}
+
+inline Pair evalQueens(Position & pos, PawnHashEntry * pps, U64 KingZone[2], int * attK, U64 occ)
+{
+    Pair score;
+    U64 x, y;
+    FLD f;
 
     x = pos.Bits(QW);
     while (x)
@@ -383,30 +402,34 @@ EVAL Evaluate(Position& pos)
         }
     }
 
-    //
-    //   KINGS
-    //
+    return score;
+}
 
-    {
-        f = pos.King(WHITE);
-        int fileK = Col(f) + 1;
-        int shield = PawnShieldPenalty(ps, fileK, WHITE);
-        score += KING_PAWN_SHIELD[shield];
-        int storm = PawnStormPenalty(ps, fileK, WHITE);
-        score += KING_PAWN_STORM[storm];
-    }
-    {
-        f = pos.King(BLACK);
-        int fileK = Col(f) + 1;
-        int shield = PawnShieldPenalty(ps, fileK, BLACK);
-        score -= KING_PAWN_SHIELD[shield];
-        int storm = PawnStormPenalty(ps, fileK, BLACK);
-        score -= KING_PAWN_STORM[storm];
-    }
+inline Pair evalKings(Position & pos, PawnHashEntry * pps, U64 KingZone[2], int * attK, U64 occ)
+{
+    Pair score;
+    FLD f;
 
-    //
-    //   ATTACKS
-    //
+    f = pos.King(WHITE);
+    int fileK = Col(f) + 1;
+    int shield = PawnShieldPenalty(*pps, fileK, WHITE);
+    score += KING_PAWN_SHIELD[shield];
+    int storm = PawnStormPenalty(*pps, fileK, WHITE);
+    score += KING_PAWN_STORM[storm];
+
+    f = pos.King(BLACK);
+    fileK = Col(f) + 1;
+    shield = PawnShieldPenalty(*pps, fileK, BLACK);
+    score -= KING_PAWN_SHIELD[shield];
+    storm = PawnStormPenalty(*pps, fileK, BLACK);
+    score -= KING_PAWN_STORM[storm];
+
+    return score;
+}
+
+inline Pair evalAttacks(int * attK)
+{
+    Pair score;
 
     if (attK[WHITE] > 3)
         attK[WHITE] = 3;
@@ -417,10 +440,50 @@ EVAL Evaluate(Position& pos)
     score += ATTACK_KING[attK[WHITE]];
     score -= ATTACK_KING[attK[BLACK]];
 
+    return score;
+}
+
+inline Pair evalPiecePair(Position& pos, int piece1, int piece2, const Pair & bonus)
+{
+    Pair score;
+
+    if (pos.Count(piece1) >= 2)
+        score += bonus;
+    if (pos.Count(piece2) >= 2)
+        score -= bonus;
+
+    return score;
+}
+
+EVAL Evaluate(Position& pos)
+{
+    int mid = pos.MatIndex(WHITE) + pos.MatIndex(BLACK);
+    int end = 64 - mid;
+
+    Pair score = pos.Score();
+    U64 occ = pos.BitsAll();
+
+    U64 KingZone[2] = { BB_KING_ATTACKS[pos.King(WHITE)], BB_KING_ATTACKS[pos.King(BLACK)] };
+    int attK[2] = { 0, 0 };
+
+    PawnHashEntry *pps = nullptr;
+
+    score += evalPawns(pos, &pps, occ);
+    score += evalStrongAttacks(pos);
+    score += evalStrongFields(pos, pps);
+    score += evalKnights(pos, KingZone, attK);
+    score += evalBishops(pos, KingZone, attK, occ);
+    score += evalRooks(pos, pps, KingZone, attK, occ);
+    score += evalQueens(pos, pps, KingZone, attK, occ);
+    score += evalKings(pos, pps, KingZone, attK, occ);
+    score += evalAttacks(attK);
+    score += evalPiecePair(pos, BW, BB, BISHOP_PAIR);
+
     EVAL e = (score.mid * mid + score.end * end) / 64;
 
     if (e > 0 && pos.MatIndex(WHITE) < 5 && pos.Count(PW) == 0)
         e = 0;
+
     if (e < 0 && pos.MatIndex(BLACK) < 5 && pos.Count(PB) == 0)
         e = 0;
 
