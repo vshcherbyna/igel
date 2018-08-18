@@ -26,14 +26,17 @@ Pair PSQ[14][64];
 Pair PSQ_PP_BLOCKED[64];
 Pair PSQ_PP_FREE[64];
 
+Pair PAWN_CONNECTED;
 Pair PAWN_DOUBLED[64];
 Pair PAWN_ISOLATED[64];
 Pair KNIGHT_STRONG[64];
-Pair BISHOP_PAIR;
 Pair BISHOP_STRONG[64];
 Pair BISHOP_MOBILITY[14];
+
 Pair ROOK_OPEN;
 Pair ROOK_7TH;
+Pair ROOK_CONNECTED;
+
 Pair QUEEN_7TH;
 Pair ROOK_MOBILITY[15];
 Pair QUEEN_KING_DIST[10];
@@ -42,6 +45,14 @@ Pair KING_PAWN_STORM[10];
 Pair KING_PASSED_DIST[10];
 Pair ATTACK_KING[8];
 Pair ATTACK_STRONGER;
+
+//
+//  Pair pieces combination
+//
+
+Pair ROOK_PAIR;
+Pair KNIGHT_PAIR;
+Pair BISHOP_PAIR;
 
 int Distance(FLD f1, FLD f2)
 {
@@ -135,6 +146,9 @@ inline Pair evalPawns(Position & pos, PawnHashEntry ** pps, U64 occ)
         else
             score += PSQ_PP_FREE[f];
 
+        if (BB_PAWN_CONNECTED[f] & ps.m_passedPawns[WHITE])
+            score += PAWN_CONNECTED;
+
         score += KING_PASSED_DIST[Distance(f - 8, pos.King(BLACK))];
         score -= KING_PASSED_DIST[Distance(f - 8, pos.King(WHITE))];
     }
@@ -146,6 +160,9 @@ inline Pair evalPawns(Position & pos, PawnHashEntry ** pps, U64 occ)
             score -= PSQ_PP_BLOCKED[FLIP[BLACK][f]];
         else
             score -= PSQ_PP_FREE[FLIP[BLACK][f]];
+
+        if (BB_PAWN_CONNECTED[f] & ps.m_passedPawns[BLACK])
+            score -= PAWN_CONNECTED;
 
         score -= KING_PASSED_DIST[Distance(f + 8, pos.King(WHITE))];
         score += KING_PASSED_DIST[Distance(f + 8, pos.King(BLACK))];
@@ -321,6 +338,9 @@ inline Pair evalRooks(Position & pos, PawnHashEntry * pps, U64 KingZone[2], int 
         if (y & KingZone[BLACK])
             attK[WHITE] += 1;
 
+        if (y & pos.Bits(RW))
+            score += ROOK_CONNECTED;
+
         y &= pos.Bits(QB);
         score += CountBits(y) * ATTACK_STRONGER;
 
@@ -344,6 +364,9 @@ inline Pair evalRooks(Position & pos, PawnHashEntry * pps, U64 KingZone[2], int 
 
         if (y & KingZone[WHITE])
             attK[BLACK] += 1;
+
+        if (y & pos.Bits(RB))
+            score -= ROOK_CONNECTED;
 
         y &= pos.Bits(QW);
         score -= CountBits(y) * ATTACK_STRONGER;
@@ -477,7 +500,9 @@ EVAL Evaluate(Position& pos)
     score += evalQueens(pos, pps, KingZone, attK, occ);
     score += evalKings(pos, pps, KingZone, attK, occ);
     score += evalAttacks(attK);
+    score += evalPiecePair(pos, NW, NB, KNIGHT_PAIR);
     score += evalPiecePair(pos, BW, BB, BISHOP_PAIR);
+    score += evalPiecePair(pos, RW, RB, ROOK_PAIR);
 
     EVAL e = (score.mid * mid + score.end * end) / 64;
 
@@ -590,7 +615,38 @@ void InitEval(const vector<int>& x)
         BISHOP_STRONG[f].end = Q2(End_BishopStrong, x, y);
     }
 
-    BISHOP_PAIR = Pair(19, 36);
+    //
+    //  Prefer connected pawns especially in endgame
+    //
+
+    PAWN_CONNECTED = Pair(5, 15);
+
+    //
+    //  Do not prefer two knights
+    //
+
+    KNIGHT_PAIR = Pair(-5, -15);
+
+    //
+    //  Prefer bishop pair, especially in endgame
+    //
+
+    BISHOP_PAIR = Pair(10, 15);
+
+    //
+    //  Prefer rook pair, especially in endgame
+    //
+
+    ROOK_PAIR = Pair(10, 15);
+
+    //
+    //
+    //
+
+    ROOK_OPEN = Pair(15, 10);
+    ROOK_7TH = Pair(-1, 15);
+    QUEEN_7TH = Pair(-1, 15);
+    ROOK_CONNECTED = Pair(10, 15);
 
     BISHOP_MOBILITY[0] = 0;
     ROOK_MOBILITY[0] = 0;
@@ -605,11 +661,6 @@ void InitEval(const vector<int>& x)
         ROOK_MOBILITY[m + 2].mid = Q1(Mid_RookMobility, z);
         ROOK_MOBILITY[m + 2].end = Q1(End_RookMobility, z);
     }
-
-    ROOK_OPEN = Pair(P(Mid_RookOpen, 0), P(End_RookOpen, 0));
-    ROOK_7TH = Pair(P(Mid_Rook7th, 0), P(End_Rook7th, 0));
-
-    QUEEN_7TH = Pair(P(Mid_Queen7th, 0), P(End_Queen7th, 0));
 
     QUEEN_KING_DIST[0] = 0;
     QUEEN_KING_DIST[1] = 0;

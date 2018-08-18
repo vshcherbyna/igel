@@ -62,7 +62,7 @@ private:
     EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth);
     EVAL AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull);
     EVAL AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply);
-    int Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV);
+    int Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV, bool & bExtended);
     Move GetNextBest(MoveList& mvlist, size_t i);
     bool IsGoodCapture(Move mv);
     bool ProbeHash(TEntry & hentry);

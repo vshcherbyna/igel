@@ -204,7 +204,8 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
             //   EXTENSIONS
             //
 
-            newDepth += Extensions(mv, m_position.LastMove(), inCheck, ply, onPV);
+            bool extended = false;
+            newDepth += Extensions(mv, m_position.LastMove(), inCheck, ply, onPV, extended);
 
             EVAL e;
             if (legalMoves == 1)
@@ -404,7 +405,8 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
             //   EXTENSIONS
             //
 
-            newDepth += Extensions(mv, m_position.LastMove(), inCheck, ply, onPV);
+            bool extended = false;
+            newDepth += Extensions(mv, m_position.LastMove(), inCheck, ply, onPV, extended);
 
             EVAL e;
             if (legalMoves == 1)
@@ -416,7 +418,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
                 //
 
                 int reduction = 0;
-                if (depth >= 3 &&
+                if (!extended && depth >= 3 &&
                     !onPV &&
                     !inCheck &&
                     !m_position.InCheck() &&
@@ -428,7 +430,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
                     !lateEndgame)
                 {
                     ++quietMoves;
-                    if (quietMoves >= 4)
+                    if (quietMoves > 6)
                         reduction = 1;
                 }
 
@@ -574,8 +576,10 @@ void Search::ClearKillers()
     memset(m_mateKillers, 0, MAX_PLY * sizeof(Move));
 }
 
-int Search::Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV)
+int Search::Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV, bool & bExtended)
 {
+    bExtended = true;
+
     if (inCheck)
         return 1;
     else if (ply < 2 * m_depth)
@@ -587,6 +591,8 @@ int Search::Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV)
         else if (onPV && lastMove && mv.To() == lastMove.To() && lastMove.Captured())
             return 1;
     }
+
+    bExtended = false;
     return 0;
 }
 
