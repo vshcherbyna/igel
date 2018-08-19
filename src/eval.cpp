@@ -43,7 +43,7 @@ Pair QUEEN_KING_DIST[10];
 Pair KING_PAWN_SHIELD[10];
 Pair KING_PAWN_STORM[10];
 Pair KING_PASSED_DIST[10];
-Pair ATTACK_KING[8];
+Pair ATTACK_KING[4];
 Pair ATTACK_STRONGER;
 
 //
@@ -53,6 +53,9 @@ Pair ATTACK_STRONGER;
 Pair ROOK_PAIR;
 Pair KNIGHT_PAIR;
 Pair BISHOP_PAIR;
+
+//
+Pair CAN_CASTLE;
 
 int Distance(FLD f1, FLD f2)
 {
@@ -440,12 +443,18 @@ inline Pair evalKings(Position & pos, PawnHashEntry * pps, U64 KingZone[2], int 
     int storm = PawnStormPenalty(*pps, fileK, WHITE);
     score += KING_PAWN_STORM[storm];
 
+    if (pos.CanCastle(WHITE, KINGSIDE) || pos.CanCastle(WHITE, QUEENSIDE))
+        score += CAN_CASTLE;
+
     f = pos.King(BLACK);
     fileK = Col(f) + 1;
     shield = PawnShieldPenalty(*pps, fileK, BLACK);
     score -= KING_PAWN_SHIELD[shield];
     storm = PawnStormPenalty(*pps, fileK, BLACK);
     score -= KING_PAWN_STORM[storm];
+
+    if (pos.CanCastle(BLACK, KINGSIDE) || pos.CanCastle(BLACK, QUEENSIDE))
+        score -= CAN_CASTLE;
 
     return score;
 }
@@ -478,6 +487,17 @@ inline Pair evalPiecePair(Position& pos, int piece1, int piece2, const Pair & bo
     return score;
 }
 
+inline Pair evalPiecePairs(Position& pos)
+{
+    Pair score;
+
+    score += evalPiecePair(pos, NW, NB, KNIGHT_PAIR);
+    score += evalPiecePair(pos, BW, BB, BISHOP_PAIR);
+    score += evalPiecePair(pos, RW, RB, ROOK_PAIR);
+
+    return score;
+}
+
 EVAL Evaluate(Position& pos)
 {
     int mid = pos.MatIndex(WHITE) + pos.MatIndex(BLACK);
@@ -500,9 +520,7 @@ EVAL Evaluate(Position& pos)
     score += evalQueens(pos, pps, KingZone, attK, occ);
     score += evalKings(pos, pps, KingZone, attK, occ);
     score += evalAttacks(attK);
-    score += evalPiecePair(pos, NW, NB, KNIGHT_PAIR);
-    score += evalPiecePair(pos, BW, BB, BISHOP_PAIR);
-    score += evalPiecePair(pos, RW, RB, ROOK_PAIR);
+    score += evalPiecePairs(pos);
 
     EVAL e = (score.mid * mid + score.end * end) / 64;
 
@@ -640,8 +658,10 @@ void InitEval(const vector<int>& x)
     ROOK_PAIR = Pair(10, 15);
 
     //
+    //  Prefer castling especially in mid game
     //
-    //
+
+    CAN_CASTLE = Pair(25, 5);
 
     ROOK_OPEN = Pair(15, 10);
     ROOK_7TH = Pair(-1, 15);
@@ -678,28 +698,37 @@ void InitEval(const vector<int>& x)
         KING_PASSED_DIST[d].end = Q1(End_KingPassedDist, z);
     }
 
-    for (int p = 0; p < 10; ++p)
+    //
+    //  Initialize pawn shield, the bigger the index in KING_PAWN_SHIELD the further away are the pawns from the king
+    //
+
+    for (int shield = 0; shield < 10; ++shield)
     {
-        double z = (p - 4.5) / 4.5;
-        KING_PAWN_SHIELD[p].mid = Q1(Mid_KingPawnShield, z);
-        KING_PAWN_SHIELD[p].end = Q1(End_KingPawnShield, z);
+        auto penalty_mid = (shield - 15) * shield;  // in mid game do not expose king, be very strict about it
+        auto penalty_end = penalty_mid + 13;        // in end game do not expose king, be less strict about it
+
+        KING_PAWN_SHIELD[shield] = Pair(penalty_mid, penalty_end);
     }
 
-    KING_PAWN_STORM[0] = Pair(64, -56);
-    KING_PAWN_STORM[1] = Pair(58, -45);
-    KING_PAWN_STORM[2] = Pair(52, -37);
-    KING_PAWN_STORM[3] = Pair(46, -33);
-    KING_PAWN_STORM[4] = Pair(40, -31);
-    KING_PAWN_STORM[5] = Pair(33, -33);
-    KING_PAWN_STORM[6] = Pair(27, -37);
-    KING_PAWN_STORM[7] = Pair(20, -44);
-    KING_PAWN_STORM[8] = Pair(13, -54);
-    KING_PAWN_STORM[9] = Pair(6, -68);
+    //
+    //  King pawn storm eval
+    //
 
-    ATTACK_STRONGER = Pair(P(Mid_AttackStronger, 0), P(End_AttackStronger, 0));
+    for (int storm = 0; storm < 10; ++storm)
+        KING_PAWN_STORM[storm] = Pair(storm + 2, -storm);
 
-    for (int att = 0; att < 4; ++att)
-        ATTACK_KING[att] = Pair(P(Mid_AttackKingZone, att), P(End_AttackKingZone, att));
+    //
+    //  Prefer stong attacks in mid game, while we still have some pieces left
+    //
+
+    ATTACK_STRONGER = Pair(25, 15);
+
+    //
+    //  Initialize attack eval
+    //
+
+    for (int attack = 0; attack < 4; ++attack)
+        ATTACK_KING[attack] = Pair(attack * 35, attack);
 }
 
 void InitEval()

@@ -84,7 +84,7 @@ def eval_knight_position():
     
     eval_assert(0,  (lambda a, b: True if a < b and b <= 45 else False),  obtain_eval('rnbqkbnr/ppp1pppp/3p4/8/2N5/3P4/PPP1PPPP/R1BQKBNR w KQkq - 0 1'))
     eval_assert(0,  operator.eq,  obtain_eval('r1bqkb1r/ppp2ppp/2n1p3/3pN3/3Pn3/2N1P3/PPP2PPP/R1BQKB1R w KQkq - 0 1'))
-    eval_assert(0,  (lambda a, b: True if a > b and b > -30 else False),  obtain_eval('r1bqkb1r/ppp2ppp/2n1p3/3p4/3Pn3/2N1PN2/PPP2PPP/R1BQKB1R w KQkq - 0 1'))
+    eval_assert(0,  (lambda a, b: True if a > b and b > -50 else False),  obtain_eval('r1bqkb1r/ppp2ppp/2n1p3/3p4/3Pn3/2N1PN2/PPP2PPP/R1BQKB1R w KQkq - 0 1'))
     
     #
     #   knight on the rim is dim

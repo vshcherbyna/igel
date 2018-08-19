@@ -430,7 +430,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
                     !lateEndgame)
                 {
                     ++quietMoves;
-                    if (quietMoves > 6)
+                    if (quietMoves >= 4)
                         reduction = 1;
                 }
 
