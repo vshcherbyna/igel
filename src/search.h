@@ -29,6 +29,7 @@
 #include <memory>
 #include <mutex>
 #include <condition_variable>
+#include <functional>
 
 const int MAX_PLY = 64;
 

@@ -77,7 +77,7 @@ bool TTable::clearHash()
     if (!m_hash)
         return false;
 
-    memset(m_hash, 0, m_hashSize * sizeof(TEntry));
+    memset(reinterpret_cast<void*>(m_hash), 0, m_hashSize * sizeof(TEntry));
     return true;
 }
 
