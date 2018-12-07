@@ -419,42 +419,42 @@ void AddSimpleChecks(const Position& pos, MoveList& mvlist)
     U64 zoneQ = BB_QUEEN_ATTACKS[K] & free;
 
     //
-        //  PAWNS
-        //
+    //  PAWNS
+    //
 
-        piece = PAWN | side;
-        x = pos.Bits(piece);
-        int fwd = -8 + 16 * side;
+    piece = PAWN | side;
+    x = pos.Bits(piece);
+    int fwd = -8 + 16 * side;
 
-        while (x)
+    while (x)
+    {
+        from = PopLSB(x);
+        to = from + fwd;
+
+        if (!pos[to])
         {
-            from = PopLSB(x);
-            to = from + fwd;
+            y = BB_PAWN_ATTACKS[to][side] & (pos.Bits(KING | opp));
+            if (y)
+                mvlist.Add(from, to, piece);
+        }
 
+        int row = Row(from);
+        int second = 6 - 5 * side;
+
+        if (row == second)
+        {
             if (!pos[to])
             {
-                y = BB_PAWN_ATTACKS[to][side] & (pos.Bits(KING | opp));
-                if (y)
-                    mvlist.Add(from, to, piece);
-            }
-
-            int row = Row(from);
-            int second = 6 - 5 * side;
-
-            if (row == second)
-            {
+                to += fwd;
                 if (!pos[to])
                 {
-                    to += fwd;
-                    if (!pos[to])
-                    {
-                        y = BB_PAWN_ATTACKS[to][side] & (pos.Bits(KING | opp));
-                        if (y)
-                            mvlist.Add(from, to, piece);
-                    }
+                    y = BB_PAWN_ATTACKS[to][side] & (pos.Bits(KING | opp));
+                    if (y)
+                        mvlist.Add(from, to, piece);
                 }
             }
         }
+    }
 
     //
     //   KNIGHTS
@@ -486,7 +486,7 @@ void AddSimpleChecks(const Position& pos, MoveList& mvlist)
         while (y)
         {
             to = PopLSB(y);
-            if ((BB_BETWEEN[from][to] & occ) == 0)
+            if ((BB_BETWEEN[from][to] & occ) == 0 && (BB_BETWEEN[to][K] & occ) == 0)
                 mvlist.Add(from, to, piece);
         }
     }
@@ -504,14 +504,14 @@ void AddSimpleChecks(const Position& pos, MoveList& mvlist)
         while (y)
         {
             to = PopLSB(y);
-            if ((BB_BETWEEN[from][to] & occ) == 0)
+            if ((BB_BETWEEN[from][to] & occ) == 0 && (BB_BETWEEN[to][K] & occ) == 0)
                 mvlist.Add(from, to, piece);
         }
     }
 
-    //
-    //   QUEENS
-    //
+    ///
+    ///   QUEENS
+    ///
 
     piece = QUEEN | side;
     x = pos.Bits(piece);
@@ -522,7 +522,7 @@ void AddSimpleChecks(const Position& pos, MoveList& mvlist)
         while (y)
         {
             to = PopLSB(y);
-            if ((BB_BETWEEN[from][to] & occ) == 0)
+            if ((BB_BETWEEN[from][to] & occ) == 0 && (BB_BETWEEN[to][K] & occ) == 0)
                 mvlist.Add(from, to, piece);
         }
     }
