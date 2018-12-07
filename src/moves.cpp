@@ -276,7 +276,12 @@ void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist)
         if (!pos[to])
         {
             if (row == seventh)
+            {
                 mvlist.Add(from, to, piece, NOPIECE, QW | side);
+                mvlist.Add(from, to, piece, NOPIECE, RW | side);
+                mvlist.Add(from, to, piece, NOPIECE, BW | side);
+                mvlist.Add(from, to, piece, NOPIECE, NW | side);
+            }
         }
 
         y = BB_PAWN_ATTACKS[from][side] & pos.BitsAll(opp);
@@ -285,7 +290,12 @@ void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist)
             to = PopLSB(y);
             captured = pos[to];
             if (row == seventh)
+            {
                 mvlist.Add(from, to, piece, captured, QW | side);
+                mvlist.Add(from, to, piece, captured, RW | side);
+                mvlist.Add(from, to, piece, captured, BW | side);
+                mvlist.Add(from, to, piece, captured, NW | side);
+            }
             else
                 mvlist.Add(from, to, piece, captured);
         }
@@ -304,33 +314,33 @@ void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist)
     }
 
     //
-    //  Menace high value pieces first
+    //   KNIGHTS
     //
 
-    //
-    //   KINGS
-    //
-
-    piece = KING | side;
-    from = pos.King(side);
-    y = BB_KING_ATTACKS[from] & targets;
-    while (y)
-    {
-        to = PopLSB(y);
-        captured = pos[to];
-        mvlist.Add(from, to, piece, captured);
-    }
-
-    //
-    //   QUEENS
-    //
-
-    piece = QUEEN | side;
+    piece = KNIGHT | side;
     x = pos.Bits(piece);
     while (x)
     {
         from = PopLSB(x);
-        y = QueenAttacks(from, occ) & targets;
+        y = BB_KNIGHT_ATTACKS[from] & targets;
+        while (y)
+        {
+            to = PopLSB(y);
+            captured = pos[to];
+            mvlist.Add(from, to, piece, captured);
+        }
+    }
+
+    //
+    //   BISHOPS
+    //
+
+    piece = BISHOP | side;
+    x = pos.Bits(piece);
+    while (x)
+    {
+        from = PopLSB(x);
+        y = BishopAttacks(from, occ) & targets;
         while (y)
         {
             to = PopLSB(y);
@@ -358,15 +368,15 @@ void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist)
     }
 
     //
-    //   BISHOPS
+    //   QUEENS
     //
-    
-    piece = BISHOP | side;
+
+    piece = QUEEN | side;
     x = pos.Bits(piece);
     while (x)
     {
         from = PopLSB(x);
-        y = BishopAttacks(from, occ) & targets;
+        y = QueenAttacks(from, occ) & targets;
         while (y)
         {
             to = PopLSB(y);
@@ -376,21 +386,17 @@ void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist)
     }
 
     //
-    //   KNIGHTS
+    //   KINGS
     //
-    
-    piece = KNIGHT | side;
-    x = pos.Bits(piece);
-    while (x)
+
+    piece = KING | side;
+    from = pos.King(side);
+    y = BB_KING_ATTACKS[from] & targets;
+    while (y)
     {
-        from = PopLSB(x);
-        y = BB_KNIGHT_ATTACKS[from] & targets;
-        while (y)
-        {
-            to = PopLSB(y);
-            captured = pos[to];
-            mvlist.Add(from, to, piece, captured);
-        }
+        to = PopLSB(y);
+        captured = pos[to];
+        mvlist.Add(from, to, piece, captured);
     }
 }
 
@@ -411,6 +417,44 @@ void AddSimpleChecks(const Position& pos, MoveList& mvlist)
     U64 zoneB = BB_BISHOP_ATTACKS[K] & free;
     U64 zoneR = BB_ROOK_ATTACKS[K] & free;
     U64 zoneQ = BB_QUEEN_ATTACKS[K] & free;
+
+    //
+        //  PAWNS
+        //
+
+        piece = PAWN | side;
+        x = pos.Bits(piece);
+        int fwd = -8 + 16 * side;
+
+        while (x)
+        {
+            from = PopLSB(x);
+            to = from + fwd;
+
+            if (!pos[to])
+            {
+                y = BB_PAWN_ATTACKS[to][side] & (pos.Bits(KING | opp));
+                if (y)
+                    mvlist.Add(from, to, piece);
+            }
+
+            int row = Row(from);
+            int second = 6 - 5 * side;
+
+            if (row == second)
+            {
+                if (!pos[to])
+                {
+                    to += fwd;
+                    if (!pos[to])
+                    {
+                        y = BB_PAWN_ATTACKS[to][side] & (pos.Bits(KING | opp));
+                        if (y)
+                            mvlist.Add(from, to, piece);
+                    }
+                }
+            }
+        }
 
     //
     //   KNIGHTS
