@@ -1,14 +1,20 @@
-igel chess engine
+Igel chess engine
 
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
-(c) 2018 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+(c) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
-igel 1.1
+
+Igel 1.2
+-------------
+06-Aug-2018
+- Fix tt bug resulted in storing results with INFINITY_SCORE values
+
+Igel 1.1
 -------------
 03-Jul-2018
 - Remove leftovers of Strength option to allow running in ChessGUI software 
 
-igel 0.8
+Igel 0.8
 -------------
 30-Jun-2018
 
