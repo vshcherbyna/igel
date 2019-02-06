@@ -26,6 +26,7 @@
 import chess
 import chess.uci
 import time
+import sys
 
 def test_epd(engine, epd,  wait_time):
     position = chess.Board()
@@ -89,10 +90,10 @@ def test_epd_with_fractional_scores(engine, epd,  wait_time):
 
     return score
 
-def run_test(eng,  wt,  f):
+def run_test(eng,  wt,  f, mem, threads):
     engine = chess.uci.popen_engine(eng)
-    engine.setoption({"Hash": 1024})
-    engine.setoption({"Threads": 1})
+    engine.setoption({"Hash": mem})
+    engine.setoption({"Threads": threads})
     engine.ucinewgame()
 
     file = open(f, 'r') 
@@ -102,10 +103,13 @@ def run_test(eng,  wt,  f):
     total = 0
     
     for epd in epds.split("\n"):
+        sys.stdout.flush()
         if len(epd):
             total = total + 1
             score += test_epd(engine, epd,  wt)
+        sys.stdout.flush()
 
     engine.quit()    
     print ("%g / %g" % (score,  total))
+    sys.stdout.flush()
     return score
