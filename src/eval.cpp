@@ -25,6 +25,7 @@
 Pair PSQ[14][64];
 Pair PSQ_PP_BLOCKED[64];
 Pair PSQ_PP_FREE[64];
+Pair PSQ_PP_CONNECTED[64];
 
 Pair PAWN_DOUBLED[64];
 Pair PAWN_ISOLATED[64];
@@ -46,13 +47,6 @@ Pair ATTACK_STRONGER;
 //  Positional evaluation
 //
 
-//Pair CONNECTED_PAWNS = { 5, 15 };
-//Pair CONNECTED_ROOKS = { 5, 10 };
-//Pair ROOKS_PAIR      = { 10, 15 };
-//Pair BISHOPS_PAIR    = { 25, 40 };
-//Pair KNIGHTS_PAIR    = { 0, -1 };
-
-Pair CONNECTED_PAWNS = { 0, 0 };
 Pair CONNECTED_ROOKS = { 5, 10 };
 Pair ROOKS_PAIR = { 10, 15 };
 Pair BISHOPS_PAIR = { 25, 40 };
@@ -154,13 +148,23 @@ EVAL Evaluate(Position& pos)
     while (x)
     {
         f = PopLSB(x);
+
+        auto freeFile = [](FLD field, U64 occ, Position& pos) -> bool
+        {
+            int rank = Row(field);
+            int end_of_file = field - (8 * rank);
+            return ((BB_BETWEEN[field][end_of_file] & occ) == 0 && pos[end_of_file] == NOPIECE);
+        };
+
+        // check if it is a blocked or a free pass pawn
         if (pos[f - 8] != NOPIECE)
             score += PSQ_PP_BLOCKED[f];
         else
             score += PSQ_PP_FREE[f];
 
-        if (BB_PAWN_CONNECTED[f] & ps.m_passedPawns[WHITE])
-            score += CONNECTED_PAWNS;
+        // check if it is a connected pass pawn
+        if ((BB_PAWN_CONNECTED[f] & ps.m_passedPawns[WHITE]) && freeFile(f, occ, pos))
+            score += PSQ_PP_CONNECTED[f];
 
         score += KING_PASSED_DIST[Distance(f - 8, pos.King(BLACK))];
         score -= KING_PASSED_DIST[Distance(f - 8, pos.King(WHITE))];
@@ -169,13 +173,23 @@ EVAL Evaluate(Position& pos)
     while (x)
     {
         f = PopLSB(x);
+
+        auto freeFile = [](FLD field, U64 occ, Position& pos) -> bool
+        {
+            int rank = Row(field);
+            int end_of_file = field + ((7 - rank) * 8);
+            return ((BB_BETWEEN[field][end_of_file] & occ) == 0 && pos[end_of_file] == NOPIECE);
+        };
+
+        // check if it is a blocked or a free pass pawn
         if (pos[f + 8] != NOPIECE)
             score -= PSQ_PP_BLOCKED[FLIP[BLACK][f]];
         else
             score -= PSQ_PP_FREE[FLIP[BLACK][f]];
 
-        if (BB_PAWN_CONNECTED[f] & ps.m_passedPawns[BLACK])
-            score -= CONNECTED_PAWNS;
+        // check if it is a connected pass pawn
+        if ((BB_PAWN_CONNECTED[f] & ps.m_passedPawns[BLACK]) && freeFile(f, occ, pos))
+            score -= PSQ_PP_CONNECTED[FLIP[BLACK][f]];
 
         score -= KING_PASSED_DIST[Distance(f + 8, pos.King(WHITE))];
         score += KING_PASSED_DIST[Distance(f + 8, pos.King(BLACK))];
@@ -498,6 +512,40 @@ int Q1(int tag, double x)
     return int(val);
 }
 
+void OnPSQ(const char * stable, Pair* table, EVAL mid_w = 0, EVAL end_w = 0)
+{
+    double sum_mid = 0, sum_end = 0;
+    if (table != NULL)
+    {
+        cout << endl << "Midgame: " << stable << endl << endl;
+        for (FLD f = 0; f < 64; ++f)
+        {
+            cout << setw(4) << (table[f].mid - mid_w);
+            sum_mid += table[f].mid;
+
+            if (f < 63)
+                cout << ", ";
+            if (Col(f) == 7)
+                cout << endl;
+        }
+
+        cout << endl << "Endgame: " << stable << endl << endl;
+        for (FLD f = 0; f < 64; ++f)
+        {
+            cout << setw(4) << (table[f].end - end_w);
+            sum_end += table[f].end;
+
+            if (f < 63)
+                cout << ", ";
+            if (Col(f) == 7)
+                cout << endl;
+        }
+        cout << endl;
+        cout << "avg_mid = " << sum_mid / 64. << ", avg_end = " << sum_end / 64. << endl;
+        cout << endl;
+    }
+}
+
 void InitEval(const vector<int>& x)
 {
     W = x;
@@ -520,6 +568,9 @@ void InitEval(const vector<int>& x)
             PSQ_PP_FREE[f].mid = Q2(Mid_PawnPassedFree, x, y);
             PSQ_PP_FREE[f].end = Q2(End_PawnPassedFree, x, y);
 
+            PSQ_PP_CONNECTED[f].mid = PSQ_PP_FREE[f].mid * 1.05;
+            PSQ_PP_CONNECTED[f].end = PSQ_PP_FREE[f].end * 1.1;
+
             PAWN_DOUBLED[f].mid = Q2(Mid_PawnDoubled, x, y);
             PAWN_DOUBLED[f].end = Q2(End_PawnDoubled, x, y);
 
@@ -528,11 +579,12 @@ void InitEval(const vector<int>& x)
         }
         else
         {
-            PSQ[PW][f] = VAL_P;
-            PSQ_PP_BLOCKED[f] = 0;
-            PSQ_PP_FREE[f] = 0;
-            PAWN_DOUBLED[f] = 0;
-            PAWN_ISOLATED[f] = 0;
+            PSQ[PW][f]          = VAL_P;
+            PSQ_PP_BLOCKED[f]   = 0;
+            PSQ_PP_FREE[f]      = 0;
+            PAWN_DOUBLED[f]     = 0;
+            PAWN_ISOLATED[f]    = 0;
+            PSQ_PP_CONNECTED[f] = 0;
         }
 
         PSQ[NW][f].mid = VAL_N + Q2(Mid_Knight, x, y);
@@ -621,6 +673,24 @@ void InitEval(const vector<int>& x)
 
     for (int att = 0; att < 4; ++att)
         ATTACK_KING[att] = Pair(P(Mid_AttackKingZone, att), P(End_AttackKingZone, att));
+
+#ifdef _DEBUG
+    OnPSQ("pass pawn", PSQ_PP_FREE);
+    OnPSQ("blocked pass pawn", PSQ_PP_BLOCKED);
+    OnPSQ("connected pass pawn", PSQ_PP_CONNECTED);
+    OnPSQ("doubled pawn", PAWN_DOUBLED);
+    OnPSQ("isolated pawn", PAWN_ISOLATED);
+    OnPSQ("strong knight", KNIGHT_STRONG);
+    OnPSQ("strong bishop", BISHOP_STRONG);
+
+    //  pieces
+    OnPSQ("pawns", PSQ[PW], VAL_P, VAL_P);
+    OnPSQ("knights", PSQ[NW], VAL_N, VAL_N);
+    OnPSQ("bishops", PSQ[BW], VAL_B, VAL_B);
+    OnPSQ("rooks", PSQ[RW], VAL_R, VAL_R);
+    OnPSQ("queens", PSQ[QW], VAL_Q, VAL_Q);
+    OnPSQ("kings", PSQ[KW], VAL_K, VAL_K);
+#endif
 }
 
 void InitEval()
