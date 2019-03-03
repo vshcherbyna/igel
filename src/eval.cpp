@@ -29,7 +29,6 @@ Pair PSQ_PP_FREE[64];
 Pair PAWN_DOUBLED[64];
 Pair PAWN_ISOLATED[64];
 Pair KNIGHT_STRONG[64];
-Pair BISHOP_PAIR;
 Pair BISHOP_STRONG[64];
 Pair BISHOP_MOBILITY[14];
 Pair ROOK_OPEN;
@@ -42,6 +41,22 @@ Pair KING_PAWN_STORM[10];
 Pair KING_PASSED_DIST[10];
 Pair ATTACK_KING[8];
 Pair ATTACK_STRONGER;
+
+//
+//  Positional evaluation
+//
+
+//Pair CONNECTED_PAWNS = { 5, 15 };
+//Pair CONNECTED_ROOKS = { 5, 10 };
+//Pair ROOKS_PAIR      = { 10, 15 };
+//Pair BISHOPS_PAIR    = { 25, 40 };
+//Pair KNIGHTS_PAIR    = { 0, -1 };
+
+Pair CONNECTED_PAWNS = { 0, 0 };
+Pair CONNECTED_ROOKS = { 5, 10 };
+Pair ROOKS_PAIR = { 10, 15 };
+Pair BISHOPS_PAIR = { 25, 40 };
+Pair KNIGHTS_PAIR = { 0, -1 };
 
 int Distance(FLD f1, FLD f2)
 {
@@ -144,6 +159,9 @@ EVAL Evaluate(Position& pos)
         else
             score += PSQ_PP_FREE[f];
 
+        if (BB_PAWN_CONNECTED[f] & ps.m_passedPawns[WHITE])
+            score += CONNECTED_PAWNS;
+
         score += KING_PASSED_DIST[Distance(f - 8, pos.King(BLACK))];
         score -= KING_PASSED_DIST[Distance(f - 8, pos.King(WHITE))];
     }
@@ -155,6 +173,9 @@ EVAL Evaluate(Position& pos)
             score -= PSQ_PP_BLOCKED[FLIP[BLACK][f]];
         else
             score -= PSQ_PP_FREE[FLIP[BLACK][f]];
+
+        if (BB_PAWN_CONNECTED[f] & ps.m_passedPawns[BLACK])
+            score -= CONNECTED_PAWNS;
 
         score -= KING_PASSED_DIST[Distance(f + 8, pos.King(WHITE))];
         score += KING_PASSED_DIST[Distance(f + 8, pos.King(BLACK))];
@@ -205,6 +226,11 @@ EVAL Evaluate(Position& pos)
     //
     //   KNIGHTS
     //
+
+    if (pos.Count(KW) >= 2)
+        score += KNIGHTS_PAIR;
+    if (pos.Count(KB) >= 2)
+        score -= KNIGHTS_PAIR;
 
     if (ps.m_strongFields[WHITE])
     {
@@ -264,10 +290,10 @@ EVAL Evaluate(Position& pos)
     //   BISHOPS
     //
 
-    if (pos.Count(BW) == 2)
-        score += BISHOP_PAIR;
-    if (pos.Count(BB) == 2)
-        score -= BISHOP_PAIR;
+    if (pos.Count(BW) >= 2)
+        score += BISHOPS_PAIR;
+    if (pos.Count(BB) >= 2)
+        score -= BISHOPS_PAIR;
 
     x = pos.Bits(BW);
     while (x)
@@ -297,6 +323,11 @@ EVAL Evaluate(Position& pos)
     //   ROOKS
     //
 
+    if (pos.Count(RW) >= 2)
+        score += ROOKS_PAIR;
+    if (pos.Count(RB) >= 2)
+        score -= ROOKS_PAIR;
+
     x = pos.Bits(RW);
     while (x)
     {
@@ -306,6 +337,9 @@ EVAL Evaluate(Position& pos)
 
         if (y & KingZone[BLACK])
             attK[WHITE] += 1;
+
+        if (y & pos.Bits(RW))
+            score += CONNECTED_ROOKS;
 
         y &= pos.Bits(QB);
         score += CountBits(y) * ATTACK_STRONGER;
@@ -330,6 +364,9 @@ EVAL Evaluate(Position& pos)
 
         if (y & KingZone[WHITE])
             attK[BLACK] += 1;
+
+        if (y & pos.Bits(RB))
+            score -= CONNECTED_ROOKS;
 
         y &= pos.Bits(QW);
         score -= CountBits(y) * ATTACK_STRONGER;
@@ -526,8 +563,6 @@ void InitEval(const vector<int>& x)
         BISHOP_STRONG[f].mid = Q2(Mid_BishopStrong, x, y);
         BISHOP_STRONG[f].end = Q2(End_BishopStrong, x, y);
     }
-
-    BISHOP_PAIR = Pair(19, 36);
 
     BISHOP_MOBILITY[0] = 0;
     ROOK_MOBILITY[0] = 0;
