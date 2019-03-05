@@ -3,7 +3,7 @@
 *
 *  Copyright (C) 1990-1992 Robert Hyatt and Tim Mann (crafty authors): lockless design of tt
 *  Copyright (C) 2002-2018 Vladimir Medvedev <vrm@bk.ru> (GreKo author): general logic of tt
-*  Copyright (C) 2018 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+*  Copyright (C) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 *
 *  Igel is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by

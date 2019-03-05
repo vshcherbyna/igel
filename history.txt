@@ -3,11 +3,34 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 1.3
+-------------
+05-Mar-2019
+- New eval terms for pair of rooks, knights, bishops
+- Connected pawn evaluation
+
+Strength compared to 1.2
+
+threads=1
+hash=1024
+tc all/60+0.6
+Score of Igel 1.2 64 POPCNT vs Igel 1.3 64 POPCNT: 947 - 1093 - 1360 [0.479] 3400
+Elo difference: -14.93 +/- 9.04
+
+threads=1  (for 1.2)
+threads=11 (for 1.3)
+hash=6GB
+tc all/60+0.6
+Score of Igel 1.2 64 POPCNT vs Igel 1.3 64 POPCNT: 38 - 138 - 97  [0.317] 273
+Elo difference: -133.47 +/- 34.12                                               
 
 Igel 1.2
 -------------
 06-Aug-2018
-- Fix tt bug resulted in storing results with INFINITY_SCORE values
+- Fixed tt bug that resulted in random blunders
+- Fixed NPS bug
+- Fixed infinite stop bug
+- Implemented POPCNT support
 
 Igel 1.1
 -------------
