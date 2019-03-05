@@ -2,7 +2,7 @@
 *  Igel - a UCI chess playing engine derived from GreKo 2018.01
 *
 *  Copyright (C) 2002-2018 Vladimir Medvedev <vrm@bk.ru> (GreKo author)
-*  Copyright (C) 2018 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+*  Copyright (C) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 *
 *  Igel is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -45,7 +45,7 @@
 #endif
 
 const string PROGRAM_NAME   = "Igel";
-const string VERSION = "1.3 a";
+const string VERSION = "1.3";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 131072;
