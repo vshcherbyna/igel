@@ -39,27 +39,23 @@ public:
     MoveList();
 
 public:
-    bool   Add(Move mv);
-    bool   Add(FLD from, FLD to, PIECE piece);
-    bool   Add(FLD from, FLD to, PIECE piece, PIECE captured);
-    bool   Add(FLD from, FLD to, PIECE piece, PIECE captured, PIECE promotion);
-    void   Clear() { m_size = 0; }
+    void Add(Move mv);
+    void Add(FLD from, FLD to, PIECE piece);
+    void Add(FLD from, FLD to, PIECE piece, PIECE captured);
+    void Add(FLD from, FLD to, PIECE piece, PIECE captured, PIECE promotion);
+    void Clear() { m_size = 0; }
     size_t Size() const { return m_size; }
 
     const SMove& operator[](size_t i) const { return m_data[i]; }
     SMove& operator[](size_t i) { return m_data[i]; }
-
-    bool Swap(size_t i, size_t j);
-
-private:
-    bool overflow() {return (m_size >= 255);}
+    void Swap(size_t i, size_t j);
 
 private:
     SMove m_data[256];
     size_t m_size;
 };
 
-bool GenAllMoves(const Position& pos, MoveList& mvlist);
+void GenAllMoves(const Position& pos, MoveList& mvlist);
 void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist);
 void AddSimpleChecks(const Position& pos, MoveList& mvlist);
 void GenMovesInCheck(const Position& pos, MoveList& mvlist);

@@ -42,6 +42,7 @@ m_nodes(0),
 m_t0(0),
 m_flags(0),
 m_depth(0),
+m_selDepth(0),
 m_iterPVSize(0),
 m_principalSearcher(false),
 m_thc(0),
@@ -149,7 +150,6 @@ void Search::setPosition(Position pos)
 EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
 {
     int ply = 0;
-    //bool rootNode = depth < 2;
     m_pvSize[ply] = 0;
     assert(depth > 0);
     Move hashMove = 0;
@@ -171,12 +171,6 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
     else
         GenAllMoves(m_position, mvlist);
 
- //   if (!m_principalSearcher && rootNode)
-    {
-        // different move ordering
-
-    }
-
     UpdateSortScores(mvlist, hashMove, ply);
     auto mvSize = mvlist.Size();
 
@@ -195,7 +189,7 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
             ++legalMoves;
             m_histTry[mv.To()][mv.Piece()] += depth;
 
-            if (((GetProcTime() - m_t0) > 2000) && m_principalSearcher)
+            if ((m_principalSearcher) && ((GetProcTime() - m_t0) > 2000))
                 cout << "info depth " << depth << " currmove " << MoveToStrLong(mv) << " currmovenumber " << legalMoves << endl;
 
             int newDepth = depth - 1;
@@ -273,6 +267,9 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     COLOR side = m_position.Side();
     bool onPV = (beta - alpha > 1);
     bool lateEndgame = (m_position.MatIndex(side) < 5);
+
+    if (ply > m_selDepth)
+        m_selDepth = ply;
 
     //
     //   PROBING HASH
@@ -710,14 +707,14 @@ bool Search::IsGoodCapture(Move mv)
     return SORT_VALUE[mv.Captured()] >= SORT_VALUE[mv.Piece()];
 }
 
-void Search::PrintPV(const Position& pos, int iter, EVAL score, const Move* pv, int pvSize, const string& sign)
+void Search::PrintPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, const string& sign)
 {
     if (!pvSize)
         return;
 
     U32 dt = GetProcTime() - m_t0;
 
-    cout << "info depth " << iter;
+    cout << "info depth " << iter << " seldepth " << selDepth;
     if (abs(score) >= (CHECKMATE_SCORE - MAX_PLY))
         cout << " score mate" << ((score >= 0) ? " " : " -") << ((CHECKMATE_SCORE - abs(score)) / 2) + 1;
     else
@@ -820,6 +817,7 @@ Move Search::StartSearch(Time time, int depth, EVAL alpha, EVAL beta)
     m_flags = (m_time.getTimeMode() == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
     m_iterPVSize = 0;
     m_nodes = 0;
+    m_selDepth = 0;
 
     EVAL aspiration = 15;
     EVAL score = alpha;
@@ -899,7 +897,7 @@ Move Search::StartSearch(Time time, int depth, EVAL alpha, EVAL beta)
             }
 
             if (m_principalSearcher)
-                PrintPV(m_position, m_depth, score, m_pv[0], m_pvSize[0], "");
+                PrintPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], "");
 
             if (m_time.getSoftLimit() > 0 && dt >= m_time.getSoftLimit())
             {
@@ -933,7 +931,7 @@ Move Search::StartSearch(Time time, int depth, EVAL alpha, EVAL beta)
             beta = INFINITY_SCORE;
 
             if (!(m_flags & MODE_SILENT) && m_principalSearcher)
-                PrintPV(m_position, m_depth, score, m_pv[0], m_pvSize[0], "");
+                PrintPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], "");
             --m_depth;
 
             aspiration += aspiration / 4 + 5;
@@ -953,14 +951,14 @@ Move Search::StartSearch(Time time, int depth, EVAL alpha, EVAL beta)
             }
 
             if (!(m_flags & MODE_SILENT) && m_principalSearcher)
-                PrintPV(m_position, m_depth, score, m_pv[0], m_pvSize[0], "");
+                PrintPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], "");
             --m_depth;
             aspiration += aspiration / 4 + 5;
         }
 
         dt = GetProcTime() - m_t0;
 
-        if (dt > 2000 && m_principalSearcher)
+        if (m_principalSearcher && (dt > 2000))
             cout << "info depth " << m_depth << " time " << dt << " nodes " << m_nodes << " nps " << 1000 * m_nodes / dt << endl;
 
         if (m_time.getSoftLimit() > 0 && dt >= m_time.getSoftLimit())
