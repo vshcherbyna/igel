@@ -73,7 +73,7 @@ private:
     void UpdateSortScoresQ(MoveList& mvlist, int ply);
     bool HaveSingleMove(Position& pos, Move & bestMove);
     bool IsGameOver(Position& pos, string& result, string& comment);
-    void PrintPV(const Position& pos, int iter, EVAL score, const Move* pv, int pvSize, const string& sign);
+    void PrintPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, const string& sign);
     EVAL SEE_Exchange(FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ);
     Move FirstLegalMove(Position& pos);
 
@@ -88,6 +88,7 @@ private:
     U32 m_t0;
     U8 m_flags;
     int m_depth;
+    int m_selDepth;
     int m_iterPVSize;
     Position m_position;
     MoveList m_lists[MAX_PLY];
