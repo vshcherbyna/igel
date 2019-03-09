@@ -56,7 +56,6 @@ const int MAX_THREADS = 128;
 const int DEFAULT_THREADS = 1;
 
 Search g_search;
-Position g_position;
 deque<string> g_queue;
 FILE* g_log = NULL;
 
@@ -65,23 +64,22 @@ static vector<string> g_tokens;
 
 void OnEval()
 {
-    cout << Evaluate(g_position) << endl;
+    cout << Evaluate(g_search.m_position) << endl;
 }
 
 void OnFEN()
 {
-    cout << g_position.FEN() << endl;
+    cout << g_search.m_position.FEN() << endl;
 }
 
 void OnGoUci()
 {
     Time time;
 
-    if (time.parseTime(g_tokens, g_position.Side() == WHITE) == false)
+    if (time.parseTime(g_tokens, g_search.m_position.Side() == WHITE) == false)
         cout << "Error: unable to parse command line" << endl;
 
     TTable::instance().increaseAge();
-    g_search.setPosition(g_position);
     g_search.m_principalSearcher = true;
     Move mv = g_search.StartSearch(time, 1, -INFINITY_SCORE, INFINITY_SCORE);
     cout << "bestmove " << MoveToStrLong(mv) << endl;
@@ -94,7 +92,7 @@ void OnIsready()
 
 void OnNew()
 {
-    g_position.SetInitial();
+    g_search.m_position.SetInitial();
 
     TTable::instance().clearHash();
     TTable::instance().clearAge();
@@ -123,11 +121,11 @@ void OnPosition()
                 fen += " ";
             fen += g_tokens[i];
         }
-        g_position.SetFEN(fen);
+        g_search.m_position.SetFEN(fen);
     }
     else if (g_tokens[1] == "startpos")
     {
-        g_position.SetInitial();
+        g_search.m_position.SetInitial();
         for (size_t i = 2; i < g_tokens.size(); ++i)
         {
             if (g_tokens[i] == "moves")
@@ -142,8 +140,8 @@ void OnPosition()
     {
         for (size_t i = movesTag + 1; i < g_tokens.size(); ++i)
         {
-            Move mv = StrToMove(g_tokens[i], g_position);
-            g_position.MakeMove(mv);
+            Move mv = StrToMove(g_tokens[i], g_search.m_position);
+            g_search.m_position.MakeMove(mv);
         }
     }
 }
@@ -258,7 +256,7 @@ void RunCommandLine()
       continue;                         \
     }
 
-        ON_CMD(board,      1, g_position.Print())
+        ON_CMD(board,      1, g_search.m_position.Print())
         ON_CMD(eval,       2, OnEval())
         ON_CMD(fen,        2, OnFEN())
         ON_CMD(go,         1, OnGoUci())
@@ -282,7 +280,7 @@ int main(int argc, const char* argv[])
     InitBitboards();
     Position::InitHashNumbers();
     InitEval();
-    g_position.SetInitial();
+    g_search.m_position.SetInitial();
 
     double hashMb = DEFAULT_HASH_SIZE;
 
