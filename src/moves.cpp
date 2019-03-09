@@ -254,9 +254,6 @@ void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist)
         {
             if (row == seventh) {
                 mvlist.Add(from, to, piece, NOPIECE, QW | side);
-                mvlist.Add(from, to, piece, NOPIECE, RW | side);
-                mvlist.Add(from, to, piece, NOPIECE, BW | side);
-                mvlist.Add(from, to, piece, NOPIECE, NW | side);
             }
         }
 
@@ -267,9 +264,6 @@ void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist)
             captured = pos[to];
             if (row == seventh) {
                 mvlist.Add(from, to, piece, captured, QW | side);
-                mvlist.Add(from, to, piece, captured, RW | side);
-                mvlist.Add(from, to, piece, captured, BW | side);
-                mvlist.Add(from, to, piece, captured, NW | side);
             }
             else
                 mvlist.Add(from, to, piece, captured);

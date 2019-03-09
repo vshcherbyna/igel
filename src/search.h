@@ -90,7 +90,6 @@ private:
     int m_depth;
     int m_selDepth;
     int m_iterPVSize;
-    Position m_position;
     MoveList m_lists[MAX_PLY];
     Move m_pv[MAX_PLY][MAX_PLY];
     int m_pvSize[MAX_PLY];
@@ -103,6 +102,7 @@ private:
 
 public:
     bool m_principalSearcher;
+    Position m_position;
 
 private:
     bool getIsLazySmpWork() {return (m_lazyDepth > 0);}

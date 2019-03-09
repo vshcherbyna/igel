@@ -845,6 +845,8 @@ Move Search::StartSearch(Time time, int depth, EVAL alpha, EVAL beta)
             {
                 m_threadParams[i].m_lazyMutex.lock();
 
+                m_threadParams[i].m_nodes = 0;
+                m_threadParams[i].m_selDepth = 0;
                 m_threadParams[i].setPosition(m_position);
                 m_threadParams[i].setTime(time);
                 m_threadParams[i].m_t0 = m_t0;
@@ -876,6 +878,17 @@ Move Search::StartSearch(Time time, int depth, EVAL alpha, EVAL beta)
             break;
 
         U32 dt = GetProcTime() - m_t0;
+
+        //
+        //  Update node statistic from all workers
+        //
+
+        if (m_principalSearcher) {
+            for (unsigned int i = 0; i < m_thc; ++i) {
+                m_nodes += m_threadParams[i].m_nodes;
+                m_threadParams[i].m_nodes = 0;
+            }
+        }
 
         //
         //  We found so far a better move
