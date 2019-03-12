@@ -25,6 +25,7 @@
 #include "utils.h"
 #include "time.h"
 #include "tt.h"
+#include "fathom/tbprobe.h"
 
 // Check windows
 #if _WIN32 || _WIN64
@@ -45,7 +46,7 @@
 #endif
 
 const string PROGRAM_NAME   = "Igel";
-const string VERSION = "1.4";
+const string VERSION = "1.4a";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 131072;
@@ -146,7 +147,6 @@ void OnPosition()
     }
 }
 
-
 void OnSetoption()
 {
     if (g_tokens.size() < 5)
@@ -174,6 +174,14 @@ void OnSetoption()
             cout << "Unable set threads value. Make sure number is correct" << endl;
         g_search.setThreadCount(threads - 1);
     }
+    else if (name == "SyzygyPath")
+    {
+        tb_init(value.c_str());
+    }
+    else if (name == "SyzygyProbeDepth")
+    {
+        g_search.setSyzygyDepth(atoi(value.c_str()));
+    }
     else
         cout << "Unknown option " << name << endl;
 }
@@ -195,6 +203,13 @@ void OnUCI()
             " default " << DEFAULT_THREADS <<
             " min " << MIN_THREADS <<
             " max " << MAX_THREADS << endl;
+
+    cout << "option name SyzygyPath type string default <empty>" << endl;
+
+    cout << "option name SyzygyProbeDepth type spin" <<
+        " default " << 1 <<
+        " min " << 1 <<
+        " max " << MAX_PLY << endl;
 
     cout << "uciok" << endl;
 }
@@ -281,6 +296,7 @@ int main(int argc, const char* argv[])
     Position::InitHashNumbers();
     InitEval();
     g_search.m_position.SetInitial();
+    g_search.setSyzygyDepth(1);
 
     double hashMb = DEFAULT_HASH_SIZE;
 
