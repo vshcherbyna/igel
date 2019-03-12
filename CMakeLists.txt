@@ -8,7 +8,7 @@ include_directories(${PROJECT_SOURCE_DIR})
 FILE(GLOB SRCFILES ${PROJECT_SOURCE_DIR}/src/*.cpp)
 FILE(GLOB HDRFILES ${PROJECT_SOURCE_DIR}/src/*.h)
 
-FILE(GLOB FATHOM_SRCFILES ${PROJECT_SOURCE_DIR}/src/fathom/*.cpp)
+FILE(GLOB FATHOM_SRCFILES ${PROJECT_SOURCE_DIR}/src/fathom/*.c)
 FILE(GLOB FATHOM_HDRFILES ${PROJECT_SOURCE_DIR}/src/fathom/*.h)
 
 if (MSVC)
@@ -21,6 +21,10 @@ if (UNIX)
     add_definitions(-DNDEBUG)
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -O3 -march=barcelona -pthread")
 endif (UNIX)
+
+if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    set (CMAKE_C_FLAGS "-std=gnu99 ${CMAKE_C_FLAGS}")
+endif ()
 
 add_executable(igel ${SRCFILES} ${HDRFILES} ${FATHOM_SRCFILES} ${FATHOM_HDRFILES})
 

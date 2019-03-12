@@ -70,6 +70,8 @@
 static LOCK_T TB_MUTEX;
 #endif
 
+#ifdef _WIN32
+
 #ifdef TB_CUSTOM_BSWAP32
 #define internal_bswap32(x) TB_CUSTOM_BSWAP32(x)
 #else
@@ -81,6 +83,20 @@ static LOCK_T TB_MUTEX;
 #else
 #define internal_bswap64(x) _byteswap_uint64(x)
 #endif
+#else
+#ifdef TB_CUSTOM_BSWAP32
+#define internal_bswap32(x) TB_CUSTOM_BSWAP32(x)
+#else
+#define internal_bswap32(x) __builtin_bswap32(x)
+#endif
+
+#ifdef TB_CUSTOM_BSWAP64
+#define internal_bswap64(x) TB_CUSTOM_BSWAP64(x)
+#else
+#define internal_bswap64(x) __builtin_bswap64(x)
+#endif
+
+#endif //_WIN32
 
 static int initialized = 0;
 static int num_paths = 0;
