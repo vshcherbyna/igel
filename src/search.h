@@ -41,7 +41,6 @@ const U8 MODE_PLAY    = 0x04;
 const U8 MODE_ANALYZE = 0x08;
 const U8 MODE_SILENT  = 0x10;
 
-
 class Search
 {
 public:
@@ -57,9 +56,11 @@ public:
     void setPosition(Position pos);
     void setTime(Time time) {m_time = time;}
     void setThreadCount(unsigned int threads);
+    void setSyzygyDepth(int depth);
 
 private:
     void LazySmpSearcher();
+    Move tableBaseRootSearch();
     EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth);
     EVAL AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull);
     EVAL AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply);
@@ -85,9 +86,11 @@ private:
 private:
     NODES m_timeCheck;
     NODES m_nodes;
+    NODES m_tbHits;
     U32 m_t0;
     U8 m_flags;
     int m_depth;
+    int m_syzygyDepth;
     int m_selDepth;
     int m_iterPVSize;
     MoveList m_lists[MAX_PLY];

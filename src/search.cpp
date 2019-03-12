@@ -23,6 +23,7 @@
 #include "notation.h"
 #include "search.h"
 #include "utils.h"
+#include "fathom/tbprobe.h"
 
 const int SORT_HASH         = 7000000;
 const int SORT_CAPTURE      = 6000000;
@@ -39,9 +40,11 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
 Search::Search():
 m_timeCheck(0),
 m_nodes(0),
+m_tbHits(0),
 m_t0(0),
 m_flags(0),
 m_depth(0),
+m_syzygyDepth(0),
 m_selDepth(0),
 m_iterPVSize(0),
 m_principalSearcher(false),
@@ -55,7 +58,6 @@ m_bestSmpEval(0),
 m_smpThreadExit(false),
 m_terminateSmp(false)
 {
-
 }
 
 Search::~Search()
@@ -297,6 +299,72 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
         }
 
         hashMove = hEntry.move();
+    }
+
+    //
+    //  Tablebase probe
+    //
+
+    if (TB_LARGEST && depth >= 2 && !m_position.Fifty() && !(m_position.CanCastle(m_position.Side(), KINGSIDE) || m_position.CanCastle(m_position.Side(), QUEENSIDE)))
+    {
+        unsigned int pieces = static_cast<unsigned int>(CountBits(m_position.BitsAll()));
+
+        if ((pieces < TB_LARGEST) || (pieces == TB_LARGEST && depth >= m_syzygyDepth))
+        {
+            EVAL score;
+            U8 type;
+            FLD ep = m_position.EP();
+
+            //
+            //  Different board representation
+            //
+
+            if (ep == NF)
+                ep = 0;
+            else
+                ep = abs(int(ep) - 63);
+
+            auto probe = tb_probe_wdl(m_position.BitsAll(WHITE), m_position.BitsAll(BLACK),
+                m_position.Bits(KW) | m_position.Bits(KB),
+                m_position.Bits(QW) | m_position.Bits(QB),
+                m_position.Bits(RW) | m_position.Bits(RB),
+                m_position.Bits(BW) | m_position.Bits(BB),
+                m_position.Bits(NW) | m_position.Bits(NB),
+                m_position.Bits(PW) | m_position.Bits(PB),
+                0,
+                0,
+                ep,
+                m_position.Side() == WHITE);
+
+            if (probe != TB_RESULT_FAILED)
+            {
+                m_tbHits++;
+                switch (probe)
+                {
+                case TB_WIN:
+                    score = CHECKMATE_SCORE - MAX_PLY - ply - 1;
+                    type  = HASH_BETA;
+                    break;
+                case TB_LOSS:
+                    score = -CHECKMATE_SCORE + MAX_PLY + ply + 1;
+                    type  = HASH_ALPHA;
+                    break;
+                default:
+                    score = 0;
+                    type  = HASH_EXACT;
+                    break;
+                }
+
+                //
+                //  Make sure we store result of tbprobe in tt with high depth
+                //
+
+                if ((type == HASH_BETA && score >= beta) || (type == HASH_ALPHA && score <= alpha) || (type == HASH_EXACT)) {
+                    TTable::instance().record(0, score, MAX_PLY - 1, 0, type, m_position.Hash());
+                    return score;
+                }
+            }
+        }
     }
 
     if (CheckLimits())
@@ -721,6 +789,8 @@ void Search::PrintPV(const Position& pos, int iter, int selDepth, EVAL score, co
         cout << " score cp " << score;
     cout << " time " << dt;
     cout << " nodes " << m_nodes;
+    cout << " tbhits " << m_tbHits;
+
     if (pvSize > 0)
     {
         cout << " pv";
@@ -810,6 +880,87 @@ Move Search::FirstLegalMove(Position& pos)
     return 0;
 }
 
+Move Search::tableBaseRootSearch()
+{
+    if (!TB_LARGEST || static_cast<unsigned int>(CountBits(m_position.BitsAll())) > TB_LARGEST)
+        return 0;
+
+    auto result =
+        tb_probe_root(m_position.BitsAll(WHITE), m_position.BitsAll(BLACK),
+            m_position.Bits(KW) | m_position.Bits(KB),
+            m_position.Bits(QW) | m_position.Bits(QB),
+            m_position.Bits(RW) | m_position.Bits(RB),
+            m_position.Bits(BW) | m_position.Bits(BB),
+            m_position.Bits(NW) | m_position.Bits(NB),
+            m_position.Bits(PW) | m_position.Bits(PB),
+            m_position.Fifty(),
+            m_position.CanCastle(m_position.Side(), KINGSIDE) || m_position.CanCastle(m_position.Side(), QUEENSIDE),
+            0,
+            m_position.Side() == WHITE, nullptr);
+
+    //
+    //  Validate result of a probe, if uncertain, return 0 and fallback to igel's main search at root
+    //
+
+    if (result == TB_RESULT_FAILED || result == TB_RESULT_CHECKMATE || result == TB_RESULT_STALEMATE)
+        return 0;
+
+    //
+    // Different board representation
+    //
+
+    auto to = abs(int(TB_GET_TO(result)) - 63);
+    auto from = abs(int(TB_GET_FROM(result)) - 63);
+    auto promoted = TB_GET_PROMOTES(result);
+    auto ep = TB_GET_EP(result);
+
+    Move tableBaseMove;
+
+    assert(!ep);
+
+    if (!promoted && !ep)
+        tableBaseMove = Move(from, to, m_position[from]);
+    else {
+        switch (promoted)
+        {
+        case TB_PROMOTES_QUEEN:
+            tableBaseMove = Move(from, to, m_position[from], NOPIECE, QW | m_position.Side());
+            break;
+        case TB_PROMOTES_ROOK:
+            tableBaseMove = Move(from, to, m_position[from], NOPIECE, RW | m_position.Side());
+            break;
+        case TB_PROMOTES_BISHOP:
+            tableBaseMove = Move(from, to, m_position[from], NOPIECE, BW | m_position.Side());
+            break;
+        case TB_PROMOTES_KNIGHT:
+            tableBaseMove = Move(from, to, m_position[from], NOPIECE, KW | m_position.Side());
+            break;
+        default:
+            assert(false);
+            break;
+        }
+    }
+
+    //
+    //  Sanity check, make sure move generated by tablebase probe is a valid one
+    //
+
+    MoveList moves;
+    if (m_position.InCheck())
+        GenMovesInCheck(m_position, moves);
+    else
+        GenAllMoves(m_position, moves);
+
+    auto mvSize = moves.Size();
+    for (size_t i = 0; i < mvSize; ++i) {
+        if (moves[i].m_mv == tableBaseMove)
+            return tableBaseMove;
+    }
+
+    assert(false);
+    return 0;
+}
+
 Move Search::StartSearch(Time time, int depth, EVAL alpha, EVAL beta)
 {
     m_time = time;
@@ -818,6 +969,16 @@ Move Search::StartSearch(Time time, int depth, EVAL alpha, EVAL beta)
     m_iterPVSize = 0;
     m_nodes = 0;
     m_selDepth = 0;
+    m_tbHits = 0;
+
+    //
+    //  Probe tablebases at root first
+    //
+
+    m_best = tableBaseRootSearch();
+
+    if (m_best)
+        return m_best;
 
     EVAL aspiration = 15;
     EVAL score = alpha;
@@ -847,6 +1008,7 @@ Move Search::StartSearch(Time time, int depth, EVAL alpha, EVAL beta)
 
                 m_threadParams[i].m_nodes = 0;
                 m_threadParams[i].m_selDepth = 0;
+                m_threadParams[i].m_tbHits = 0;
                 m_threadParams[i].setPosition(m_position);
                 m_threadParams[i].setTime(time);
                 m_threadParams[i].m_t0 = m_t0;
@@ -886,7 +1048,9 @@ Move Search::StartSearch(Time time, int depth, EVAL alpha, EVAL beta)
         if (m_principalSearcher) {
             for (unsigned int i = 0; i < m_thc; ++i) {
                 m_nodes += m_threadParams[i].m_nodes;
+                m_tbHits += m_threadParams[i].m_tbHits;
                 m_threadParams[i].m_nodes = 0;
+                m_threadParams[i].m_tbHits = 0;
             }
         }
 
@@ -1111,6 +1275,11 @@ void Search::UpdateSortScoresQ(MoveList& mvlist, int ply)
                 mvlist[j].m_score += 100 * m_histSuccess[mv.To()][mv.Piece()] / m_histTry[mv.To()][mv.Piece()];
         }
     }
+}
+
+void Search::setSyzygyDepth(int depth)
+{
+    m_syzygyDepth = depth;
 }
 
 void Search::setThreadCount(unsigned int threads)
