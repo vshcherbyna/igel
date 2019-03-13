@@ -46,7 +46,7 @@
 #endif
 
 const string PROGRAM_NAME   = "Igel";
-const string VERSION = "1.4a";
+const string VERSION = "1.4b";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 131072;
@@ -58,7 +58,7 @@ const int DEFAULT_THREADS = 1;
 
 Search g_search;
 deque<string> g_queue;
-FILE* g_log = NULL;
+FILE* g_log = nullptr;
 
 static string g_s;
 static vector<string> g_tokens;

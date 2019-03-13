@@ -307,7 +307,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
     if (TB_LARGEST && depth >= 2 && !m_position.Fifty() && !(m_position.CanCastle(m_position.Side(), KINGSIDE) || m_position.CanCastle(m_position.Side(), QUEENSIDE)))
     {
-        unsigned int pieces = static_cast<unsigned int>(CountBits(m_position.BitsAll()));
+        auto pieces = CountBits(m_position.BitsAll());
 
         if ((pieces < TB_LARGEST) || (pieces == TB_LARGEST && depth >= m_syzygyDepth))
         {
@@ -882,7 +882,7 @@ Move Search::FirstLegalMove(Position& pos)
 
 Move Search::tableBaseRootSearch()
 {
-    if (!TB_LARGEST || static_cast<unsigned int>(CountBits(m_position.BitsAll())) > TB_LARGEST)
+    if (!TB_LARGEST || CountBits(m_position.BitsAll()) > TB_LARGEST)
         return 0;
 
     auto result =
@@ -918,8 +918,11 @@ Move Search::tableBaseRootSearch()
 
     assert(!ep);
 
+    PIECE piece = m_position[from];
+    PIECE capture = m_position[to];
+
     if (!promoted && !ep)
-        tableBaseMove = Move(from, to, m_position[from]);
+        tableBaseMove = Move(from, to, piece, capture);
     else {
         switch (promoted)
         {
@@ -933,7 +936,7 @@ Move Search::tableBaseRootSearch()
             tableBaseMove = Move(from, to, m_position[from], NOPIECE, BW | m_position.Side());
             break;
         case TB_PROMOTES_KNIGHT:
-            tableBaseMove = Move(from, to, m_position[from], NOPIECE, KW | m_position.Side());
+            tableBaseMove = Move(from, to, m_position[from], NOPIECE, NW | m_position.Side());
             break;
         default:
             assert(false);
