@@ -470,11 +470,6 @@ EVAL Evaluate(Position& pos)
 
     EVAL e = (score.mid * mid + score.end * end) / 64;
 
-    if (e > 0 && pos.MatIndex(WHITE) < 5 && pos.Count(PW) == 0)
-        e = 0;
-    if (e < 0 && pos.MatIndex(BLACK) < 5 && pos.Count(PB) == 0)
-        e = 0;
-
     if (pos.Side() == BLACK)
         e = -e;
 

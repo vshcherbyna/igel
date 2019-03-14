@@ -36,6 +36,7 @@ const U8 HASH_EXACT = 1;
 const U8 HASH_BETA = 2;
 
 const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VAL_R, VAL_R, VAL_Q, VAL_Q, VAL_K, VAL_K };
+extern FILE* g_log;
 
 Search::Search():
 m_timeCheck(0),
@@ -916,6 +917,12 @@ Move Search::tableBaseRootSearch()
 
     Move tableBaseMove;
 
+    if (ep) {
+        g_log = fopen("igel.txt", "at");
+        Log("ep is non zero");
+        Log(m_position.FEN());
+        exit(1);
+    }
     assert(!ep);
 
     PIECE piece = m_position[from];
@@ -927,16 +934,16 @@ Move Search::tableBaseRootSearch()
         switch (promoted)
         {
         case TB_PROMOTES_QUEEN:
-            tableBaseMove = Move(from, to, m_position[from], NOPIECE, QW | m_position.Side());
+            tableBaseMove = Move(from, to, m_position[from], capture, QW | m_position.Side());
             break;
         case TB_PROMOTES_ROOK:
-            tableBaseMove = Move(from, to, m_position[from], NOPIECE, RW | m_position.Side());
+            tableBaseMove = Move(from, to, m_position[from], capture, RW | m_position.Side());
             break;
         case TB_PROMOTES_BISHOP:
-            tableBaseMove = Move(from, to, m_position[from], NOPIECE, BW | m_position.Side());
+            tableBaseMove = Move(from, to, m_position[from], capture, BW | m_position.Side());
             break;
         case TB_PROMOTES_KNIGHT:
-            tableBaseMove = Move(from, to, m_position[from], NOPIECE, NW | m_position.Side());
+            tableBaseMove = Move(from, to, m_position[from], capture, NW | m_position.Side());
             break;
         default:
             assert(false);
@@ -960,11 +967,16 @@ Move Search::tableBaseRootSearch()
             return tableBaseMove;
     }
 
+    g_log = fopen("igel.txt", "at");
+    Log("no move found");
+    Log(m_position.FEN());
+    exit(2);
+
     assert(false);
     return 0;
 }
 
-Move Search::StartSearch(Time time, int depth, EVAL alpha, EVAL beta)
+Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & ponder)
 {
     m_time = time;
     m_t0 = GetProcTime();
@@ -1074,6 +1086,11 @@ Move Search::StartSearch(Time time, int depth, EVAL alpha, EVAL beta)
             {
                 m_best = m_pv[0][0];
                 m_bestSmpEval = score;
+
+                if (m_pv[0][1])
+                    ponder = m_pv[0][1];
+                else
+                    ponder = 0;
             }
 
             if (m_principalSearcher)
@@ -1128,6 +1145,11 @@ Move Search::StartSearch(Time time, int depth, EVAL alpha, EVAL beta)
             {
                 m_best = m_pv[0][0];
                 m_bestSmpEval = score;
+
+                if (m_pv[0][1])
+                    ponder = m_pv[0][1];
+                else
+                    ponder = 0;
             }
 
             if (!(m_flags & MODE_SILENT) && m_principalSearcher)
@@ -1318,7 +1340,8 @@ void Search::LazySmpSearcher()
             m_depth = m_lazyDepth;
         }
 
-        StartSearch(m_time, m_depth, alpha, beta);
+        Move ponder;
+        startSearch(m_time, m_depth, alpha, beta, ponder);
         resetLazySmpWork();
     }
 }
