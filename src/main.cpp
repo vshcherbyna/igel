@@ -46,7 +46,7 @@
 #endif
 
 const string PROGRAM_NAME   = "Igel";
-const string VERSION = "1.4b";
+const string VERSION = "1.4c";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 131072;
@@ -82,8 +82,14 @@ void OnGoUci()
 
     TTable::instance().increaseAge();
     g_search.m_principalSearcher = true;
-    Move mv = g_search.StartSearch(time, 1, -INFINITY_SCORE, INFINITY_SCORE);
-    cout << "bestmove " << MoveToStrLong(mv) << endl;
+
+    Move ponder;
+    Move mv = g_search.startSearch(time, 1, -INFINITY_SCORE, INFINITY_SCORE, ponder);
+
+    cout << "bestmove " << MoveToStrLong(mv);
+    if (ponder)
+        cout << " ponder " << MoveToStrLong(ponder);
+    cout << endl;
 }
 
 void OnIsready()

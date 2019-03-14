@@ -50,7 +50,7 @@ public:
     Search& operator=(const Search&) = delete;
 
 public:
-    Move StartSearch(Time time, int depth, EVAL alpha, EVAL beta);
+    Move startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & ponder);
     void ClearHistory();
     void ClearKillers();
     void setPosition(Position pos);
