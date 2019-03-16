@@ -163,10 +163,8 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
     bool inCheck = m_position.InCheck();
     bool onPV = (beta - alpha > 1);
 
-    TEntry hEntry;
-
-    if (ProbeHash(hEntry))
-        hashMove = hEntry.move();
+    if (m_pv[0][0])
+        hashMove = m_pv[0][0];
 
     MoveList& mvlist = m_lists[ply];
     if (inCheck)
@@ -176,6 +174,17 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
 
     UpdateSortScores(mvlist, hashMove, ply);
     auto mvSize = mvlist.Size();
+
+    //
+    //  Different move ordering for lazy smp threads
+    //
+
+    if (!m_principalSearcher && depth == 1 && mvSize >= 2) {
+        int j = 0;
+        for (size_t i = mvSize - 1; i > 0; --i) {
+            mvlist.Swap(i, j++);
+        }
+    }
 
     for (size_t i = 0; i < mvSize; ++i)
     {
@@ -343,11 +352,11 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
                 switch (probe)
                 {
                 case TB_WIN:
-                    score = CHECKMATE_SCORE - MAX_PLY - ply - 1;
+                    score = TBBASE_SCORE - MAX_PLY - ply;
                     type  = HASH_BETA;
                     break;
                 case TB_LOSS:
-                    score = -CHECKMATE_SCORE + MAX_PLY + ply + 1;
+                    score = -TBBASE_SCORE + MAX_PLY + ply;
                     type  = HASH_ALPHA;
                     break;
                 default:
@@ -360,8 +369,8 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
                 //  Make sure we store result of tbprobe in tt with high depth
                 //
 
-                if ((type == HASH_BETA && score >= beta) || (type == HASH_ALPHA && score <= alpha) || (type == HASH_EXACT)) {
-                    TTable::instance().record(0, score, MAX_PLY - 1, 0, type, m_position.Hash());
+                if ((type == HASH_EXACT) || (type == HASH_ALPHA ? (score <= alpha) : (score >= beta))) {
+                    TTable::instance().record(0, score, MAX_PLY, 0, type, m_position.Hash());
                     return score;
                 }
             }
@@ -985,15 +994,18 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
     m_nodes = 0;
     m_selDepth = 0;
     m_tbHits = 0;
+    memset(&m_pv, 0, sizeof(m_pv));
 
     //
     //  Probe tablebases at root first
     //
 
-    m_best = tableBaseRootSearch();
+    if (m_principalSearcher) {
+        m_best = tableBaseRootSearch();
 
-    if (m_best)
-        return m_best;
+        if (m_best)
+            return m_best;
+    }
 
     EVAL aspiration = 15;
     EVAL score = alpha;
@@ -1001,8 +1013,7 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
 
     string result, comment;
 
-    if ((m_principalSearcher) && IsGameOver(m_position, result, comment))
-    {
+    if ((m_principalSearcher) && IsGameOver(m_position, result, comment)) {
         cout << result << " " << comment << endl << endl;
         return m_best;
     }
@@ -1031,19 +1042,9 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
                 m_threadParams[i].m_bestSmpEval = -INFINITY_SCORE;
                 m_threadParams[i].m_smpThreadExit = false;
 
-                /*memcpy(&m_threadParams[i].m_iterPV, &m_iterPV, sizeof(m_iterPV));
-                memcpy(&m_threadParams[i].m_pvSize, &m_pvSize, sizeof(m_pvSize));
-                memcpy(&m_threadParams[i].m_pv, &m_pv, sizeof(m_pv));
-
-                memcpy(&m_threadParams[i].m_lists, &m_lists, sizeof(m_lists));
-                memcpy(&m_threadParams[i].m_histTry, &m_histTry, sizeof(m_histTry));
-                memcpy(&m_threadParams[i].m_mateKillers, &m_mateKillers, sizeof(m_mateKillers));
-                memcpy(&m_threadParams[i].m_killers, &m_killers, sizeof(m_killers));
-                memcpy(&m_threadParams[i].m_histSuccess, &m_histSuccess, sizeof(m_histSuccess));*/
-
                 m_threadParams[i].m_lazyAlpha = -INFINITY_SCORE;
                 m_threadParams[i].m_lazyBeta = INFINITY_SCORE;
-                m_threadParams[i].m_lazyDepth = m_depth + 1 + i;
+                m_threadParams[i].m_lazyDepth = 1;
                 m_threadParams[i].m_lazyMutex.unlock();
                 m_threadParams[i].m_lazycv.notify_one();
             }
@@ -1215,29 +1216,12 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
 
 lbl_retry:
         for (unsigned int i = 0; i < m_thc; ++i)
-        {
             while (m_threadParams[i].m_lazyDepth)
                 ++j;
-        }
 
         for (unsigned int i = 0; i < m_thc; ++i)
-        {
             if (m_threadParams[i].m_lazyDepth)
                 goto lbl_retry;
-        }
-
-        /*for (unsigned int i = 0; i < m_thc; ++i)
-        {
-            //cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!depth: " << m_depth << " smp depth: " << m_threadParams[i].m_depth << " old score: " << m_bestSmpEval << " new score: " << m_threadParams[i].m_bestSmpEval << endl;
-
-            if (m_threadParams[i].m_depth > m_depth)
-            {
-                //cout << "old score: " << m_bestSmpEval << " new score: " << m_threadParams[i].m_bestSmpEval << endl;
-                m_best = m_threadParams[i].m_best;
-                m_bestSmpEval = m_threadParams[i].m_bestSmpEval;
-                m_depth = m_threadParams[i].m_depth;
-            }
-        }*/
     }
 
     return m_best;
