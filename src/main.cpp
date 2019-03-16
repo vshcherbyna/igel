@@ -46,7 +46,7 @@
 #endif
 
 const string PROGRAM_NAME   = "Igel";
-const string VERSION = "1.4d(three)";
+const string VERSION = "1.4";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 131072;
@@ -104,8 +104,8 @@ void OnNew()
     TTable::instance().clearHash();
     TTable::instance().clearAge();
 
-    g_search.ClearHistory();
-    g_search.ClearKillers();
+    g_search.clearHistory();
+    g_search.clearKillers();
 }
 
 void OnPosition()
