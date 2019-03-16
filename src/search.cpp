@@ -36,7 +36,6 @@ const U8 HASH_EXACT = 1;
 const U8 HASH_BETA = 2;
 
 const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VAL_R, VAL_R, VAL_Q, VAL_Q, VAL_K, VAL_K };
-extern FILE* g_log;
 
 Search::Search():
 m_timeCheck(0),
@@ -639,16 +638,28 @@ EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
     return alpha;
 }
 
-void Search::ClearHistory()
+void Search::clearHistory()
 {
     memset(m_histTry, 0, 64 * 14 * sizeof(int));
     memset(m_histSuccess, 0, 64 * 14 * sizeof(int));
+
+    for (unsigned int i = 0; i < m_thc; ++i)
+    {
+        memset(m_threadParams[i].m_histTry, 0, 64 * 14 * sizeof(int));
+        memset(m_threadParams[i].m_histSuccess, 0, 64 * 14 * sizeof(int));
+    }
 }
 
-void Search::ClearKillers()
+void Search::clearKillers()
 {
     memset(m_killers, 0, MAX_PLY * sizeof(Move));
     memset(m_mateKillers, 0, MAX_PLY * sizeof(Move));
+
+    for (unsigned int i = 0; i < m_thc; ++i)
+    {
+        memset(m_threadParams[i].m_killers, 0, MAX_PLY * sizeof(Move));
+        memset(m_threadParams[i].m_mateKillers, 0, MAX_PLY * sizeof(Move));
+    }
 }
 
 int Search::Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV)
@@ -926,12 +937,6 @@ Move Search::tableBaseRootSearch()
 
     Move tableBaseMove;
 
-    if (ep) {
-        g_log = fopen("igel.txt", "at");
-        Log("ep is non zero");
-        Log(m_position.FEN());
-        exit(1);
-    }
     assert(!ep);
 
     PIECE piece = m_position[from];
@@ -975,11 +980,6 @@ Move Search::tableBaseRootSearch()
         if (moves[i].m_mv == tableBaseMove)
             return tableBaseMove;
     }
-
-    g_log = fopen("igel.txt", "at");
-    Log("no move found");
-    Log(m_position.FEN());
-    exit(2);
 
     assert(false);
     return 0;

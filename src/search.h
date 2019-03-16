@@ -51,8 +51,8 @@ public:
 
 public:
     Move startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & ponder);
-    void ClearHistory();
-    void ClearKillers();
+    void clearHistory();
+    void clearKillers();
     void setPosition(Position pos);
     void setTime(Time time) {m_time = time;}
     void setThreadCount(unsigned int threads);
