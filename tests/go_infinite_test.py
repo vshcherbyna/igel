@@ -27,7 +27,7 @@ def evaluate(fen, t, mate):
     # setup engine
     engine = chess.uci.popen_engine("../igel")
     engine.setoption({"Hash": 1024})
-    engine.setoption({"Threads": 1})
+    engine.setoption({"Threads": 2})
 
     # setup board
     board = chess.Board(fen)
