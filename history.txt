@@ -3,6 +3,108 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 1.4
+-------------
+17-Mar-2019
+- Implemented support for syzygy tablebases (uci options SyzygyPath and SyzygyProbeDepth)
+- Changed the move ordering during root search
+- Changed evaluation of late end-games
+- Minor memory optimisations (decrease memory usage by ~2 Mb)
+- Cosmetic changes: report tbhits, proper node count from primary & lazy smp threads
+
+Strength compared to Igel 1.2, Igel 1.3 (various configurations) and other engines:
+
+Igel 1.4 64 POPCNT vs 1.3 64 POPCNT
+tc=all/60+0.6
+threads=11 (for Igel 1.4)
+threads=1  (for Igel 1.3)
+hash=6144
+book=up to 8 moves for both engines
+EGTB=3-4-5 piece (used only by Igel 1.4, because Igel 1.3 does not support EGTB)
+Score of Igel 1.4 64 POPCNT vs Igel 1.3 64 POPCNT: 118 - 13 - 54  [0.784] 185
+Elo difference: 223.72 +/- 46.36
+
+Igel 1.4 64 POPCNT vs Igel 1.2 64 POPCNT
+tc=all/10+0.1
+threads=1
+hash=1024
+book=up to 8 moves for both engines
+EGTB=3-4-5 piece (used only by Igel 1.4, because Igel 1.2 does not support EGTB)
+Score of Igel 1.4 64 POPCNT vs Igel 1.2 64 POPCNT: 883 - 440 - 677  [0.611] 2000
+Elo difference: 78.25 +/- 12.52
+
+Igel 1.4 64 POPCNT vs Igel 1.2 64 POPCNT
+tc=all/10+0.1
+threads=1
+hash=1024
+book=up to 8 moves for both engines
+EGTB=disabled for both engines
+Score of Igel 1.4 64 POPCNT vs Igel 1.2 64 POPCNT: 813 - 506 - 686  [0.577] 2005
+Elo difference: 53.62 +/- 12.39
+
+Igel 1.4 64 POPCNT vs Igel 1.3 64 POPCNT
+tc=all/10+0.1
+threads=1
+hash=1024
+book=up to 8 moves for both engines
+EGTB=disabled for both engines
+Score of Igel 1.4 64 POPCNT vs Igel 1.3 64 POPCNT: 727 - 536 - 740  [0.548] 2003
+Elo difference: 33.23 +/- 12.09
+
+Igel 1.4 64 POPCNT vs Igel 1.3 64 POPCNT
+tc=all/10+0.1
+threads=1
+hash=1024
+book=up to 8 moves for both engines
+EGTB=3-4-5 piece (used only by Igel 1.4, because Igel 1.3 does not support EGTB)
+Score of Igel 1.4 64 POPCNT vs Igel 1.3 64 POPCNT: 789 - 538 - 673  [0.563] 2000
+Elo difference: 43.83 +/- 12.44
+
+Igel 1.4 64 POPCNT vs GreKo 2018 (2708)
+tc=40/960 (CCRL 40/40)
+threads=1
+hash=1024
+book=up to 8 moves for both engines
+EGTB=3-4-5 piece (used only by Igel, because Greko does not support EGTB)
+Score of Igel 1.4 64 POPCNT vs GreKo 2018: 10 - 13 - 27  [0.470] 50
+Elo difference: -20.87 +/- 65.99
+
+Igel 1.4 64 POPCNT vs WyldChess 1.51 64 POPCNT (2687)
+tc=40/960 (CCRL 40/40)
+threads=1
+hash=1024
+book=up to 8 moves for both engines
+EGTB=3-4-5 piece (used by Igel and WyldChess)
+Score of Igel 1.4 64 POPCNT vs WyldChess: 19 - 18 - 13  [0.510] 50
+Elo difference: 6.95 +/- 84.36
+
+Igel 1.4 64 POPCNT vs ECE-X3.5 64 (2646)
+tc=40/960 (CCRL 40/40)
+threads=1
+hash=1024
+book=up to 8 moves for both engines
+EGTB=3-4-5 piece (used only by Igel, because ECE-X3.5 does not support EGTB)
+Score of Igel 1.4 64 POPCNT vs ECE-X3.5 64Bit: 23 - 21 - 6  [0.520] 50
+Elo difference: 13.90 +/- 92.40
+
+Igel 1.4 64 POPCNT vs DanaSah 7.3 (2640)
+tc=40/960 (CCRL 40/40)
+threads=1
+hash=1024
+book=up to 8 moves for both engines
+EGTB=3-4-5 piece (used only by Igel, because DanaSah 7.3 does not support EGTB)
+Score of Igel 1.4 64 POPCNT vs DanaSah 7.3: 19 - 15 - 15  [0.541] 49
+Elo difference: 28.43 +/- 82.62
+
+Igel 1.4 64 POPCNT vs Fridolin 3.00 (2672)
+tc=40/960 (CCRL 40/40)
+threads=1
+hash=1024
+book=up to 8 moves for both engines
+EGTB=3-4-5 piece (used by Igel and Fridolin)
+Score of Igel 1.4 64 POPCNT vs Fridolin 3.00: 11 - 18 - 19  [0.427] 48
+Elo difference: -51.03 +/- 77.93
+
 Igel 1.3
 -------------
 05-Mar-2019
