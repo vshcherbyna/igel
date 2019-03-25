@@ -33,7 +33,7 @@ def obtain_eval(fen):
         cmd_line = 'position fen ' + fen + '\neval\n'
     stdout_data = cmd.communicate(input=cmd_line.encode())[0]
     digits = re.findall(r'[+-]?\d+(?:\.\d+)?', stdout_data.decode('utf-8'))
-    ret = int(digits[1])        
+    ret = int(digits[2])        
     if fen != None:
         print(fen)
     board = chess.Board(fen)

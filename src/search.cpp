@@ -268,7 +268,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     bool inCheck = m_position.InCheck();
 
     if (ply > MAX_PLY - 2)
-        return Evaluate(m_position);
+        return DRAW_SCORE;
 
     m_pvSize[ply] = 0;
 
@@ -570,7 +570,7 @@ EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
     bool inCheck = m_position.InCheck();
 
     if (ply > MAX_PLY - 2)
-        return Evaluate(m_position);
+        return DRAW_SCORE;
 
     m_pvSize[ply] = 0;
 
