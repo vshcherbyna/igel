@@ -3,6 +3,11 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 1.4.1
+-------------
+25-Mar-2019
+- Fix bug with evaluation of a position at a max ply
+
 Igel 1.4
 -------------
 17-Mar-2019
