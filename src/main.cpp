@@ -24,6 +24,7 @@
 #include "search.h"
 #include "utils.h"
 #include "time.h"
+#include "tune.h"
 #include "tt.h"
 #include "fathom/tbprobe.h"
 
@@ -46,15 +47,15 @@
 #endif
 
 const string PROGRAM_NAME   = "Igel";
-const string VERSION = "1.4.1";
+const string VERSION        = "1.4.2";
 
-const int MIN_HASH_SIZE = 1;
-const int MAX_HASH_SIZE = 131072;
-const int DEFAULT_HASH_SIZE = 128;
+const int MIN_HASH_SIZE     = 1;
+const int MAX_HASH_SIZE     = 131072;
+const int DEFAULT_HASH_SIZE = 16;
 
-const int MIN_THREADS = 1;
-const int MAX_THREADS = 128;
-const int DEFAULT_THREADS = 1;
+const int MIN_THREADS       = 1;
+const int MAX_THREADS       = 128;
+const int DEFAULT_THREADS   = 1;
 
 Search g_search;
 deque<string> g_queue;
@@ -288,6 +289,7 @@ void RunCommandLine()
         ON_CMD(uci,        1, OnUCI())
         ON_CMD(ucinewgame, 4, OnNew())
         ON_CMD(bench,      1, OnBench())
+        ON_CMD(tune,       1, onTune())
 #undef ON_CMD
     }
 }

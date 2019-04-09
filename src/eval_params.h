@@ -45,10 +45,10 @@ enum Param
     Mid_King,
     Mid_PawnPassedBlocked,
     Mid_PawnPassedFree,
+    Mid_PawnConnectedFree,
     Mid_PawnDoubled,
     Mid_PawnIsolated,
     Mid_KnightStrong,
-    Mid_BishopPair,
     Mid_BishopStrong,
     Mid_BishopMobility,
     Mid_RookMobility,
@@ -60,6 +60,10 @@ enum Param
     Mid_KingPassedDist,
     Mid_AttackKingZone,
     Mid_AttackStronger,
+    Mid_ConnectedRooks,
+    Mid_BishopsPair,
+    Mid_RooksPair,
+    Mid_KnightsPair,
 
     End_Pawn,
     End_Knight,
@@ -69,10 +73,10 @@ enum Param
     End_King,
     End_PawnPassedBlocked,
     End_PawnPassedFree,
+    End_PawnConnectedFree,
     End_PawnDoubled,
     End_PawnIsolated,
     End_KnightStrong,
-    End_BishopPair,
     End_BishopStrong,
     End_BishopMobility,
     End_RookMobility,
@@ -84,6 +88,10 @@ enum Param
     End_KingPassedDist,
     End_AttackKingZone,
     End_AttackStronger,
+    End_ConnectedRooks,
+    End_BishopsPair,
+    End_RooksPair,
+    End_KnightsPair,
 
     NUM_LINES
 };
@@ -95,6 +103,8 @@ void InitParamLines();
 
 void SetDefaultValues(vector<int>& x);
 void SetMaterialOnlyValues(vector<int>& x);
-
+void WriteParamsToFile(const vector<int>& x, const std::string& filename);
+std::string ParamNumberToName(size_t n);
+bool ReadParamsFromFile(vector<int>& x, const std::string& filename);
 
 #endif
