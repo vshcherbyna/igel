@@ -3,6 +3,32 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 1.4.2
+-------------
+09-Apr-2019
+- Texel tunning using Zurichess test positions (725k) taken from http://www.zurichess.xyz/blog/texels-tuning-method/
+- Fixing a bug with evaluation of pair of the knights. The buggy code was evaluating the pair of black kings and the pair of white kings
+
+Strength compared to Igel 1.4.1 and other engines:
+
+Igel 1.4.2 64 POPCNT vs 1.4.1 64 POPCNT
+tc=all/10+0.1
+threads=1
+hash=1024
+book=up to 12 moves for both engines
+EGTB=3-4-5 piece
+Score of Igel 1.4.2 64 POPCNT vs Igel 1.4.1 64 POPCNT: 1656 - 1236 - 725  [0.558] 3617
+Elo difference: 40.53 +/- 10.16
+
+Igel 1.4.2 64 POPCNT vs 1.4.1 64 POPCNT
+tc=all/60+0.6
+threads=1
+hash=1024
+book=up to 12 moves for both engines
+EGTB=3-4-5 piece
+Score of Igel 1.4.2 64 POPCNT vs Igel 1.4.1 64 POPCNT: 1166 - 887 - 627  [0.552] 2680
+Elo difference: 36.30 +/- 11.54
+
 Igel 1.4.1
 -------------
 25-Mar-2019
