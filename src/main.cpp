@@ -47,7 +47,7 @@
 #endif
 
 const string PROGRAM_NAME   = "Igel";
-const string VERSION        = "1.4.2";
+const string VERSION        = "1.4.3 (0)";
 
 const int MIN_HASH_SIZE     = 1;
 const int MAX_HASH_SIZE     = 131072;
@@ -66,7 +66,7 @@ static vector<string> g_tokens;
 
 void OnEval()
 {
-    cout << Evaluate(g_search.m_position) << endl;
+    cout << Evaluator::evaluate(g_search.m_position) << endl;
 }
 
 void OnFEN()
@@ -302,7 +302,7 @@ int main(int argc, const char* argv[])
     InitIO();
     InitBitboards();
     Position::InitHashNumbers();
-    InitEval();
+    Evaluator::initEval();
     g_search.m_position.SetInitial();
     g_search.setSyzygyDepth(1);
 

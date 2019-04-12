@@ -38,7 +38,7 @@ void CoordinateDescent(const string& fenFile,
     vector<int>& x0,
     const vector<int>& params)
 {
-    InitEval(x0);
+    Evaluator::initEval(x0);
     double y0 = Predict(fenFile) + Regularization(x0);
     double y0Start = y0;
 
@@ -66,7 +66,7 @@ void CoordinateDescent(const string& fenFile,
 
             if (x1[param] != x0[param])
             {
-                InitEval(x1);
+                Evaluator::initEval(x1);
                 double y1 = Predict(fenFile) + Regularization(x1);
                 if (y1 < y0)
                 {
@@ -91,7 +91,7 @@ void CoordinateDescent(const string& fenFile,
 
             if (x2[param] != x0[param])
             {
-                InitEval(x2);
+                Evaluator::initEval(x2);
                 double y2 = Predict(fenFile) + Regularization(x2);
                 if (y2 < y0)
                 {
@@ -116,7 +116,7 @@ void CoordinateDescent(const string& fenFile,
     }
 
     cout << endl << endl;
-    InitEval(x0);
+    Evaluator::initEval(x0);
 }
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -177,7 +177,7 @@ double ErrSq(const string& s, double K)
         return -1;
     }
 
-    EVAL e = Evaluate(pos);
+    EVAL e = Evaluator::evaluate(pos);
     if (pos.Side() == BLACK)
         e = -e;
 
@@ -345,7 +345,7 @@ void RandomWalk(const string& fenFile,
 {
     RandSeed(time(0));
 
-    InitEval(x0);
+    Evaluator::initEval(x0);
     double y0 = Predict(fenFile) + Regularization(x0);
     double y0Start = y0;
 
@@ -380,7 +380,7 @@ void RandomWalk(const string& fenFile,
         if (t >= limitTimeInSec)
         {
             cout << endl << endl;
-            InitEval(x0);
+            Evaluator::initEval(x0);
             return;
         }
 
@@ -398,11 +398,11 @@ void RandomWalk(const string& fenFile,
             if (t >= limitTimeInSec)
             {
                 cout << endl << endl;
-                InitEval(x0);
+                Evaluator::initEval(x0);
                 return;
             }
 
-            InitEval(x);
+            Evaluator::initEval(x);
             double y = Predict(fenFile) + Regularization(x);
 
             if (y <= y0)

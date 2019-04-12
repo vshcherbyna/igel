@@ -395,7 +395,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     static const EVAL MARGIN[4] = { 0, 50, 350, 550 };
     if (nonPawnMaterial && !onPV && !inCheck && depth >= 1 && depth <= 3)
     {
-        EVAL score = Evaluate(m_position);
+        EVAL score = Evaluator::evaluate(m_position);
         if (score <= alpha - MARGIN[depth])
             return AlphaBetaQ(alpha, beta, ply, 0);
         if (score >= beta + MARGIN[depth])
@@ -408,7 +408,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
     if (!onPV && !inCheck && depth <= 2)
     {
-        if ((Evaluate(m_position) + 200) < beta)
+        if ((Evaluator::evaluate(m_position) + 200) < beta)
         {
             EVAL score = AlphaBetaQ(alpha, beta, ply, 0);
 
@@ -576,7 +576,7 @@ EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
 
     if (!inCheck)
     {
-        EVAL staticScore = Evaluate(m_position);
+        EVAL staticScore = Evaluator::evaluate(m_position);
         if (staticScore > alpha)
             alpha = staticScore;
         if (alpha >= beta)
@@ -706,7 +706,7 @@ bool Search::HaveSingleMove(Position& pos, Move & bestMove)
         Move mv = mvlist[i].m_mv;
         if (pos.MakeMove(mv))
         {
-            EVAL score = Evaluate(pos);
+            EVAL score = Evaluator::evaluate(pos);
             pos.UnmakeMove();
 
             if (score >= bestScore)

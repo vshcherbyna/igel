@@ -121,7 +121,7 @@ TEST(TranspositionTableEntryMoveTest, Positive)
 
     InitBitboards();
     Position::InitHashNumbers();
-    InitEval();
+    Evaluator::initEval();
 
     MoveList mvlist;
     Position pos;
