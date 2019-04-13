@@ -152,7 +152,7 @@ bool Time::evaluate()
     //
 
     m_hardLimit = m_remainingTime / 2;
-    m_softLimit = (m_remainingTime / 100) + (m_increment / 2) + getEnemyLowTimeBonus();
+    m_softLimit = (m_remainingTime / 40) + (m_increment / 2) + getEnemyLowTimeBonus();
 
     return true;
 }

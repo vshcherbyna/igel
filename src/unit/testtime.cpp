@@ -188,12 +188,12 @@ TEST(NormalControlNoIncrement, Positive)
     EXPECT_EQ(true, Time::instance().parseTime(cmd, true));
     EXPECT_EQ(Time::TimeControl::TimeLimit, Time::instance().getTimeMode());
     EXPECT_EQ(true, Time::instance().getHardLimit() == 30000);
-    EXPECT_EQ(true, Time::instance().getSoftLimit() == 600);
+    EXPECT_EQ(true, Time::instance().getSoftLimit() == 1500);
 
     EXPECT_EQ(true, Time::instance().parseTime(cmd, false));
     EXPECT_EQ(Time::TimeControl::TimeLimit, Time::instance().getTimeMode());
     EXPECT_EQ(true, Time::instance().getHardLimit() == 30000);
-    EXPECT_EQ(true, Time::instance().getSoftLimit() == 600);
+    EXPECT_EQ(true, Time::instance().getSoftLimit() == 1500);
 }
 
 TEST(NormalControlNoIncrementEnemyHasMoreTime, Positive)
@@ -209,7 +209,7 @@ TEST(NormalControlNoIncrementEnemyHasMoreTime, Positive)
     EXPECT_EQ(true, Time::instance().parseTime(cmd, true));
     EXPECT_EQ(Time::TimeControl::TimeLimit, Time::instance().getTimeMode());
     EXPECT_EQ(true, Time::instance().getHardLimit() == 30000);
-    EXPECT_EQ(true, Time::instance().getSoftLimit() == 600);
+    EXPECT_EQ(true, Time::instance().getSoftLimit() == 1500);
 
     cmd.clear();
 
@@ -222,7 +222,7 @@ TEST(NormalControlNoIncrementEnemyHasMoreTime, Positive)
     EXPECT_EQ(true, Time::instance().parseTime(cmd, false));
     EXPECT_EQ(Time::TimeControl::TimeLimit, Time::instance().getTimeMode());
     EXPECT_EQ(true, Time::instance().getHardLimit() == 30000);
-    EXPECT_EQ(true, Time::instance().getSoftLimit() == 600);
+    EXPECT_EQ(true, Time::instance().getSoftLimit() == 1500);
 }
 
 TEST(NormalControlNoIncrementEnemyHasLessTime, Positive)
@@ -238,7 +238,7 @@ TEST(NormalControlNoIncrementEnemyHasLessTime, Positive)
     EXPECT_EQ(true, Time::instance().parseTime(cmd, true));
     EXPECT_EQ(Time::TimeControl::TimeLimit, Time::instance().getTimeMode());
     EXPECT_EQ(true, Time::instance().getHardLimit() == 30000);
-    EXPECT_EQ(true, Time::instance().getSoftLimit() == 622);
+    EXPECT_EQ(true, Time::instance().getSoftLimit() == 1522);
 
     cmd.clear();
     cmd.push_back("go");
@@ -250,7 +250,7 @@ TEST(NormalControlNoIncrementEnemyHasLessTime, Positive)
     EXPECT_EQ(true, Time::instance().parseTime(cmd, false));
     EXPECT_EQ(Time::TimeControl::TimeLimit, Time::instance().getTimeMode());
     EXPECT_EQ(true, Time::instance().getHardLimit() == 30000);
-    EXPECT_EQ(true, Time::instance().getSoftLimit() == 622);
+    EXPECT_EQ(true, Time::instance().getSoftLimit() == 1522);
 }
 
 TEST(NormalControlIncrement, Positive)
@@ -271,7 +271,7 @@ TEST(NormalControlIncrement, Positive)
     EXPECT_EQ(true, Time::instance().parseTime(cmd, true));
     EXPECT_EQ(Time::TimeControl::TimeLimit, Time::instance().getTimeMode());
     EXPECT_EQ(true, Time::instance().getHardLimit() == 30000);
-    EXPECT_EQ(true, Time::instance().getSoftLimit() == 1600);
+    EXPECT_EQ(true, Time::instance().getSoftLimit() == 2500);
 
     cmd.clear();
     cmd.push_back("go");
@@ -288,7 +288,7 @@ TEST(NormalControlIncrement, Positive)
     EXPECT_EQ(true, Time::instance().parseTime(cmd, false));
     EXPECT_EQ(Time::TimeControl::TimeLimit, Time::instance().getTimeMode());
     EXPECT_EQ(true, Time::instance().getHardLimit() == 30000);
-    EXPECT_EQ(true, Time::instance().getSoftLimit() == 1100);
+    EXPECT_EQ(true, Time::instance().getSoftLimit() == 2000);
 }
 
 TEST(NormalControlIncrementEnemyHasMoreTime, Positive)
@@ -309,7 +309,7 @@ TEST(NormalControlIncrementEnemyHasMoreTime, Positive)
     EXPECT_EQ(true, Time::instance().parseTime(cmd, true));
     EXPECT_EQ(Time::TimeControl::TimeLimit, Time::instance().getTimeMode());
     EXPECT_EQ(true, Time::instance().getHardLimit() == 30000);
-    EXPECT_EQ(true, Time::instance().getSoftLimit() == 1600);
+    EXPECT_EQ(true, Time::instance().getSoftLimit() == 2500);
 
     cmd.clear();
 
@@ -327,7 +327,7 @@ TEST(NormalControlIncrementEnemyHasMoreTime, Positive)
     EXPECT_EQ(true, Time::instance().parseTime(cmd, false));
     EXPECT_EQ(Time::TimeControl::TimeLimit, Time::instance().getTimeMode());
     EXPECT_EQ(true, Time::instance().getHardLimit() == 30000);
-    EXPECT_EQ(true, Time::instance().getSoftLimit() == 1100);
+    EXPECT_EQ(true, Time::instance().getSoftLimit() == 2000);
 }
 
 TEST(NormalControlIncrementEnemyHasLessTime, Positive)
@@ -348,7 +348,7 @@ TEST(NormalControlIncrementEnemyHasLessTime, Positive)
     EXPECT_EQ(true, Time::instance().parseTime(cmd, true));
     EXPECT_EQ(Time::TimeControl::TimeLimit, Time::instance().getTimeMode());
     EXPECT_EQ(true, Time::instance().getHardLimit() == 30000);
-    EXPECT_EQ(true, Time::instance().getSoftLimit() == 1644);
+    EXPECT_EQ(true, Time::instance().getSoftLimit() == 2544);
 
     cmd.clear();
 
@@ -366,7 +366,7 @@ TEST(NormalControlIncrementEnemyHasLessTime, Positive)
     EXPECT_EQ(true, Time::instance().parseTime(cmd, false));
     EXPECT_EQ(Time::TimeControl::TimeLimit, Time::instance().getTimeMode());
     EXPECT_EQ(true, Time::instance().getHardLimit() == 30000);
-    EXPECT_EQ(true, Time::instance().getSoftLimit() == 1166);
+    EXPECT_EQ(true, Time::instance().getSoftLimit() == 2066);
 }
 
 }
