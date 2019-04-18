@@ -25,6 +25,8 @@
 #include "utils.h"
 #include "fathom/tbprobe.h"
 
+#include <algorithm>
+
 const int SORT_HASH         = 7000000;
 const int SORT_CAPTURE      = 6000000;
 const int SORT_MATE_KILLER  = 5000000;
@@ -65,7 +67,7 @@ Search::~Search()
     releaseHelperThreads();
 }
 
-bool Search::CheckLimits()
+bool Search::CheckLimits(bool onPv, int depth, EVAL score)
 {
     if ((m_smpThreadExit) || (m_flags & SEARCH_TERMINATED))
         return true;
@@ -84,11 +86,11 @@ bool Search::CheckLimits()
         return false;
 
     m_timeCheck = 0;
-
     dt = GetProcTime() - m_t0;
 
     if (m_flags & MODE_PLAY)
     {
+        //m_time.adjust(onPv, depth, score);
         if (m_time.getHardLimit() > 0 && dt >= m_time.getHardLimit())
         {
             m_flags |= TERMINATED_BY_LIMIT;
@@ -190,7 +192,7 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
         if (m_principalSearcher)
             CheckInput();
 
-        if (CheckLimits())
+        if (CheckLimits(onPV, depth, alpha))
             break;
 
         Move mv = GetNextBest(mvlist, i);
@@ -276,8 +278,9 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
         return DRAW_SCORE;
 
     COLOR side = m_position.Side();
-    bool onPV = (beta - alpha > 1);
-    bool lateEndgame = (m_position.MatIndex(side) < 5);
+    auto onPV = (beta - alpha > 1);
+    auto lateEndgame = (m_position.MatIndex(side) < 5);
+    auto rootNode = ply == 0;
 
     if (ply > m_selDepth)
         m_selDepth = ply;
@@ -376,22 +379,34 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
         }
     }
 
-    if (CheckLimits())
-        return alpha;
+    if (CheckLimits(onPV, depth, alpha))
+        return -INFINITY_SCORE;
 
     //
-    //   QSEARCH
+    //   qsearch
     //
 
     if (!inCheck && depth <= 0)
         return AlphaBetaQ(alpha, beta, ply, 0);
 
+    if (!rootNode) {
+
+        //
+        // mate distance pruning
+        //
+
+        auto rAlpha = alpha > -CHECKMATE_SCORE + ply ? alpha : -CHECKMATE_SCORE + ply;
+        auto rBeta = beta < CHECKMATE_SCORE - ply - 1 ? beta : CHECKMATE_SCORE - ply - 1;
+
+        if (rAlpha >= rBeta)
+            return rAlpha;
+    }
+
     //
-    //   FUTILITY
+    //   futility
     //
 
     bool nonPawnMaterial = m_position.NonPawnMaterial();
-
     static const EVAL MARGIN[4] = { 0, 50, 350, 550 };
     if (nonPawnMaterial && !onPV && !inCheck && depth >= 1 && depth <= 3)
     {
@@ -402,45 +417,40 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
             return beta;
     }
 
+    EVAL staticEval = Evaluator::evaluate(m_position);
+
     //
-    //   RAZORING
+    //   razoring
     //
 
-    if (!onPV && !inCheck && depth <= 2)
+    if (!onPV && !inCheck && depth <= 1 && staticEval + 325 < alpha)
+        return AlphaBetaQ(alpha, beta, ply, 0);
+
+    //
+    //   beta pruning
+    //
+
+    if (!onPV && !inCheck && depth <= 8 && staticEval - 85 * depth > beta)
+        return staticEval;
+
+    //
+    //   null move
+    //
+
+    if (!isNull && !onPV && !inCheck && depth >= 2 && nonPawnMaterial && staticEval >= beta)
     {
-        if ((Evaluator::evaluate(m_position) + 200) < beta)
-        {
-            EVAL score = AlphaBetaQ(alpha, beta, ply, 0);
+        int R = 4 + depth / 6 + min(3, (staticEval - beta) / 200);
 
-            if (score < beta)
-                return score;
-        }
-    }
-
-    //
-    //   NULL MOVE
-    //
-
-    int R = depth / 4 + 3;
-    if (!isNull && !onPV && !inCheck && depth >= 2 && nonPawnMaterial)
-    {
         m_position.MakeNullMove();
-        EVAL nullScore = (depth - 1 - R > 0)?
-            -AlphaBeta(-beta, -beta + 1, depth - 1 - R, ply + 1, true) :
-            -AlphaBetaQ(-beta, -beta + 1, ply + 1, 0);
+        EVAL nullScore = -AlphaBeta(-beta, -beta + 1, depth - R, ply + 1, true);
         m_position.UnmakeNullMove();
 
         if (nullScore >= beta)
-        {
-            if (nullScore >= (CHECKMATE_SCORE - 50))
-                return beta;
-            else
-                return nullScore;
-        }
+            return beta;
     }
 
     //
-    //   IID
+    //   iid
     //
 
     if (onPV && hashMove == 0 && depth > 4)
@@ -476,7 +486,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
             int newDepth = depth - 1;
 
             //
-            //   EXTENSIONS
+            //   extensions
             //
 
             newDepth += Extensions(mv, m_position.LastMove(), inCheck, ply, onPV);
@@ -487,7 +497,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
             else
             {
                 //
-                //   LMR
+                //   lmr
                 //
 
                 int reduction = 0;
@@ -583,8 +593,8 @@ EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
             return beta;
     }
 
-    if (CheckLimits())
-        return alpha;
+    if (CheckLimits((beta - alpha > 1), qply, alpha))
+        return -INFINITY_SCORE;
 
     MoveList& mvlist = m_lists[ply];
     if (inCheck)
@@ -994,7 +1004,9 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
     m_nodes = 0;
     m_selDepth = 0;
     m_tbHits = 0;
+
     memset(&m_pv, 0, sizeof(m_pv));
+    m_time.resetAdjustment();
 
     //
     //  Probe tablebases at root first
@@ -1051,6 +1063,8 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
         }
 
         score = AlphaBetaRoot(alpha, beta, m_depth);
+
+        //m_time.adjust(beta - alpha > 1, m_depth, score);
 
         if (m_flags & SEARCH_TERMINATED)
             break;
