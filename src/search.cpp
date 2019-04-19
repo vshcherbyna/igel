@@ -267,8 +267,6 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
 
 EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 {
-    bool inCheck = m_position.InCheck();
-
     if (ply > MAX_PLY - 2)
         return DRAW_SCORE;
 
@@ -277,25 +275,18 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     if (!isNull && m_position.Repetitions() >= 2)
         return DRAW_SCORE;
 
-    COLOR side = m_position.Side();
-    auto onPV = (beta - alpha > 1);
-    auto lateEndgame = (m_position.MatIndex(side) < 5);
-    auto rootNode = ply == 0;
-
     if (ply > m_selDepth)
         m_selDepth = ply;
 
     //
-    //   PROBING HASH
+    //   probe hash
     //
 
     Move hashMove = 0;
     TEntry hEntry;
 
-    if (ProbeHash(hEntry))
-    {
-        if (hEntry.depth() >= depth)
-        {
+    if (ProbeHash(hEntry)) {
+        if (hEntry.depth() >= depth) {
             EVAL score = hEntry.score();
             if (score > CHECKMATE_SCORE - 50 && score <= CHECKMATE_SCORE)
                 score -= ply;
@@ -314,21 +305,19 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     }
 
     //
-    //  Tablebase probe
+    //  tablebase probe
     //
 
-    if (TB_LARGEST && depth >= 2 && !m_position.Fifty() && !(m_position.CanCastle(m_position.Side(), KINGSIDE) || m_position.CanCastle(m_position.Side(), QUEENSIDE)))
-    {
+    if (TB_LARGEST && depth >= 2 && !m_position.Fifty() && !(m_position.CanCastle(m_position.Side(), KINGSIDE) || m_position.CanCastle(m_position.Side(), QUEENSIDE))) {
         auto pieces = CountBits(m_position.BitsAll());
 
-        if ((pieces < TB_LARGEST) || (pieces == TB_LARGEST && depth >= m_syzygyDepth))
-        {
+        if ((pieces < TB_LARGEST) || (pieces == TB_LARGEST && depth >= m_syzygyDepth)) {
             EVAL score;
             U8 type;
             FLD ep = m_position.EP();
 
             //
-            //  Different board representation
+            //  different board representation
             //
 
             if (ep == NF)
@@ -348,8 +337,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
                 ep,
                 m_position.Side() == WHITE);
 
-            if (probe != TB_RESULT_FAILED)
-            {
+            if (probe != TB_RESULT_FAILED) {
                 m_tbHits++;
                 switch (probe)
                 {
@@ -368,7 +356,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
                 }
 
                 //
-                //  Make sure we store result of tbprobe in tt with high depth
+                //  make sure we store result of tbprobe in tt with high depth
                 //
 
                 if ((type == HASH_EXACT) || (type == HASH_ALPHA ? (score <= alpha) : (score >= beta))) {
@@ -379,8 +367,12 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
         }
     }
 
+    auto onPV = (beta - alpha > 1);
+
     if (CheckLimits(onPV, depth, alpha))
         return -INFINITY_SCORE;
+
+    bool inCheck = m_position.InCheck();
 
     //
     //   qsearch
@@ -388,6 +380,8 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
     if (!inCheck && depth <= 0)
         return AlphaBetaQ(alpha, beta, ply, 0);
+
+    auto rootNode = ply == 0;
 
     if (!rootNode) {
 
@@ -406,18 +400,17 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     //   futility
     //
 
+    EVAL staticEval = Evaluator::evaluate(m_position);
+
     bool nonPawnMaterial = m_position.NonPawnMaterial();
     static const EVAL MARGIN[4] = { 0, 50, 350, 550 };
-    if (nonPawnMaterial && !onPV && !inCheck && depth >= 1 && depth <= 3)
-    {
-        EVAL score = Evaluator::evaluate(m_position);
-        if (score <= alpha - MARGIN[depth])
+
+    if (nonPawnMaterial && !onPV && !inCheck && depth >= 1 && depth <= 3) {
+        if (staticEval <= alpha - MARGIN[depth])
             return AlphaBetaQ(alpha, beta, ply, 0);
-        if (score >= beta + MARGIN[depth])
+        if (staticEval >= beta + MARGIN[depth])
             return beta;
     }
-
-    EVAL staticEval = Evaluator::evaluate(m_position);
 
     //
     //   razoring
@@ -437,8 +430,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     //   null move
     //
 
-    if (!isNull && !onPV && !inCheck && depth >= 2 && nonPawnMaterial && staticEval >= beta)
-    {
+    if (!isNull && !onPV && !inCheck && depth >= 2 && nonPawnMaterial && staticEval >= beta) {
         int R = 4 + depth / 6 + min(3, (staticEval - beta) / 200);
 
         m_position.MakeNullMove();
@@ -448,6 +440,36 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
         if (nullScore >= beta)
             return beta;
     }
+
+    //
+    //  probcut
+    //
+    /*
+
+    // interestingly it does not work out well in Igel
+
+    if (!onPV && depth >= 5) {
+        auto betaCut = beta + 100;
+        MoveList captureMoves;
+        GenCapturesAndPromotions(m_position, captureMoves);
+        auto captureMovesSize = captureMoves.Size();
+
+        for (size_t i = 0; i < captureMovesSize; ++i)
+        {
+            if (SEE(captureMoves[i].m_mv) < betaCut - staticEval)
+                continue;
+
+            if (m_position.MakeMove(captureMoves[i].m_mv)) {
+                auto score = -AlphaBeta(-betaCut, -betaCut + 1, depth - 4, ply + 1, isNull);
+                m_position.UnmakeMove();
+
+                if (score >= betaCut)
+                    return score;
+            }
+        }
+    }
+
+    */
 
     //
     //   iid
@@ -473,9 +495,11 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
     UpdateSortScores(mvlist, hashMove, ply);
 
+    COLOR side = m_position.Side();
+    auto lateEndgame = (m_position.MatIndex(side) < 5);
+
     auto mvSize = mvlist.Size();
-    for (size_t i = 0; i < mvSize; ++i)
-    {
+    for (size_t i = 0; i < mvSize; ++i) {
         Move mv = GetNextBest(mvlist, i);
         if (m_position.MakeMove(mv))
         {
@@ -558,8 +582,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
         }
     }
 
-    if (legalMoves == 0)
-    {
+    if (legalMoves == 0) {
         if (inCheck)
             alpha = -CHECKMATE_SCORE + ply;
         else

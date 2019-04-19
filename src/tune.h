@@ -18,17 +18,34 @@
 *  along with Igel.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef LEARN_H
-#define LEARN_H
+#ifndef TUNER_H
+#define TUNER_H
 
 #include "types.h"
 
-int    CountGames(const string& file);
-bool   PgnToFen(const string& pgnFile, const string& fenFile, int minPly, int maxPly, int skipGames, int fensPerGame);
-double Predict(const string& fenFile);
-void   CoordinateDescent(const string& fenFile, vector<int>& x0, const vector<int>& params);
-void   RandomWalk(const string& fenFile, vector<int>& x0, int limitTimeInSec, bool simulatedAnnealing, const vector<int>& params);
-void   SetStartLearnTime();
-void    onTune();
+#include <vector>
 
-#endif
+class Tuner
+{
+public:
+    Tuner() {}
+    Tuner(const Tuner&) = delete;
+    Tuner& operator=(const Tuner&) = delete;
+
+public:
+    void Tune();
+
+private:
+    void randomWalk(vector<int> & x0, int limitTimeInSec, bool simulatedAnnealing, const vector<int> & params, std::vector<string> & fens);
+    void randomWalkInfo(double y0Start, double y0, int t);
+    double predict(std::vector<string> & fens);
+    void setTuneStartTime();
+    double regularization(const vector<int> & x);
+
+private:
+    U32 m_t0;
+};
+
+void onTune();
+
+#endif // TUNER_H

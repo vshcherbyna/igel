@@ -46,7 +46,7 @@ private:
     static inline Pair evaluateOutposts(Position & pos, PawnHashEntry *ps);
     static inline Pair evaluateRooks(Position & pos, U64 occ, U64 kingZone[], int attackers[], PawnHashEntry *ps);
     static inline Pair evaluateQueens(Position & pos, U64 occ, U64 kingZone[], int attackers[]);
-    static inline Pair evaluateKings(Position & pos, PawnHashEntry *ps);
+    static inline Pair evaluateKings(Position & pos, U64 occ, PawnHashEntry *ps);
     static inline Pair evaluateKingAttackers(Position & pos, int attackers[]);
 
 private:

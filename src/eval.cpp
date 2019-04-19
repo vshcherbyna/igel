@@ -28,11 +28,16 @@ Pair PSQ[14][64];
 //  Pawn evaluations
 //
 
+Pair passedPawn[64];
 Pair passedPawnBlocked[64];
 Pair passedPawnFree[64];
 Pair passedPawnConnected[64];
 Pair pawnDoubled[64];
 Pair pawnIsolated[64];
+Pair pawnDoubledIsolated[64];
+Pair pawnBlocked[64];
+Pair pawnFence[64];
+Pair pawnOnBiColor;
 
 //
 //  Mobility evaluations
@@ -46,9 +51,13 @@ Pair rookMobility[15];
 //
 
 Pair knightStrong[64];
+Pair knightForepost[64];
+Pair knightKingDistance[10];
 Pair bishopStrong[64];
+Pair bishopKingDistance[10];
 Pair rookOnOpenFile;
 Pair rookOn7thRank;
+Pair rookKingDistance[10];
 Pair queenOn7thRank;
 Pair queenKingDistance[10];
 Pair rooksConnected;
@@ -60,8 +69,11 @@ Pair rooksConnected;
 Pair kingPawnShield[10];
 Pair kingPawnStorm[10];
 Pair kingPasserDistance[10];
+Pair kingExplosed[28];
 Pair attackKing[8];
 Pair strongAttack;
+Pair centerAttack;
+Pair tempoAttack;
 
 //
 //  Piece combinations evaluations
@@ -70,6 +82,8 @@ Pair strongAttack;
 Pair rooksPair;
 Pair bishopsPair;
 Pair knightsPair;
+Pair knightAndQueen;
+Pair bishopAndRook;
 
 /*static */EVAL Evaluator::evaluate(Position & pos)
 {
@@ -88,7 +102,7 @@ Pair knightsPair;
     score += evaluateBishops(pos, occ, kingZone, attackKing);
     score += evaluateRooks(pos, occ, kingZone, attackKing, ps);
     score += evaluateQueens(pos, occ, kingZone, attackKing);
-    score += evaluateKings(pos, ps);
+    score += evaluateKings(pos, occ, ps);
     score += evaluatePiecePairs(pos);
     score += evaluateKingAttackers(pos, attackKing);
 
@@ -122,6 +136,8 @@ Pair knightsPair;
     {
         f = PopLSB(x);
 
+        score += passedPawn[f];
+
         auto freeFile = [](FLD field, U64 occ, Position& pos) -> bool
         {
             int rank = Row(field);
@@ -132,7 +148,7 @@ Pair knightsPair;
         // check if it is a blocked or a free pass pawn
         if (pos[f - 8] != NOPIECE)
             score += passedPawnBlocked[f];
-        else
+        else if ((BB_DIR[f][DIR_U] & occ) == 0)
             score += passedPawnFree[f];
 
         // check if it is a connected pass pawn
@@ -146,6 +162,7 @@ Pair knightsPair;
     while (x)
     {
         f = PopLSB(x);
+        score -= passedPawn[FLIP[BLACK][f]];
 
         auto freeFile = [](FLD field, U64 occ, Position& pos) -> bool
         {
@@ -157,7 +174,7 @@ Pair knightsPair;
         // check if it is a blocked or a free pass pawn
         if (pos[f + 8] != NOPIECE)
             score -= passedPawnBlocked[FLIP[BLACK][f]];
-        else
+        else if ((BB_DIR[f][DIR_D] & occ) == 0)
             score -= passedPawnFree[FLIP[BLACK][f]];
 
         // check if it is a connected pass pawn
@@ -196,6 +213,61 @@ Pair knightsPair;
         score -= pawnIsolated[FLIP[BLACK][f]];
     }
 
+    // doubled and isolated
+    x = ps.m_doubledPawns[WHITE] & ps.m_isolatedPawns[WHITE];
+    while (x)
+    {
+        f = PopLSB(x);
+        score += pawnDoubledIsolated[f];
+    }
+    x = ps.m_doubledPawns[BLACK] & ps.m_isolatedPawns[BLACK];
+    while (x)
+    {
+        f = PopLSB(x);
+        score -= pawnDoubledIsolated[FLIP[BLACK][f]];
+    }
+
+    // blocked
+    x = pos.Bits(PW) & Down(occ);
+    while (x)
+    {
+        f = PopLSB(x);
+        score += pawnBlocked[f];
+    }
+    x = pos.Bits(PB) & Up(occ);
+    while (x)
+    {
+        f = PopLSB(x);
+        score -= pawnBlocked[FLIP[BLACK][f]];
+    }
+
+    // fence
+    x = pos.Bits(PW) & Down(pos.Bits(PB));
+    while (x)
+    {
+        f = PopLSB(x);
+        score += pawnFence[f];
+    }
+    x = pos.Bits(PB) & Up(pos.Bits(PW));
+    while (x)
+    {
+        f = PopLSB(x);
+        score -= pawnFence[FLIP[BLACK][f]];
+    }
+
+    // pawns on a bishop color
+    if (pos.Count(BW) == 1)
+    {
+        U64 mask = (pos.Bits(BW) & BB_WHITE_FIELDS) ? BB_WHITE_FIELDS : BB_BLACK_FIELDS;
+        score += CountBits(pos.Bits(PW) & mask) * pawnOnBiColor;
+    }
+
+    if (pos.Count(BB) == 1)
+    {
+        U64 mask = (pos.Bits(BB) & BB_WHITE_FIELDS) ? BB_WHITE_FIELDS : BB_BLACK_FIELDS;
+        score -= CountBits(pos.Bits(PB) & mask) * pawnOnBiColor;
+    }
+
     return score;
 }
 
@@ -209,10 +281,16 @@ Pair knightsPair;
     y &= (pos.Bits(NB) | pos.Bits(BB) | pos.Bits(RB) | pos.Bits(QB));
     score += CountBits(y) * strongAttack;
 
+    U64 y2 = y & BB_CENTER[WHITE];
+    score += CountBits(y2) * centerAttack;
+
     x = pos.Bits(PB);
     y = DownRight(x) | DownLeft(x);
     y &= (pos.Bits(NW) | pos.Bits(BW) | pos.Bits(RW) | pos.Bits(QW));
     score -= CountBits(y) * strongAttack;
+
+    y2 = y & BB_CENTER[BLACK];
+    score -= CountBits(y2) * centerAttack;
 
     return score;
 }
@@ -230,6 +308,13 @@ Pair knightsPair;
         {
             f = PopLSB(x);
             score += knightStrong[f];
+
+            int file = Col(f) + 1;
+            if (ps->m_ranks[file][WHITE] == 0)
+            {
+                if (BB_DIR[f][DIR_D] & pos.Bits(NW))
+                    score += knightForepost[f];
+            }
         }
         x = ps->m_strongFields[WHITE] & pos.Bits(BW);
         while (x)
@@ -246,6 +331,13 @@ Pair knightsPair;
         {
             f = PopLSB(x);
             score -= knightStrong[FLIP[BLACK][f]];
+
+            int file = Col(f) + 1;
+            if (ps->m_ranks[file][BLACK] == 7)
+            {
+                if (BB_DIR[f][DIR_U] & pos.Bits(RB))
+                    score -= knightForepost[FLIP[BLACK][f]];
+            }
         }
         x = ps->m_strongFields[BLACK] & pos.Bits(BB);
         while (x)
@@ -268,22 +360,36 @@ Pair knightsPair;
     while (x)
     {
         f = PopLSB(x);
+
+        int dist = distance(f, pos.King(BLACK));
+        score += knightKingDistance[dist];
+
         y = BB_KNIGHT_ATTACKS[f];
         if (y & kingZone[BLACK])
             attackers[WHITE]++;
         y &= (pos.Bits(RB) | pos.Bits(QB));
         score += CountBits(y) * strongAttack;
+
+        U64 y2 = y & BB_CENTER[WHITE];
+        score += CountBits(y2) * centerAttack;
     }
 
     x = pos.Bits(NB);
     while (x)
     {
         f = PopLSB(x);
+
+        int dist = distance(f, pos.King(WHITE));
+        score -= knightKingDistance[dist];
+
         y = BB_KNIGHT_ATTACKS[f];
         if (y & kingZone[WHITE])
             attackers[BLACK]++;
         y &= (pos.Bits(RW) | pos.Bits(QW));
         score -= CountBits(y) * strongAttack;
+
+        U64 y2 = y & BB_CENTER[BLACK];
+        score -= CountBits(y2) * centerAttack;
     }
 
     return score;
@@ -299,24 +405,38 @@ Pair knightsPair;
     while (x)
     {
         f = PopLSB(x);
+
+        int dist = distance(f, pos.King(BLACK));
+        score += bishopKingDistance[dist];
+
         y = BishopAttacks(f, occ);
         score += bishopMobility[CountBits(y)];
         if (y & kingZone[BLACK])
             attackers[WHITE]++;
         y &= (pos.Bits(RB) | pos.Bits(QB));
         score += CountBits(y) * strongAttack;
+
+        U64 y2 = y & BB_CENTER[WHITE];
+        score += CountBits(y2) * centerAttack;
     }
 
     x = pos.Bits(BB);
     while (x)
     {
         f = PopLSB(x);
+
+        int dist = distance(f, pos.King(WHITE));
+        score -= bishopKingDistance[dist];
+
         y = BishopAttacks(f, occ);
         score -= bishopMobility[CountBits(y)];
         if (y & kingZone[WHITE])
             attackers[BLACK]++;
         y &= (pos.Bits(RW) | pos.Bits(QW));
         score -= CountBits(y) * strongAttack;
+
+        U64 y2 = y & BB_CENTER[BLACK];
+        score -= CountBits(y2) * centerAttack;
     }
 
     return score;
@@ -332,6 +452,10 @@ Pair knightsPair;
     while (x)
     {
         f = PopLSB(x);
+
+        int dist = distance(f, pos.King(BLACK));
+        score += rookKingDistance[dist];
+
         y = RookAttacks(f, occ);
         score += rookMobility[CountBits(y)];
 
@@ -343,6 +467,9 @@ Pair knightsPair;
 
         y &= pos.Bits(QB);
         score += CountBits(y) * strongAttack;
+
+        U64 y2 = y & BB_CENTER[WHITE];
+        score += CountBits(y2) * centerAttack;
 
         int file = Col(f) + 1;
         if (ps->m_ranks[file][WHITE] == 0)
@@ -359,6 +486,10 @@ Pair knightsPair;
     while (x)
     {
         f = PopLSB(x);
+        
+        int dist = distance(f, pos.King(WHITE));
+        score -= rookKingDistance[dist];
+
         y = RookAttacks(f, occ);
         score -= rookMobility[CountBits(y)];
 
@@ -370,6 +501,9 @@ Pair knightsPair;
 
         y &= pos.Bits(QW);
         score -= CountBits(y) * strongAttack;
+
+        U64 y2 = y & BB_CENTER[BLACK];
+        score -= CountBits(y2) * centerAttack;
 
         int file = Col(f) + 1;
         if (ps->m_ranks[file][BLACK] == 7)
@@ -401,6 +535,9 @@ Pair knightsPair;
         if (y & kingZone[BLACK])
             attackers[WHITE]++;
 
+        U64 y2 = y & BB_CENTER[WHITE];
+        score += CountBits(y2) * centerAttack;
+
         if (Row(f) == 1)
         {
             if ((pos.Bits(PB) & LL(0x00ff000000000000)) || Row(pos.King(BLACK)) == 0)
@@ -418,6 +555,9 @@ Pair knightsPair;
         if (y & kingZone[WHITE])
             attackers[BLACK]++;
 
+        U64 y2 = y & BB_CENTER[BLACK];
+        score -= CountBits(y2) * centerAttack;
+
         if (Row(f) == 6)
         {
             if ((pos.Bits(PW) & LL(0x000000000000ff00)) || Row(pos.King(WHITE)) == 7)
@@ -428,7 +568,7 @@ Pair knightsPair;
     return score;
 }
 
-/*static */Pair Evaluator::evaluateKings(Position & pos, PawnHashEntry *ps)
+/*static */Pair Evaluator::evaluateKings(Position & pos, U64 occ, PawnHashEntry *ps)
 {
     Pair score;
     FLD f;
@@ -440,12 +580,18 @@ Pair knightsPair;
     int storm = pawnStormPenalty(ps, fileK, WHITE);
     score += kingPawnStorm[storm];
 
+    U64 y = QueenAttacks(f, occ);
+    score += kingExplosed[CountBits(y)];
+
     f = pos.King(BLACK);
     fileK = Col(f) + 1;
     shield = pawnShieldPenalty(ps, fileK, BLACK);
     score -= kingPawnShield[shield];
     storm = pawnStormPenalty(ps, fileK, BLACK);
     score -= kingPawnStorm[storm];
+
+    y = QueenAttacks(f, occ);
+    score -= kingExplosed[CountBits(y)];
 
     return score;
 }
@@ -454,6 +600,7 @@ Pair knightsPair;
 {
     Pair score;
 
+    // piece pairs
     if (pos.Count(NW) >= 2)
         score += knightsPair;
     if (pos.Count(NB) >= 2)
@@ -468,6 +615,17 @@ Pair knightsPair;
         score += rooksPair;
     if (pos.Count(RB) >= 2)
         score -= rooksPair;
+
+    // piece combinations
+    if (pos.Count(NW) && pos.Count(QW))
+        score += knightAndQueen;
+    if (pos.Count(NB) && pos.Count(QB))
+        score -= knightAndQueen;
+
+    if (pos.Count(BW) && pos.Count(RW))
+        score += bishopAndRook;
+    if (pos.Count(BB) && pos.Count(RB))
+        score -= bishopAndRook;
 
     return score;
 }
@@ -484,6 +642,11 @@ Pair knightsPair;
 
     score += attackKing[attackers[WHITE]];
     score -= attackKing[attackers[BLACK]];
+
+    if (pos.Side() == WHITE)
+        score += tempoAttack;
+    else
+        score -= tempoAttack;
 
     return score;
 }
@@ -635,48 +798,36 @@ void Evaluator::initEval(const vector<int> & x)
 
         if (Row(f) != 0 && Row(f) != 7)
         {
-            PSQ[PW][f].mid = VAL_P + Q2(Mid_Pawn, x, y);
-            PSQ[PW][f].end = VAL_P + Q2(End_Pawn, x, y);
-
-            passedPawnBlocked[f].mid = Q2(Mid_PawnPassedBlocked, x, y);
-            passedPawnBlocked[f].end = Q2(End_PawnPassedBlocked, x, y);
-
-            passedPawnFree[f].mid = Q2(Mid_PawnPassedFree, x, y);
-            passedPawnFree[f].end = Q2(End_PawnPassedFree, x, y);
-
-            passedPawnConnected[f].mid = Q2(Mid_PawnConnectedFree, x, y);
-            passedPawnConnected[f].end = Q2(End_PawnConnectedFree, x, y);
-
-            pawnDoubled[f].mid = Q2(Mid_PawnDoubled, x, y);
-            pawnDoubled[f].end = Q2(End_PawnDoubled, x, y);
-
-            pawnIsolated[f].mid = Q2(Mid_PawnIsolated, x, y);
-            pawnIsolated[f].end = Q2(End_PawnIsolated, x, y);
+            PSQ[PW][f]              = { Q2(Mid_Pawn, x, y) + VAL_P,         Q2(End_Pawn, x, y) + VAL_P};
+            passedPawn[f]           = { Q2(Mid_PawnPassed, x, y),           Q2(End_PawnPassed, x, y) };
+            passedPawnBlocked[f]    = { Q2(Mid_PawnPassedBlocked, x, y),    Q2(End_PawnPassedBlocked, x, y) };
+            passedPawnFree[f]       = { Q2(Mid_PawnPassedFree, x, y),       Q2(End_PawnPassedFree, x, y) };
+            passedPawnConnected[f]  = { Q2(Mid_PawnConnectedFree, x, y),    Q2(End_PawnConnectedFree, x, y) };
+            pawnDoubled[f]          = { Q2(Mid_PawnDoubled, x, y),          Q2(End_PawnDoubled, x, y) };
+            pawnIsolated[f]         = { Q2(Mid_PawnIsolated, x, y),         Q2(End_PawnIsolated, x, y) };
+            pawnDoubledIsolated[f]  = { Q2(Mid_PawnDoubledIsolated, x, y),  Q2(End_PawnDoubledIsolated, x, y) };
+            pawnBlocked[f]          = { Q2(Mid_PawnBlocked, x, y),          Q2(End_PawnBlocked, x, y) };
+            pawnFence[f]            = { Q2(Mid_PawnFence, x, y),            Q2(End_PawnFence, x, y) };
         }
         else
         {
-            PSQ[PW][f]          = VAL_P;
-            passedPawnBlocked[f]   = 0;
-            passedPawnFree[f]      = 0;
-            pawnDoubled[f]     = 0;
-            pawnIsolated[f]    = 0;
-            passedPawnConnected[f] = 0;
+            PSQ[PW][f]              = VAL_P;
+            passedPawn[f]           = 0;
+            passedPawnBlocked[f]    = 0;
+            passedPawnFree[f]       = 0;
+            passedPawnConnected[f]  = 0;
+            pawnDoubled[f]          = 0;
+            pawnIsolated[f]         = 0;
+            pawnDoubledIsolated[f]  = 0;
+            pawnBlocked[f]          = 0;
+            pawnFence[f]            = 0;
         }
 
-        PSQ[NW][f].mid = VAL_N + Q2(Mid_Knight, x, y);
-        PSQ[NW][f].end = VAL_N + Q2(End_Knight, x, y);
-
-        PSQ[BW][f].mid = VAL_B + Q2(Mid_Bishop, x, y);
-        PSQ[BW][f].end = VAL_B + Q2(End_Bishop, x, y);
-
-        PSQ[RW][f].mid = VAL_R + Q2(Mid_Rook, x, y);
-        PSQ[RW][f].end = VAL_R + Q2(End_Rook, x, y);
-
-        PSQ[QW][f].mid = VAL_Q + Q2(Mid_Queen, x, y);
-        PSQ[QW][f].end = VAL_Q + Q2(End_Queen, x, y);
-
-        PSQ[KW][f].mid = VAL_K + Q2(Mid_King, x, y);
-        PSQ[KW][f].end = VAL_K + Q2(End_King, x, y);
+        PSQ[NW][f] = { VAL_N + Q2(Mid_Knight, x, y),    VAL_N + Q2(End_Knight, x, y) };
+        PSQ[BW][f] = { VAL_B + Q2(Mid_Bishop, x, y),    VAL_B + Q2(End_Bishop, x, y) };
+        PSQ[RW][f] = { VAL_R + Q2(Mid_Rook, x, y),      VAL_R + Q2(End_Rook, x, y) };
+        PSQ[QW][f] = { VAL_Q + Q2(Mid_Queen, x, y),     VAL_Q + Q2(End_Queen, x, y) };
+        PSQ[KW][f] = { VAL_K + Q2(Mid_King, x, y),      VAL_K + Q2(End_King, x, y) };
 
         PSQ[PB][FLIP[BLACK][f]] = -PSQ[PW][f];
         PSQ[NB][FLIP[BLACK][f]] = -PSQ[NW][f];
@@ -685,73 +836,74 @@ void Evaluator::initEval(const vector<int> & x)
         PSQ[QB][FLIP[BLACK][f]] = -PSQ[QW][f];
         PSQ[KB][FLIP[BLACK][f]] = -PSQ[KW][f];
 
-        knightStrong[f].mid = Q2(Mid_KnightStrong, x, y);
-        knightStrong[f].end = Q2(End_KnightStrong, x, y);
-
-        bishopStrong[f].mid = Q2(Mid_BishopStrong, x, y);
-        bishopStrong[f].end = Q2(End_BishopStrong, x, y);
+        knightStrong[f]     = { Q2(Mid_KnightStrong, x, y),     Q2(End_KnightStrong, x, y) };
+        knightForepost[f]   = { Q2(Mid_KnightForpost, x, y),    Q2(End_KnightForpost, x, y) };
+        bishopStrong[f]     = { Q2(Mid_BishopStrong, x, y),     Q2(End_BishopStrong, x, y) };
     }
 
-    bishopMobility[0] = 0;
-    rookMobility[0] = 0;
-    rookMobility[1] = 0;
+    bishopMobility[0]   = 0;
+    rookMobility[0]     = 0;
+    rookMobility[1]     = 0;
 
     for (int m = 0; m < 13; ++m)
     {
         double z = (m - 6.5) / 6.5;
-        bishopMobility[m + 1].mid = Q1(Mid_BishopMobility, z);
-        bishopMobility[m + 1].end = Q1(End_BishopMobility, z);
 
-        rookMobility[m + 2].mid = Q1(Mid_RookMobility, z);
-        rookMobility[m + 2].end = Q1(End_RookMobility, z);
+        bishopMobility[m + 1]   = { Q1(Mid_BishopMobility, z),  Q1(End_BishopMobility, z) };
+        rookMobility[m + 2]     = { Q1(Mid_RookMobility, z),    Q1(End_RookMobility, z) };
     }
 
-    rookOnOpenFile = Pair(P(Mid_RookOpen, 0), P(End_RookOpen, 0));
-    rookOn7thRank = Pair(P(Mid_Rook7th, 0), P(End_Rook7th, 0));
-    queenOn7thRank = Pair(P(Mid_Queen7th, 0), P(End_Queen7th, 0));
+    rookOnOpenFile  = { (P(Mid_RookOpen, 0),    P(End_RookOpen, 0)) };
+    rookOn7thRank   = { (P(Mid_Rook7th, 0),     P(End_Rook7th, 0)) };
+    queenOn7thRank  = { (P(Mid_Queen7th, 0),    P(End_Queen7th, 0)) };
 
     queenKingDistance[0] = 0;
     queenKingDistance[1] = 0;
+
     for (int d = 0; d < 8; ++d)
     {
         double z = (d - 3.5) / 3.5;
-        queenKingDistance[d + 2].mid = Q1(Mid_QueenKingDist, z);
-        queenKingDistance[d + 2].end = Q1(End_QueenKingDist, z);
+
+        queenKingDistance[d + 2]    = { Q1(Mid_QueenKingDist, z),   Q1(End_QueenKingDist, z) };
+        knightKingDistance[d + 2]   = { Q1(Mid_KnightKingDist, z),  Q1(End_KnightKingDist, z) };
+        bishopKingDistance[d + 2]   = { Q1(Mid_BishopKingDist, z),  Q1(End_BishopKingDist, z) };
+        rookKingDistance[d + 2]     = { Q1(Mid_RookKingDist, z),    Q1(End_RookKingDist, z) };
     }
 
     for (int d = 0; d < 10; ++d)
     {
         double z = (d - 4.5) / 4.5;
-        kingPasserDistance[d].mid = Q1(Mid_KingPassedDist, z);
-        kingPasserDistance[d].end = Q1(End_KingPassedDist, z);
+        kingPasserDistance[d] = { Q1(Mid_KingPassedDist, z), Q1(End_KingPassedDist, z) };
     }
 
     for (int p = 0; p < 10; ++p)
     {
         double z = (p - 4.5) / 4.5;
-        kingPawnShield[p].mid = Q1(Mid_KingPawnShield, z);
-        kingPawnShield[p].end = Q1(End_KingPawnShield, z);
+        kingPawnShield[p]   = { Q1(Mid_KingPawnShield, z),  Q1(End_KingPawnShield, z) };
+        kingPawnStorm[p]    = { Q1(Mid_KingPawnStorm, z),   Q1(End_KingPawnStorm, z) };
     }
 
-    kingPawnStorm[0] = Pair(64, -56);
-    kingPawnStorm[1] = Pair(58, -45);
-    kingPawnStorm[2] = Pair(52, -37);
-    kingPawnStorm[3] = Pair(46, -33);
-    kingPawnStorm[4] = Pair(40, -31);
-    kingPawnStorm[5] = Pair(33, -33);
-    kingPawnStorm[6] = Pair(27, -37);
-    kingPawnStorm[7] = Pair(20, -44);
-    kingPawnStorm[8] = Pair(13, -54);
-    kingPawnStorm[9] = Pair(6, -68);
+    strongAttack    = { (P(Mid_AttackStronger, 0),  P(End_AttackStronger, 0)) };
+    centerAttack    = { (P(Mid_AttackCenter, 0),    P(End_AttackCenter, 0)) };
+    tempoAttack     = { (P(Mid_Tempo, 0),           P(End_Tempo, 0)) };
+    rooksConnected  = { (P(Mid_ConnectedRooks, 0),  P(End_ConnectedRooks, 0)) };
+    bishopsPair     = { (P(Mid_BishopsPair, 0),     P(End_BishopsPair, 0)) };
+    rooksPair       = { (P(Mid_RooksPair, 0),       P(End_RooksPair, 0)) };
+    knightsPair     = { (P(Mid_KnightsPair, 0),     P(End_KnightsPair, 0)) };
+    pawnOnBiColor   = { (P(Mid_PawnOnBiColor, 0),   P(End_PawnOnBiColor, 0)) };
+    knightAndQueen  = { (P(Mid_KnightAndQueen, 0),  P(End_KnightAndQueen, 0)) };
+    bishopAndRook   = { (P(Mid_BishopAndRook, 0),   P(End_BishopAndRook, 0)) };
 
-    strongAttack = Pair(P(Mid_AttackStronger, 0), P(End_AttackStronger, 0));
-    rooksConnected = Pair(P(Mid_ConnectedRooks, 0), P(End_ConnectedRooks, 0));
-    bishopsPair = Pair(P(Mid_BishopsPair, 0), P(End_BishopsPair, 0));
-    rooksPair = Pair(P(Mid_RooksPair, 0), P(End_RooksPair, 0));
-    knightsPair = Pair(P(Mid_KnightsPair, 0), P(End_KnightsPair, 0));
+    for (int exposed = 0; exposed < 28; ++exposed)
+    {
+        double z = exposed / 28.0;
+
+        kingExplosed[exposed].mid = EVAL(P(Mid_KingExposed, 0) * z * z + P(Mid_KingExposed, 1) * z);
+        kingExplosed[exposed].end = EVAL(P(End_KingExposed, 0) * z * z + P(End_KingExposed, 1) * z);
+    }
 
     for (int att = 0; att < 4; ++att)
-        attackKing[att] = Pair(P(Mid_AttackKingZone, att), P(End_AttackKingZone, att));
+        attackKing[att] = { (P(Mid_AttackKingZone, att), P(End_AttackKingZone, att)) };
 
 #ifdef _DEBUG
     showPsq("pass pawn", passedPawnFree);
@@ -777,11 +929,7 @@ void Evaluator::initEval()
     InitParamLines();
 
     //if (!ReadParamsFromFile(W, "igel.txt"))
-    {
-        SetDefaultValues(W);
-        //WriteParamsToFile(W, "igel.txt");
-    }
-
+    SetDefaultValues(W);
     initEval(W);
 }
 

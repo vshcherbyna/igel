@@ -33,27 +33,42 @@ Line lines[NUM_LINES] =
     Line("Mid_Rook", 6),
     Line("Mid_Queen", 6),
     Line("Mid_King", 6),
+    Line("Mid_PawnPassed", 6),
     Line("Mid_PawnPassedBlocked", 6),
     Line("Mid_PawnPassedFree", 6),
     Line("Mid_PawnConnectedFree", 6),
     Line("Mid_PawnDoubled", 6),
     Line("Mid_PawnIsolated", 6),
+    Line("Mid_PawnDoubledIsolated", 6),
+    Line("Mid_PawnBlocked", 6),
+    Line("Mid_PawnFence", 6),
+    Line("Mid_PawnOnBiColor", 1),
     Line("Mid_KnightStrong", 6),
+    Line("Mid_KnightForpost", 6),
+    Line("Mid_KnightKingDist", 2),
+    Line("Mid_KnightAndQueen", 1),
     Line("Mid_BishopStrong", 6),
     Line("Mid_BishopMobility", 3),
+    Line("Mid_BishopKingDist", 2),
+    Line("Mid_BishopAndRook", 1),
     Line("Mid_RookMobility", 3),
     Line("Mid_RookOpen", 1),
     Line("Mid_Rook7th", 1),
+    Line("Mid_RookKingDist", 2),
     Line("Mid_Queen7th", 1),
     Line("Mid_QueenKingDist", 3),
     Line("Mid_KingPawnShield", 3),
+    Line("Mid_KingPawnStorm", 3),
     Line("Mid_KingPassedDist", 3),
+    Line("Mid_KingExposed", 3),
     Line("Mid_AttackKing", 4),
     Line("Mid_AttackStronger", 1),
+    Line("Mid_AttackCenter", 1),
     Line("Mid_ConnectedRooks", 1),
     Line("Mid_BishopsPair", 1),
     Line("Mid_RooksPair", 1),
     Line("Mid_KnightsPair", 1),
+    Line("Mid_Tempo", 1),
 
     Line("End_Pawn", 6),
     Line("End_Knight", 6),
@@ -61,27 +76,42 @@ Line lines[NUM_LINES] =
     Line("End_Rook", 6),
     Line("End_Queen", 6),
     Line("End_King", 6),
+    Line("End_PawnPassed", 6),
     Line("End_PawnPassedBlocked", 6),
     Line("End_PawnPassedFree", 6),
     Line("End_PawnConnectedFree", 6),
     Line("End_PawnDoubled", 6),
     Line("End_PawnIsolated", 6),
+    Line("End_PawnDoubledIsolated", 6),
+    Line("End_PawnBlocked", 6),
+    Line("End_PawnFence", 6),
+    Line("End_PawnOnBiColor", 1),
     Line("End_KnightStrong", 6),
+    Line("End_KnightForpost", 6),
+    Line("End_KnightKingDist", 2),
+    Line("End_KnightAndQueen", 1),
     Line("End_BishopStrong", 6),
     Line("End_BishopMobility", 3),
+    Line("End_BishopKingDist", 2),
+    Line("End_BishopAndRook", 1),
     Line("End_RookMobility", 3),
     Line("End_RookOpen", 1),
     Line("End_Rook7th", 1),
+    Line("End_RookKingDist", 2),
     Line("End_Queen7th", 1),
     Line("End_QueenKingDist", 3),
     Line("End_KingPawnShield", 3),
+    Line("End_KingPawnStorm", 3),
+    Line("End_KingExposed", 3),
     Line("End_KingPassedDist", 3),
     Line("End_AttackKing", 4),
     Line("End_AttackStronger", 1),
+    Line("End_AttackCenter", 1),
     Line("End_ConnectedRooks", 1),
     Line("End_BishopsPair", 1),
     Line("End_RooksPair", 1),
     Line("End_KnightsPair", 1),
+    Line("End_Tempo", 1)
 };
 
 void InitParamLines()
@@ -100,9 +130,9 @@ void SetDefaultValues(vector<int>& x)
 {
     x.resize(NUM_PARAMS);
 
-    static const int data[210] = { 4, -43, 15, 32, -18, 24, -9, -43, -27, -5, 8, 27, -17, 14, -5, -4, 8, 24, -18, 2, 21, 8, 17, 2, -24, 9, 2, -29, -9, -2, 37, -29, -2, 4, -20, -39, 2, 10, 10, 13, -29, 14, -13, 6, 10, 23, -1, 20, -3, -22, 50, 3, -22, 2, 4, 51, -31, 33, -18, -30, -17, 14, 29, 20, 18, -18, 8, 16, -5, -31, 26, 5, -13, 31, 14, -26, -23, 6, -69, 15, 8, 13, 43, -3, 11, 8, -9, 19, -40, 0, -15, -56, 16, 4, 1, 17, -28, -15, 24, 7, 45, 9, 30, -48, 1, -10, 19, 85, 49, 39, -2, -23, -24, -56, 9, 8, -13, -36, 22, -10, 9, -27, 10, 8, -8, 9, 3, 4, 22, 17, 15, 1, 27, -19, 22, -35, 3, -18, -5, 24, 15, -3, 8, 5, 27, 16, 22, 36, -1, -12, 91, 44, 48, -33, 32, -10, 23, 30, 14, 17, -58, 11, -35, 9, 10, 4, -1, 33, 12, 1, -13, 1, -7, -7, 8, 6, 13, -16, 9, -11, 20, -30, 4, -16, 37, -26, -30, 32, 3, 9, 26, 8, -4, -48, -16, -2, -9, -18, -32, 41, -10, 14, 3, 13, 9, 4, -4, 3, 26, -1 };
+    static const int data[304] = { -4, -42, 7, 44, -38, 40, -40, -7, -41, -40, 13, 65, -49, 51, -46, -44, -18, -1, -20, 8, 5, 0, -11, 28, 3, 10, -2, -53, 19, 7, 27, 10, 14, 4, 8, -24, 15, 43, 5, 27, 6, -18, -43, 1, -13, 29, 10, 13, -4, 21, 47, -33, 22, -12, 18, 5, 15, 43, -42, -8, 36, 0, -16, -10, -13, -22, -12, 14, 22, 8, 25, -20, -46, 12, -28, 19, -43, 10, -16, 17, 19, 28, -3, -1, -9, 28, 49, -25, -5, -9, -48, 40, -44, -40, 4, 0, 38, 12, -1, -68, 15, -19, -9, 17, -40, -23, 7, -3, 33, -34, 20, 28, -56, 36, 34, 19, -6, 9, 11, 45, 0, 5, 1, -3, -8, -64, 15, -50, -8, -2, -65, -11, 10, -26, -3, 16, -4, 42, -28, -29, 44, 0, 23, 58, -13, 28, 29, -3, -22, 7, -45, 35, 0, 14, 86, 24, 76, 12, -20, -14, -65, -2, 9, -21, -2, 12, 4, 7, 2, -11, -21, 24, -4, 9, 15, 47, 11, 16, -4, 37, -20, 30, -29, -32, -40, 0, -1, -1, 2, 30, 1, 73, 22, 11, 33, -39, -30, -32, -7, 4, 20, -23, 50, 72, 8, 28, -9, -30, 42, -2, 29, 19, -31, -19, -22, 9, 11, 18, -8, 11, 32, 33, -53, -18, -12, 50, 53, 23, -59, -43, 28, -29, -9, -1, -1, 1, -29, -25, 66, -13, 2, 56, -3, -8, -5, -6, 3, 18, 23, -6, 30, -13, -16, 5, 8, -4, -13, 6, -24, 21, 30, -16, -33, 10, -49, 47, -6, 3, 8, 8, -40, 32, 3, 15, 23, 23, 16, 19, -14, -79, -8, -17, 19, -1, -26, -9, -38, -16, -17, -17, -51, 36, 5, -17, -22, -6, 54, 59, 5, 5, 27, -11, 5, 29};
 
-    memcpy(&(x[0]), data, 210 * sizeof(int));
+    memcpy(&(x[0]), data, 304 * sizeof(int));
 }
 
 void WriteParamsToFile(const vector<int>& x, const std::string& filename)
