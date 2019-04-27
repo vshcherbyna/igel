@@ -420,10 +420,10 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
         return AlphaBetaQ(alpha, beta, ply, 0);
 
     //
-    //   beta pruning
+    //  static null move pruning
     //
 
-    if (!onPV && !inCheck && depth <= 8 && staticEval - 85 * depth > beta)
+    if (!onPV && !inCheck && depth <= 4 && (abs(beta - 1) > -INFINITY_SCORE + 100) && staticEval - 85 * depth > beta)
         return staticEval;
 
     //

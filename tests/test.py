@@ -75,8 +75,8 @@ executor = ThreadPoolExecutor(max_workers=6)
 #   fundamental test suites
 #
 
-executor.submit(run_epd_test, 'null move test',  4,  'epds/null_move.epd', def_search_time, def_mem, def_threads)
-executor.submit(run_epd_test, 'bratko kopec test',  17,  'epds/bk.epd', def_search_time, def_mem, def_threads)
+executor.submit(run_epd_test, 'null move test',  4,  'epds/null_move.epd', 60000, def_mem, def_threads)
+executor.submit(run_epd_test, 'bratko kopec test',  17,  'epds/bk.epd', 60000, def_mem, def_threads)
 executor.submit(run_epd_test, 'win at chess test',  296,  'epds/wacnew.epd', def_search_time, def_mem, def_threads)
 executor.submit(run_epd_test, 'dann corbit tune test',  115,  'epds/dann_corbit_tune.epd', def_search_time, def_mem, def_threads)
 
