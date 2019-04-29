@@ -268,15 +268,14 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
 EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 {
     if (ply > MAX_PLY - 2)
-        return DRAW_SCORE;
+        return Evaluator::evaluate(m_position);
 
     m_pvSize[ply] = 0;
 
     if (!isNull && m_position.Repetitions() >= 2)
         return DRAW_SCORE;
 
-    if (ply > m_selDepth)
-        m_selDepth = ply;
+    m_selDepth = std::max(ply, m_selDepth);
 
     //
     //   probe hash
@@ -284,21 +283,20 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
     Move hashMove = 0;
     TEntry hEntry;
+    auto onPV = (beta - alpha > 1);
 
     if (ProbeHash(hEntry)) {
-        if (hEntry.depth() >= depth) {
+        if (hEntry.depth() >= depth && (depth == 0 || !onPV)) {
             EVAL score = hEntry.score();
             if (score > CHECKMATE_SCORE - 50 && score <= CHECKMATE_SCORE)
                 score -= ply;
             if (score < -CHECKMATE_SCORE + 50 && score >= -CHECKMATE_SCORE)
                 score += ply;
 
-            if (hEntry.type() == HASH_EXACT)
+            if (hEntry.type() == HASH_EXACT
+                || (hEntry.type() == HASH_BETA && score >= beta)
+                || (hEntry.type() == HASH_ALPHA && score <= alpha))
                 return score;
-            if (hEntry.type() == HASH_ALPHA && score <= alpha)
-                return alpha;
-            if (hEntry.type() == HASH_BETA && score >= beta)
-                return beta;
         }
 
         hashMove = hEntry.move();
@@ -366,8 +364,6 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
             }
         }
     }
-
-    auto onPV = (beta - alpha > 1);
 
     if (CheckLimits(onPV, depth, alpha))
         return -INFINITY_SCORE;
@@ -600,20 +596,56 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
 EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
 {
+    if (ply > MAX_PLY - 2)
+        return Evaluator::evaluate(m_position);
+
+    m_pvSize[ply]   = 0;
+    m_selDepth      = std::max(ply, m_selDepth);
+
+    TEntry hEntry;
+    auto ttHit = false;
+    EVAL ttScore;
+
+    if (ProbeHash(hEntry)) {
+        ttScore = hEntry.score();
+        ttHit = hEntry.type() == HASH_EXACT;
+        if (ttScore > CHECKMATE_SCORE - 50 && ttScore <= CHECKMATE_SCORE)
+            ttScore -= ply;
+        if (ttScore < -CHECKMATE_SCORE + 50 && ttScore >= -CHECKMATE_SCORE)
+            ttScore += ply;
+
+        if (hEntry.type() == HASH_EXACT
+            || (hEntry.type() == HASH_BETA && ttScore >= beta)
+            || (hEntry.type() == HASH_ALPHA && ttScore <= alpha))
+            return ttScore;
+    }
+
     bool inCheck = m_position.InCheck();
 
-    if (ply > MAX_PLY - 2)
-        return DRAW_SCORE;
+    EVAL    bestScore,
+            staticScore;
 
-    m_pvSize[ply] = 0;
-
-    if (!inCheck)
+    if (inCheck)
     {
-        EVAL staticScore = Evaluator::evaluate(m_position);
-        if (staticScore > alpha)
-            alpha = staticScore;
-        if (alpha >= beta)
-            return beta;
+        bestScore = staticScore = -CHECKMATE_SCORE + ply;
+    }
+    else
+    {
+        bestScore = staticScore = ttHit ? hEntry.score() : Evaluator::evaluate(m_position);
+
+        if (ttHit)
+        {
+            if ((hEntry.type() == HASH_BETA && ttScore > staticScore)  ||
+                (hEntry.type() == HASH_ALPHA && ttScore < staticScore) ||
+                (hEntry.type() == HASH_EXACT))
+                bestScore = ttScore;
+        }
+
+        if (bestScore >= beta) 
+            return bestScore;
+
+        if (alpha < bestScore) 
+            alpha = bestScore;
     }
 
     if (CheckLimits((beta - alpha > 1), qply, alpha))
@@ -632,6 +664,9 @@ EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
 
     int legalMoves = 0;
     auto mvSize = mvlist.Size();
+    Move bestMove = ttHit ? hEntry.move() : Move{};
+    U8 type = HASH_ALPHA;
+
     for (size_t i = 0; i < mvSize; ++i)
     {
         Move mv = GetNextBest(mvlist, i);
@@ -650,25 +685,34 @@ EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
             if (m_flags & SEARCH_TERMINATED)
                 break;
 
-            if (e > alpha)
+            if (e > bestScore)
             {
-                alpha = e;
-                m_pv[ply][0] = mv;
-                memcpy(m_pv[ply] + 1, m_pv[ply + 1], m_pvSize[ply + 1] * sizeof(Move));
-                m_pvSize[ply] = 1 + m_pvSize[ply + 1];
+                bestScore = e;
+                if (e > alpha) {
+                    alpha = e;
+                    bestMove = mv;
+                    type = HASH_EXACT;
+                    m_pv[ply][0] = mv;
+                    memcpy(m_pv[ply] + 1, m_pv[ply + 1], m_pvSize[ply + 1] * sizeof(Move));
+                    m_pvSize[ply] = 1 + m_pvSize[ply + 1];
+                }
             }
-            if (alpha >= beta)
+
+            if (alpha >= beta) {
+                type = HASH_BETA;
                 break;
+            }
         }
     }
 
     if (legalMoves == 0)
     {
         if (inCheck)
-            alpha = -CHECKMATE_SCORE + ply;
+            bestScore = -CHECKMATE_SCORE + ply;
     }
 
-    return alpha;
+    TTable::instance().record(bestMove, bestScore, qply, ply, type, m_position.Hash());
+    return bestScore;
 }
 
 void Search::clearHistory()
