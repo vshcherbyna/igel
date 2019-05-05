@@ -26,11 +26,8 @@ class Time
 {
 public:
     Time();
-    static Time & instance();
-
     ~Time() = default;
-    //Time(const Time&) = delete;
-    //Time& operator=(const Time&) = delete;
+    static Time & instance();
 
 public:
     enum TimeControl
@@ -40,7 +37,10 @@ public:
         NodesLimit,
         TimeLimit
     };
+
 public:
+    bool adjust(bool onPv, int depth, EVAL score);
+    void resetAdjustment();
     bool parseTime(const std::vector<std::string> & cmdline, bool whiteSide);
     TimeControl getTimeMode();
     U32 getSoftLimit();
@@ -67,6 +67,10 @@ private:
         m_nodes,
         m_remainingTime,
         m_remainingEnemyTime;
+
+private:
+    bool m_onPv;
+    EVAL m_score;
 };
 
 #endif // TIME_H

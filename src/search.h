@@ -79,7 +79,7 @@ private:
     Move FirstLegalMove(Position& pos);
 
     void ProcessInput(const string& s);
-    bool CheckLimits();
+    bool CheckLimits(bool onPv, int depth, EVAL score);
     void CheckInput();
     void releaseHelperThreads();
 

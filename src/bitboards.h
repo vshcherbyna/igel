@@ -159,5 +159,8 @@ inline U64 BackwardLeft(U64 b, COLOR side) { return (side == WHITE)? DownLeft(b)
 inline U64 BackwardRight(U64 b, COLOR side) { return (side == WHITE)? DownRight(b) : UpLeft(b); }
 
 const U64 BB_WHITE_FIELDS = LL(0xaa55aa55aa55aa55);
+const U64 BB_BLACK_FIELDS = LL(0x55aa55aa55aa55aa);
+
+const U64 BB_CENTER[2] = { LL(0x0000181818000000), LL(0x0000001818180000) };
 
 #endif

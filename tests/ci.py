@@ -28,9 +28,7 @@ if platform.system() == 'Windows':
 else:
     if os.system('../unit') != 0:
         raise Exception("test failed:", "unit")
-#if os.system('python ./eval.py') != 0:
-#    raise Exception("test failed:", "eval")
 if os.system('python ./mate_in_n.py') != 0:
-    raise Exception("test failed:", "mate in one")
+    raise Exception("test failed:", "mate in n")
 if os.system('python ./king_safety.py') != 0:
     raise Exception("test failed:", "king safety")

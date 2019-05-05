@@ -31,8 +31,32 @@ const EVAL VAL_R = 600;
 const EVAL VAL_Q = 1200;
 const EVAL VAL_K = 20000;
 
-EVAL Evaluate(Position& pos);
-void InitEval();
-void InitEval(const vector<int>& x);
+class Evaluator
+{
+public:
+    static void initEval();
+    static void initEval(const vector<int>& x);
+    static EVAL evaluate(Position & pos);
+
+private:
+    static inline Pair evaluatePawns(Position & pos, U64 occ, PawnHashEntry ** pps);
+    static inline Pair evaluatePawnsAttacks(Position & pos);
+    static inline Pair evaluateKnights(Position & pos, U64 kingZone[], int attackers[]);
+    static inline Pair evaluateBishops(Position & pos, U64 occ, U64 kingZone[], int attackers[]);
+    static inline Pair evaluateOutposts(Position & pos, PawnHashEntry *ps);
+    static inline Pair evaluateRooks(Position & pos, U64 occ, U64 kingZone[], int attackers[], PawnHashEntry *ps);
+    static inline Pair evaluateQueens(Position & pos, U64 occ, U64 kingZone[], int attackers[]);
+    static inline Pair evaluateKings(Position & pos, U64 occ, PawnHashEntry *ps);
+    static inline Pair evaluateKingAttackers(Position & pos, int attackers[]);
+
+private:
+    static Pair evaluatePiecePairs(Position & pos);
+
+private:
+    static int distance(FLD f1, FLD f2);
+    static int pawnShieldPenalty(const PawnHashEntry *ps, int fileK, COLOR side);
+    static int pawnStormPenalty(const PawnHashEntry *ps, int fileK, COLOR side);
+    static void showPsq(const char * stable, Pair* table, EVAL mid_w = 0, EVAL end_w = 0);
+};
 
 #endif

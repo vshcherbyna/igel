@@ -3,6 +3,13 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 1.5.0
+-------------
+05-May-2019
+- Improving usage of transposition table in search and qsearch
+- New pruning techniques: static null pruning, mate distance pruning
+- New eval params + texel tuning + code refactoring of eval function
+
 Igel 1.4.2
 -------------
 09-Apr-2019
