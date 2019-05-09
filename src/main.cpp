@@ -47,7 +47,7 @@
 #endif
 
 const string PROGRAM_NAME   = "Igel";
-const string VERSION        = "1.5.0";
+const string VERSION        = "1.5.1";
 
 const int MIN_HASH_SIZE     = 1;
 const int MAX_HASH_SIZE     = 131072;
@@ -76,7 +76,7 @@ void OnFEN()
 
 void OnGoUci()
 {
-    Time time;
+    auto & time = Time::instance();
 
     if (time.parseTime(g_tokens, g_search.m_position.Side() == WHITE) == false)
         cout << "Error: unable to parse command line" << endl;
@@ -91,6 +91,8 @@ void OnGoUci()
     if (ponder)
         cout << " ponder " << MoveToStrLong(ponder);
     cout << endl;
+
+    time.onPlayedMove();
 }
 
 void OnIsready()
@@ -107,6 +109,8 @@ void OnNew()
 
     g_search.clearHistory();
     g_search.clearKillers();
+
+    Time::instance().onNewGame();
 }
 
 void OnPosition()

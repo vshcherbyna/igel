@@ -84,7 +84,6 @@ private:
     void releaseHelperThreads();
 
 private:
-    NODES m_timeCheck;
     NODES m_nodes;
     NODES m_tbHits;
     U32 m_t0;

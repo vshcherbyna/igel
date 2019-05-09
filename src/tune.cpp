@@ -37,8 +37,10 @@ void onTune()
 
 void Tuner::Tune()
 {
-    W.resize(0);
-    W.resize(NUM_PARAMS);
+    //W.resize(0);
+    //W.resize(NUM_PARAMS);
+
+    auto epoch = 0;
 
     while (true)
     {
@@ -51,22 +53,23 @@ void Tuner::Tune()
 
         RandSeed(time(0));
 
+        cout << "Epoch: " << ++epoch << endl;
         cout << "Total positions: " << totalFens.size() << endl;
-        cout << "Tune mode: " << "50k per 1h" << endl;
+        cout << "Tune mode: " << "725k per 5h (orig. position)" << endl;
 
         auto rng = std::default_random_engine{};
         std::shuffle(std::begin(totalFens), std::end(totalFens), rng);
 
-        while (!totalFens.empty())
+        //while (!totalFens.empty())
         {
-            std::vector<std::string> fens;
+            std::vector<std::string> fens = totalFens;
 
-            for (int i = 0; i < 50000; ++i) {
+            /*for (int i = 0; i < 145000; ++i) {
                 if (!totalFens.empty()) {
                     fens.push_back(totalFens.back());
                     totalFens.pop_back();
                 }
-            }
+            }*/
 
             vector<int> x0 = W;
             setTuneStartTime();
@@ -75,8 +78,8 @@ void Tuner::Tune()
             for (int i = 0; i < NUM_PARAMS; ++i)
                 params.push_back(i);
 
-            randomWalk(x0, 3600, false, params, fens);
-            cout << "Remaining positions: " << totalFens.size() << endl;
+            randomWalk(x0, 5 * 3600, false, params, fens);
+            //cout << "Remaining positions: " << totalFens.size() << endl;
         }
     }
 }

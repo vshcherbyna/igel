@@ -40,7 +40,6 @@ const U8 HASH_BETA = 2;
 const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VAL_R, VAL_R, VAL_Q, VAL_Q, VAL_K, VAL_K };
 
 Search::Search():
-m_timeCheck(0),
 m_nodes(0),
 m_tbHits(0),
 m_t0(0),
@@ -80,18 +79,12 @@ bool Search::CheckLimits(bool onPv, int depth, EVAL score)
         return (m_flags & SEARCH_TERMINATED);
     }
 
-    U32 dt = 0;
-
-    if (++m_timeCheck <= 1000)
-        return false;
-
-    m_timeCheck = 0;
-    dt = GetProcTime() - m_t0;
+    U32 dt = GetProcTime() - m_t0;
 
     if (m_flags & MODE_PLAY)
     {
         //m_time.adjust(onPv, depth, score);
-        if (m_time.getHardLimit() > 0 && dt >= m_time.getHardLimit())
+        if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getHardLimit())
         {
             m_flags |= TERMINATED_BY_LIMIT;
 
@@ -1178,7 +1171,7 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
             if (m_principalSearcher)
                 PrintPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], "");
 
-            if (m_time.getSoftLimit() > 0 && dt >= m_time.getSoftLimit())
+            if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getSoftLimit())
             {
                 m_flags |= TERMINATED_BY_LIMIT;
 
@@ -1245,7 +1238,7 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
         if (m_principalSearcher && (dt > 2000))
             cout << "info depth " << m_depth << " time " << dt << " nodes " << m_nodes << " nps " << 1000 * m_nodes / dt << endl;
 
-        if (m_time.getSoftLimit() > 0 && dt >= m_time.getSoftLimit())
+        if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getSoftLimit())
         {
             m_flags |= TERMINATED_BY_LIMIT;
 
@@ -1271,7 +1264,7 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
             }
         }
 
-        if ((m_time.getTimeMode() == Time::TimeControl::DepthLimit) && m_depth >= static_cast<int>(m_time.getDepthLimit()))
+        if (m_time.getTimeMode() == Time::TimeControl::DepthLimit && m_depth >= static_cast<int>(m_time.getDepthLimit()))
         {
             m_flags |= TERMINATED_BY_LIMIT;
             break;
