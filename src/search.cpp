@@ -68,8 +68,13 @@ Search::~Search()
 
 bool Search::CheckLimits(bool onPv, int depth, EVAL score)
 {
-    if ((m_smpThreadExit) || (m_flags & SEARCH_TERMINATED))
+    if (m_flags & SEARCH_TERMINATED)
         return true;
+
+    if (m_smpThreadExit) {
+        m_flags |= TERMINATED_BY_LIMIT;
+        return true;
+    }
 
     if (m_time.getTimeMode() == Time::TimeControl::NodesLimit)
     {
@@ -1285,8 +1290,10 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
     {
         volatile int j = 0;
 
-        for (unsigned int i = 0; i < m_thc; ++i)
+        for (unsigned int i = 0; i < m_thc; ++i) {
             m_threadParams[i].m_smpThreadExit = true;
+            m_threadParams[i].m_flags |= TERMINATED_BY_LIMIT;
+        }
 
 lbl_retry:
         for (unsigned int i = 0; i < m_thc; ++i)
