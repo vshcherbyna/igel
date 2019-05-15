@@ -976,6 +976,31 @@ Move Search::FirstLegalMove(Position& pos)
     return 0;
 }
 
+Move Search::hashTableRootSearch()
+{
+    if (m_depth) {
+        TEntry hEntry;
+
+        if (ProbeHash(hEntry)) {
+            if (hEntry.depth() >= m_depth) {
+                if (hEntry.type() == HASH_EXACT) {
+                    bool moved = false;
+                    if (m_position.MakeMove(hEntry.move()))
+                    {
+                        moved = true;
+                        m_position.UnmakeMove();
+                    }
+
+                    if (moved)
+                        return hEntry.move();
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
 Move Search::tableBaseRootSearch()
 {
     if (!TB_LARGEST || CountBits(m_position.BitsAll()) > TB_LARGEST)
@@ -1060,6 +1085,49 @@ Move Search::tableBaseRootSearch()
     return 0;
 }
 
+void Search::startWorkerThreads(Time time)
+{
+    for (unsigned int i = 0; i < m_thc; ++i)
+    {
+        m_threadParams[i].m_lazyMutex.lock();
+
+        m_threadParams[i].m_nodes = 0;
+        m_threadParams[i].m_selDepth = 0;
+        m_threadParams[i].m_tbHits = 0;
+        m_threadParams[i].setPosition(m_position);
+        m_threadParams[i].setTime(time);
+        m_threadParams[i].m_t0 = m_t0;
+        m_threadParams[i].m_flags = m_flags;
+        m_threadParams[i].m_bestSmpEval = -INFINITY_SCORE;
+        m_threadParams[i].m_smpThreadExit = false;
+
+        m_threadParams[i].m_lazyAlpha = -INFINITY_SCORE;
+        m_threadParams[i].m_lazyBeta = INFINITY_SCORE;
+        m_threadParams[i].m_lazyDepth = 1;
+        m_threadParams[i].m_lazyMutex.unlock();
+        m_threadParams[i].m_lazycv.notify_one();
+    }
+}
+
+void Search::stopWorkerThreads()
+{
+    volatile int j = 0;
+
+    for (unsigned int i = 0; i < m_thc; ++i) {
+        m_threadParams[i].m_smpThreadExit = true;
+        m_threadParams[i].m_flags |= TERMINATED_BY_LIMIT;
+    }
+
+lbl_retry:
+    for (unsigned int i = 0; i < m_thc; ++i)
+        while (m_threadParams[i].m_lazyDepth)
+            ++j;
+
+    for (unsigned int i = 0; i < m_thc; ++i)
+        if (m_threadParams[i].m_lazyDepth)
+            goto lbl_retry;
+}
+
 Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & ponder)
 {
     m_time = time;
@@ -1074,7 +1142,7 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
     m_time.resetAdjustment();
 
     //
-    //  Probe tablebases at root first
+    //  Probe tablebases/tt at root first
     //
 
     if (m_principalSearcher) {
@@ -1082,6 +1150,8 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
 
         if (m_best)
             return m_best;
+
+        //m_best = hashTableRootSearch(); unclear if this really helps?
     }
 
     EVAL aspiration = 15;
@@ -1100,32 +1170,20 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
 
     for (m_depth = depth; m_depth < MAX_PLY; ++m_depth)
     {
+        //
+        //  Start worker threads if Threads option is configured
+        //
+
         lazySmpWork = (m_thc) && (!smpStarted) && (m_depth > 1);
 
-        if (lazySmpWork)
-        {
+        if (lazySmpWork) {
             smpStarted = true;
-            for (unsigned int i = 0; i < m_thc; ++i)
-            {
-                m_threadParams[i].m_lazyMutex.lock();
-
-                m_threadParams[i].m_nodes = 0;
-                m_threadParams[i].m_selDepth = 0;
-                m_threadParams[i].m_tbHits = 0;
-                m_threadParams[i].setPosition(m_position);
-                m_threadParams[i].setTime(time);
-                m_threadParams[i].m_t0 = m_t0;
-                m_threadParams[i].m_flags = m_flags;
-                m_threadParams[i].m_bestSmpEval = -INFINITY_SCORE;
-                m_threadParams[i].m_smpThreadExit = false;
-
-                m_threadParams[i].m_lazyAlpha = -INFINITY_SCORE;
-                m_threadParams[i].m_lazyBeta = INFINITY_SCORE;
-                m_threadParams[i].m_lazyDepth = 1;
-                m_threadParams[i].m_lazyMutex.unlock();
-                m_threadParams[i].m_lazycv.notify_one();
-            }
+            startWorkerThreads(time);
         }
+
+        //
+        //  Make a search
+        //
 
         score = AlphaBetaRoot(alpha, beta, m_depth);
 
@@ -1187,16 +1245,8 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
                 break;
             }
 
-            if ((m_flags & MODE_ANALYZE) == 0)
-            {
-                if (singleMove)
-                {
-                    m_flags |= TERMINATED_BY_LIMIT;
-                    break;
-                }
-
-                if (score + m_depth >= CHECKMATE_SCORE)
-                {
+            if ((m_flags & MODE_ANALYZE) == 0) {
+                if (singleMove) {
                     m_flags |= TERMINATED_BY_LIMIT;
                     break;
                 }
@@ -1238,6 +1288,10 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
             aspiration += aspiration / 4 + 5;
         }
 
+        //
+        //  Check time limits
+        //
+
         dt = GetProcTime() - m_t0;
 
         if (m_principalSearcher && (dt > 2000))
@@ -1254,16 +1308,8 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
             break;
         }
 
-        if ((m_flags & MODE_ANALYZE) == 0)
-        {
-            if (singleMove)
-            {
-                m_flags |= TERMINATED_BY_LIMIT;
-                break;
-            }
-
-            if (score + m_depth >= CHECKMATE_SCORE)
-            {
+        if ((m_flags & MODE_ANALYZE) == 0) {
+            if (singleMove) {
                 m_flags |= TERMINATED_BY_LIMIT;
                 break;
             }
@@ -1286,24 +1332,12 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
         }
     }
 
+    //
+    //  Stop worker threads if necessary
+    //
+
     if (smpStarted)
-    {
-        volatile int j = 0;
-
-        for (unsigned int i = 0; i < m_thc; ++i) {
-            m_threadParams[i].m_smpThreadExit = true;
-            m_threadParams[i].m_flags |= TERMINATED_BY_LIMIT;
-        }
-
-lbl_retry:
-        for (unsigned int i = 0; i < m_thc; ++i)
-            while (m_threadParams[i].m_lazyDepth)
-                ++j;
-
-        for (unsigned int i = 0; i < m_thc; ++i)
-            if (m_threadParams[i].m_lazyDepth)
-                goto lbl_retry;
-    }
+        stopWorkerThreads();
 
     return m_best;
 }

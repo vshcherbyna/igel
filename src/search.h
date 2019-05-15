@@ -59,6 +59,9 @@ public:
     void setSyzygyDepth(int depth);
 
 private:
+    void startWorkerThreads(Time time);
+    void stopWorkerThreads();
+    Move hashTableRootSearch();
     void LazySmpSearcher();
     Move tableBaseRootSearch();
     EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth);
