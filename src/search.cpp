@@ -24,13 +24,13 @@
 #include "search.h"
 #include "utils.h"
 #include "fathom/tbprobe.h"
+#include "history.h"
 
 #include <algorithm>
 
 const int SORT_HASH         = 7000000;
 const int SORT_CAPTURE      = 6000000;
-const int SORT_MATE_KILLER  = 5000000;
-const int SORT_KILLER       = 4000000;
+const int SORT_KILLER       = 5000000;
 const int SORT_HISTORY      = 0;
 
 const U8 HASH_ALPHA = 0;
@@ -240,12 +240,7 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
             {
                 type = HASH_BETA;
                 if (!mv.Captured() && !mv.Promotion())
-                {
-                    if (alpha >= CHECKMATE_SCORE - 50)
-                        m_mateKillers[ply] = mv;
-                    else
-                        m_killers[ply] = mv;
-                }
+                    History::setKillerMove(this, mv, ply);
                 break;
             }
         }
@@ -491,7 +486,6 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
     COLOR side = m_position.Side();
     auto lateEndgame = (m_position.MatIndex(side) < 5);
-
     auto mvSize = mvlist.Size();
     for (size_t i = 0; i < mvSize; ++i) {
         Move mv = GetNextBest(mvlist, i);
@@ -525,8 +519,6 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
                     !m_position.InCheck() &&
                     !mv.Captured() &&
                     !mv.Promotion() &&
-                    mv != m_mateKillers[ply] &&
-                    mv != m_killers[ply] &&
                     m_histSuccess[mv.Piece()][mv.To()] <= m_histTry[mv.Piece()][mv.To()] * 3 / 4 &&
                     !lateEndgame)
                 {
@@ -565,12 +557,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
             {
                 type = HASH_BETA;
                 if (!mv.Captured())
-                {
-                    if (alpha >= CHECKMATE_SCORE - 50)
-                        m_mateKillers[ply] = mv;
-                    else
-                        m_killers[ply] = mv;
-                }
+                    History::setKillerMove(this, mv, ply);
                 break;
             }
         }
@@ -727,14 +714,10 @@ void Search::clearHistory()
 
 void Search::clearKillers()
 {
-    memset(m_killers, 0, MAX_PLY * sizeof(Move));
-    memset(m_mateKillers, 0, MAX_PLY * sizeof(Move));
+    memset(m_killerMoves, 0, sizeof(m_killerMoves));
 
     for (unsigned int i = 0; i < m_thc; ++i)
-    {
-        memset(m_threadParams[i].m_killers, 0, MAX_PLY * sizeof(Move));
-        memset(m_threadParams[i].m_mateKillers, 0, MAX_PLY * sizeof(Move));
-    }
+        memset(m_threadParams[i].m_killerMoves, 0, sizeof(m_killerMoves));
 }
 
 int Search::Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV)
@@ -1361,9 +1344,7 @@ void Search::UpdateSortScores(MoveList& mvlist, Move hashMove, int ply)
 
             mvlist[j].m_score = SORT_CAPTURE + 10 * (s_captured + s_promotion) - s_piece;
         }
-        else if (mv == m_mateKillers[ply])
-            mvlist[j].m_score = SORT_MATE_KILLER;
-        else if (mv == m_killers[ply])
+        else if (mv == m_killerMoves[ply][0] || mv == m_killerMoves[ply][1])
             mvlist[j].m_score = SORT_KILLER;
         else
         {
@@ -1388,9 +1369,7 @@ void Search::UpdateSortScoresQ(MoveList& mvlist, int ply)
 
             mvlist[j].m_score = SORT_CAPTURE + 10 * (s_captured + s_promotion) - s_piece;
         }
-        else if (mv == m_mateKillers[ply])
-            mvlist[j].m_score = SORT_MATE_KILLER;
-        else if (mv == m_killers[ply])
+        else if (mv == m_killerMoves[ply][0] || mv == m_killerMoves[ply][1])
             mvlist[j].m_score = SORT_KILLER;
         else
         {

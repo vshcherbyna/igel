@@ -43,6 +43,8 @@ const U8 MODE_SILENT  = 0x10;
 
 class Search
 {
+    friend class History;
+
 public:
     Search();
     ~Search();
@@ -71,7 +73,6 @@ private:
     Move GetNextBest(MoveList& mvlist, size_t i);
     bool IsGoodCapture(Move mv);
     bool ProbeHash(TEntry & hentry);
-    void RecordHash(Move mv, EVAL score, I8 depth, int ply, U8 type);
     EVAL SEE(Move mv);
     void UpdateSortScores(MoveList& mvlist, Move hashMove, int ply);
     void UpdateSortScoresQ(MoveList& mvlist, int ply);
@@ -99,8 +100,7 @@ private:
     Move m_pv[MAX_PLY][MAX_PLY];
     int m_pvSize[MAX_PLY];
     Move m_iterPV[MAX_PLY];
-    Move m_mateKillers[MAX_PLY];
-    Move m_killers[MAX_PLY];
+    Move m_killerMoves[MAX_PLY][2];
     int m_histTry[64][14];
     int m_histSuccess[64][14];
     Time m_time;
