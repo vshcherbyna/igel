@@ -109,6 +109,7 @@ void OnNew()
 
     g_search.clearHistory();
     g_search.clearKillers();
+    g_search.clearStacks();
 
     Time::instance().onNewGame();
 }

@@ -17,39 +17,23 @@
 *  along with Igel.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef HISTORY_H
-#define HISTORY_H
+#ifndef MOVEVAL_H
+#define MOVEVAL_H
 
-#include "history.h"
 #include "moves.h"
+#include "search.h"
 
-#include <vector>
-
-class Search;
-
-static const int HistoryMax         = 400;
-static const int HistoryMultiplier  = 32;
-static const int HistoryDivisor     = 512;
-
-class History
+class MoveEval
 {
-public:
-    struct HistoryHeuristics
-    {
-        HistoryHeuristics() : history{ 0 }, cmhistory{0}, fmhistory{0} {}
-        int history;
-        int cmhistory;
-        int fmhistory;
-    };
+    MoveEval() {}
 
 public:
-    History();
-
-public:
-    static void updateHistory(Search * pSearch, std::vector<Move> quetMoves, int ply, int bonus);
-    static void setKillerMove(Search * pSearch, Move mv, int ply);
-    static void fetchHistory(Search * pSearch, Move mv, int ply, HistoryHeuristics & hh);
-private:
+    static bool isTacticalMove(const Move & mv);
+    static bool isGoodCapture(const Move & mv);
+    static void sortMoves(Search * pSearch, MoveList & mvlist, Move hashMove, int ply);
+    static Move getNextBest(MoveList & mvlist, size_t i);
+    static EVAL SEE_Exchange(Search * pSearch, FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ);
+    static EVAL SEE(Search * pSearch, const Move & mv);
 };
 
-#endif // HISTORY_H
+#endif // MOVEVAL_H

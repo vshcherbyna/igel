@@ -25,19 +25,13 @@
 #include "utils.h"
 #include "fathom/tbprobe.h"
 #include "history.h"
+#include "moveeval.h"
 
 #include <algorithm>
-
-const int SORT_HASH         = 7000000;
-const int SORT_CAPTURE      = 6000000;
-const int SORT_KILLER       = 5000000;
-const int SORT_HISTORY      = 0;
 
 const U8 HASH_ALPHA = 0;
 const U8 HASH_EXACT = 1;
 const U8 HASH_BETA = 2;
-
-const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VAL_R, VAL_R, VAL_Q, VAL_Q, VAL_K, VAL_K };
 
 Search::Search():
 m_nodes(0),
@@ -59,6 +53,9 @@ m_bestSmpEval(0),
 m_smpThreadExit(false),
 m_terminateSmp(false)
 {
+    for (int depth = 1; depth < 64; depth++)
+        for (int moves = 1; moves < 64; moves++)
+            m_logLMRTable[depth][moves] = 0.75 + log(depth) * log(moves) / 2.25;
 }
 
 Search::~Search()
@@ -149,7 +146,7 @@ void Search::setPosition(Position pos)
     m_position = pos;
 }
 
-EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
+EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
 {
     int ply = 0;
     m_pvSize[ply] = 0;
@@ -171,7 +168,7 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
     else
         GenAllMoves(m_position, mvlist);
 
-    UpdateSortScores(mvlist, hashMove, ply);
+    MoveEval::sortMoves(this, mvlist, hashMove, ply);
     auto mvSize = mvlist.Size();
 
     //
@@ -185,6 +182,8 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
         }
     }
 
+    std::vector<Move> quietMoves;
+
     for (size_t i = 0; i < mvSize; ++i)
     {
         if (m_principalSearcher)
@@ -193,12 +192,20 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
         if (CheckLimits(onPV, depth, alpha))
             break;
 
-        Move mv = GetNextBest(mvlist, i);
+        Move mv = MoveEval::getNextBest(mvlist, i);
         if (m_position.MakeMove(mv))
         {
+            History::HistoryHeuristics history{};
+
+            if (!MoveEval::isTacticalMove(mv)) {
+                quietMoves.emplace_back(mv);
+                History::fetchHistory(this, mv, ply, history);
+            }
+
             ++m_nodes;
             ++legalMoves;
-            m_histTry[mv.To()][mv.Piece()] += depth;
+            m_moveStack[ply]  = mv;
+            m_pieceStack[ply] = mv.Piece();
 
             if ((m_principalSearcher) && ((GetProcTime() - m_t0) > 2000))
                 cout << "info depth " << depth << " currmove " << MoveToStrLong(mv) << " currmovenumber " << legalMoves << endl;
@@ -209,16 +216,16 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
             //   EXTENSIONS
             //
 
-            newDepth += Extensions(mv, m_position.LastMove(), inCheck, ply, onPV);
+            newDepth += extensionRequired(mv, m_position.LastMove(), inCheck, ply, onPV, quietMoves.size(), history.cmhistory, history.fmhistory);
 
             EVAL e;
             if (legalMoves == 1)
-                e = -AlphaBeta(-beta, -alpha, newDepth, ply + 1, false);
+                e = -abSearch(-beta, -alpha, newDepth, ply + 1, false);
             else
             {
-                e = -AlphaBeta(-alpha - 1, -alpha, newDepth, ply + 1, false);
+                e = -abSearch(-alpha - 1, -alpha, newDepth, ply + 1, false);
                 if (e > alpha && e < beta)
-                    e = -AlphaBeta(-beta, -alpha, newDepth, ply + 1, false);
+                    e = -abSearch(-beta, -alpha, newDepth, ply + 1, false);
             }
             m_position.UnmakeMove();
 
@@ -231,9 +238,7 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
                 m_pv[ply][0] = mv;
                 memcpy(m_pv[ply] + 1, m_pv[ply + 1], m_pvSize[ply + 1] * sizeof(Move));
                 m_pvSize[ply] = 1 + m_pvSize[ply + 1];
-
-                if (!mv.Captured())
-                    m_histSuccess[mv.To()][mv.Piece()] += depth;
+                History::updateHistory(this, quietMoves, ply, depth * depth);
             }
 
             if (alpha >= beta)
@@ -258,7 +263,7 @@ EVAL Search::AlphaBetaRoot(EVAL alpha, EVAL beta, int depth)
     return alpha;
 }
 
-EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
+EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 {
     if (ply > MAX_PLY - 2)
         return Evaluator::evaluate(m_position);
@@ -274,7 +279,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     //   probe hash
     //
 
-    Move hashMove = 0;
+    Move hashMove{};
     TEntry hEntry;
     auto onPV = (beta - alpha > 1);
 
@@ -368,7 +373,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     //
 
     if (!inCheck && depth <= 0)
-        return AlphaBetaQ(alpha, beta, ply, 0);
+        return qSearch(alpha, beta, ply);
 
     auto rootNode = ply == 0;
 
@@ -389,14 +394,14 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     //   futility
     //
 
-    EVAL staticEval = Evaluator::evaluate(m_position);
+    EVAL staticEval = m_evalStack[ply] = Evaluator::evaluate(m_position);
 
     bool nonPawnMaterial = m_position.NonPawnMaterial();
     static const EVAL MARGIN[4] = { 0, 50, 350, 550 };
 
     if (nonPawnMaterial && !onPV && !inCheck && depth >= 1 && depth <= 3) {
         if (staticEval <= alpha - MARGIN[depth])
-            return AlphaBetaQ(alpha, beta, ply, 0);
+            return qSearch(alpha, beta, ply);
         if (staticEval >= beta + MARGIN[depth])
             return beta;
     }
@@ -406,7 +411,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     //
 
     if (!onPV && !inCheck && depth <= 1 && staticEval + 325 < alpha)
-        return AlphaBetaQ(alpha, beta, ply, 0);
+        return qSearch(alpha, beta, ply);
 
     //
     //  static null move pruning
@@ -423,7 +428,8 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
         int R = 4 + depth / 6 + min(3, (staticEval - beta) / 200);
 
         m_position.MakeNullMove();
-        EVAL nullScore = -AlphaBeta(-beta, -beta + 1, depth - R, ply + 1, true);
+        m_moveStack[ply] = 0;
+        EVAL nullScore = -abSearch(-beta, -beta + 1, depth - R, ply + 1, true);
         m_position.UnmakeNullMove();
 
         if (nullScore >= beta)
@@ -449,7 +455,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
                 continue;
 
             if (m_position.MakeMove(captureMoves[i].m_mv)) {
-                auto score = -AlphaBeta(-betaCut, -betaCut + 1, depth - 4, ply + 1, isNull);
+                auto score = -abSearch(-betaCut, -betaCut + 1, depth - 4, ply + 1, isNull);
                 m_position.UnmakeMove();
 
                 if (score >= betaCut)
@@ -466,13 +472,12 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
     if (onPV && hashMove == 0 && depth > 4)
     {
-        AlphaBeta(alpha, beta, depth - 4, ply, isNull);
+        abSearch(alpha, beta, depth - 4, ply, isNull);
         if (m_pvSize[ply] > 0)
             hashMove = m_pv[ply][0];
     }
 
     int legalMoves = 0;
-    int quietMoves = 0;
     Move bestMove = 0;
     U8 type = HASH_ALPHA;
 
@@ -482,18 +487,31 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     else
         GenAllMoves(m_position, mvlist);
 
-    UpdateSortScores(mvlist, hashMove, ply);
+    MoveEval::sortMoves(this, mvlist, hashMove, ply);
 
     COLOR side = m_position.Side();
     auto lateEndgame = (m_position.MatIndex(side) < 5);
     auto mvSize = mvlist.Size();
+    std::vector<Move> quietMoves;
+    auto improving = ply >= 2 && staticEval > m_evalStack[ply - 2];
+
     for (size_t i = 0; i < mvSize; ++i) {
-        Move mv = GetNextBest(mvlist, i);
+        Move mv = MoveEval::getNextBest(mvlist, i);
         if (m_position.MakeMove(mv))
         {
             ++m_nodes;
             ++legalMoves;
-            m_histTry[mv.To()][mv.Piece()] += depth;
+
+            auto quietMove = !MoveEval::isTacticalMove(mv);
+            History::HistoryHeuristics history{};
+
+            if (quietMove) {
+                quietMoves.emplace_back(mv);
+                History::fetchHistory(this, mv, ply, history);
+            }
+
+            m_moveStack[ply]  = mv;
+            m_pieceStack[ply] = mv.Piece();
 
             int newDepth = depth - 1;
 
@@ -501,11 +519,12 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
             //   extensions
             //
 
-            newDepth += Extensions(mv, m_position.LastMove(), inCheck, ply, onPV);
+            newDepth += extensionRequired(mv, m_position.LastMove(), inCheck, ply, onPV, quietMoves.size(), history.cmhistory, history.fmhistory);
+            auto extended = newDepth != (depth - 1);
 
             EVAL e;
             if (legalMoves == 1)
-                e = -AlphaBeta(-beta, -alpha, newDepth, ply + 1, false);
+                e = -abSearch(-beta, -alpha, newDepth, ply + 1, false);
             else
             {
                 //
@@ -513,26 +532,27 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
                 //
 
                 int reduction = 0;
-                if (depth >= 3 &&
-                    !onPV &&
-                    !inCheck &&
-                    !m_position.InCheck() &&
-                    !mv.Captured() &&
-                    !mv.Promotion() &&
-                    m_histSuccess[mv.Piece()][mv.To()] <= m_histTry[mv.Piece()][mv.To()] * 3 / 4 &&
-                    !lateEndgame)
-                {
-                    ++quietMoves;
-                    if (quietMoves >= 4)
-                        reduction = 1;
+
+                if (!onPV && quietMove && depth > 2 && !inCheck && !extended && !m_position.InCheck() && quietMoves.size() >= 4) {
+                    reduction = m_logLMRTable[std::min(depth, 63)][std::min(legalMoves, 63)];
+
+                    reduction += !lateEndgame;
+                    reduction += !improving;
+                    reduction -=    mv == m_killerMoves[ply][0]
+                               ||   mv == m_killerMoves[ply][1];
+
+                    reduction -= std::max(-2, std::min(2, (history.history + history.cmhistory + history.fmhistory) / 5000));
+
+                    if (reduction < 0)
+                        reduction = 0;
                 }
 
-                e = -AlphaBeta(-alpha - 1, -alpha, newDepth - reduction, ply + 1, false);
+                e = -abSearch(-alpha - 1, -alpha, newDepth - reduction, ply + 1, false);
 
                 if (e > alpha && reduction > 0)
-                    e = -AlphaBeta(-alpha - 1, -alpha, newDepth, ply + 1, false);
+                    e = -abSearch(-alpha - 1, -alpha, newDepth, ply + 1, false);
                 if (e > alpha && e < beta)
-                    e = -AlphaBeta(-beta, -alpha, newDepth, ply + 1, false);
+                    e = -abSearch(-beta, -alpha, newDepth, ply + 1, false);
             }
             m_position.UnmakeMove();
 
@@ -548,9 +568,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
                 m_pv[ply][0] = mv;
                 memcpy(m_pv[ply] + 1, m_pv[ply + 1], m_pvSize[ply + 1] * sizeof(Move));
                 m_pvSize[ply] = 1 + m_pvSize[ply + 1];
-
-                if (!mv.Captured())
-                    m_histSuccess[mv.To()][mv.Piece()] += depth;
+                History::updateHistory(this, quietMoves, ply, depth * depth);
             }
 
             if (alpha >= beta)
@@ -579,7 +597,7 @@ EVAL Search::AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     return alpha;
 }
 
-EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
+EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
 {
     if (ply > MAX_PLY - 2)
         return Evaluator::evaluate(m_position);
@@ -587,6 +605,7 @@ EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
     m_pvSize[ply]   = 0;
     m_selDepth      = std::max(ply, m_selDepth);
 
+    Move hashMove{};
     TEntry hEntry;
     auto ttHit = false;
     EVAL ttScore;
@@ -603,6 +622,8 @@ EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
             || (hEntry.type() == HASH_BETA && ttScore >= beta)
             || (hEntry.type() == HASH_ALPHA && ttScore <= alpha))
             return ttScore;
+
+        hashMove = hEntry.move();
     }
 
     bool inCheck = m_position.InCheck();
@@ -633,30 +654,26 @@ EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
             alpha = bestScore;
     }
 
-    if (CheckLimits((beta - alpha > 1), qply, alpha))
+    if (CheckLimits((beta - alpha > 1), ply, alpha))
         return -INFINITY_SCORE;
 
     MoveList& mvlist = m_lists[ply];
     if (inCheck)
         GenMovesInCheck(m_position, mvlist);
     else
-    {
         GenCapturesAndPromotions(m_position, mvlist);
-        if (qply < 2)
-            AddSimpleChecks(m_position, mvlist);
-    }
-    UpdateSortScoresQ(mvlist, ply);
+
+    MoveEval::sortMoves(this, mvlist, hashMove, ply);
 
     int legalMoves = 0;
     auto mvSize = mvlist.Size();
     Move bestMove = ttHit ? hEntry.move() : Move{};
-    U8 type = HASH_ALPHA;
 
     for (size_t i = 0; i < mvSize; ++i)
     {
-        Move mv = GetNextBest(mvlist, i);
+        Move mv = MoveEval::getNextBest(mvlist, i);
 
-        if (!inCheck && SEE(mv) < 0)
+        if (!inCheck && MoveEval::SEE(this, mv) < 0)
             continue;
 
         if (m_position.MakeMove(mv))
@@ -664,7 +681,10 @@ EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
             ++m_nodes;
             ++legalMoves;
 
-            EVAL e = -AlphaBetaQ(-beta, -alpha, ply + 1, qply + 1);
+            m_moveStack[ply] = mv;
+            m_pieceStack[ply] = mv.Piece();
+
+            EVAL e = -qSearch(-beta, -alpha, ply + 1);
             m_position.UnmakeMove();
 
             if (m_flags & SEARCH_TERMINATED)
@@ -676,7 +696,6 @@ EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
                 if (e > alpha) {
                     alpha = e;
                     bestMove = mv;
-                    type = HASH_EXACT;
                     m_pv[ply][0] = mv;
                     memcpy(m_pv[ply] + 1, m_pv[ply + 1], m_pvSize[ply + 1] * sizeof(Move));
                     m_pvSize[ply] = 1 + m_pvSize[ply + 1];
@@ -684,32 +703,23 @@ EVAL Search::AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply)
             }
 
             if (alpha >= beta) {
-                type = HASH_BETA;
                 break;
             }
         }
     }
 
-    if (legalMoves == 0)
-    {
-        if (inCheck)
-            bestScore = -CHECKMATE_SCORE + ply;
-    }
+    if (!legalMoves && inCheck)
+        bestScore = -CHECKMATE_SCORE + ply;
 
-    TTable::instance().record(bestMove, bestScore, qply, ply, type, m_position.Hash());
     return bestScore;
 }
 
 void Search::clearHistory()
 {
-    memset(m_histTry, 0, 64 * 14 * sizeof(int));
-    memset(m_histSuccess, 0, 64 * 14 * sizeof(int));
+    memset(m_history, 0, sizeof(m_history));
 
     for (unsigned int i = 0; i < m_thc; ++i)
-    {
-        memset(m_threadParams[i].m_histTry, 0, 64 * 14 * sizeof(int));
-        memset(m_threadParams[i].m_histSuccess, 0, 64 * 14 * sizeof(int));
-    }
+        memset(m_threadParams[i].m_history, 0, sizeof(m_history));
 }
 
 void Search::clearKillers()
@@ -720,9 +730,28 @@ void Search::clearKillers()
         memset(m_threadParams[i].m_killerMoves, 0, sizeof(m_killerMoves));
 }
 
-int Search::Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV)
+void Search::clearStacks()
 {
-    if (inCheck)
+    memset(m_moveStack, 0, sizeof(m_moveStack));
+    memset(m_pieceStack, 0, sizeof(m_moveStack));
+    memset(m_followTable, 0, sizeof(m_followTable));
+    memset(m_counterTable, 0, sizeof(m_counterTable));
+    memset(m_evalStack, 0, sizeof(m_evalStack));
+
+    for (unsigned int i = 0; i < m_thc; ++i) {
+        memset(m_threadParams[i].m_moveStack, 0, sizeof(m_moveStack));
+        memset(m_threadParams[i].m_pieceStack, 0, sizeof(m_pieceStack));
+        memset(m_threadParams[i].m_followTable, 0, sizeof(m_followTable));
+        memset(m_threadParams[i].m_counterTable, 0, sizeof(m_counterTable));
+        memset(m_threadParams[i].m_evalStack, 0, sizeof(m_evalStack));
+    }
+}
+
+int Search::extensionRequired(Move mv, Move lastMove, bool inCheck, int ply, bool onPV, size_t quietMoves, int cmhistory, int fmhistory)
+{
+    if (quietMoves <= 4 && cmhistory >= 10000 && fmhistory >= 10000)
+        return 1;
+    else if (inCheck)
         return 1;
     else if (ply < 2 * m_depth)
     {
@@ -734,20 +763,6 @@ int Search::Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV)
             return 1;
     }
     return 0;
-}
-
-Move Search::GetNextBest(MoveList& mvlist, size_t i)
-{
-    if (i == 0 && mvlist[0].m_score == SORT_HASH)
-        return mvlist[0].m_mv;
-
-    auto mvSize = mvlist.Size();
-    for (size_t j = i + 1; j < mvSize; ++j)
-    {
-        if (mvlist[j].m_score > mvlist[i].m_score)
-            swap(mvlist[i], mvlist[j]);
-    }
-    return mvlist[i].m_mv;
 }
 
 bool Search::HaveSingleMove(Position& pos, Move & bestMove)
@@ -849,11 +864,6 @@ bool Search::IsGameOver(Position& pos, string& result, string& comment)
     return false;
 }
 
-bool Search::IsGoodCapture(Move mv)
-{
-    return SORT_VALUE[mv.Captured()] >= SORT_VALUE[mv.Piece()];
-}
-
 void Search::PrintPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, const string& sign)
 {
     if (!pvSize)
@@ -892,53 +902,7 @@ bool Search::ProbeHash(TEntry & hentry)
     return ((hentry.m_key ^ hentry.m_data) == hash);
 }
 
-EVAL Search::SEE_Exchange(FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ)
-{
-    U64 att = m_position.GetAttacks(to, side, occ) & occ;
-    if (att == 0)
-        return currScore;
 
-    FLD from = NF;
-    PIECE piece;
-    EVAL newTarget = SORT_VALUE[KW] + 1;
-
-    while (att)
-    {
-        FLD f = PopLSB(att);
-        piece = m_position[f];
-        if (SORT_VALUE[piece] < newTarget)
-        {
-            from = f;
-            newTarget = SORT_VALUE[piece];
-        }
-    }
-
-    occ ^= BB_SINGLE[from];
-    EVAL score = - SEE_Exchange(to, side ^ 1, -(currScore + target), newTarget, occ);
-    return (score > currScore)? score : currScore;
-}
-
-EVAL Search::SEE(Move mv)
-{
-    FLD from = mv.From();
-    FLD to = mv.To();
-    PIECE piece = mv.Piece();
-    PIECE captured = mv.Captured();
-    PIECE promotion = mv.Promotion();
-    COLOR side = GetColor(piece);
-
-    EVAL score0 = SORT_VALUE[captured];
-    if (promotion)
-    {
-        score0 += SORT_VALUE[promotion] - SORT_VALUE[PW];
-        piece = promotion;
-    }
-
-    U64 occ = m_position.BitsAll() ^ BB_SINGLE[from];
-    EVAL score = - SEE_Exchange(to, side ^ 1, -score0, SORT_VALUE[piece], occ);
-
-    return score;
-}
 
 Move Search::FirstLegalMove(Position& pos)
 {
@@ -981,7 +945,7 @@ Move Search::hashTableRootSearch()
         }
     }
 
-    return 0;
+    return {};
 }
 
 Move Search::tableBaseRootSearch()
@@ -1134,7 +1098,10 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
         if (m_best)
             return m_best;
 
-        //m_best = hashTableRootSearch(); unclear if this really helps?
+        m_best = hashTableRootSearch();
+
+        if (m_best)
+            return m_best;
     }
 
     EVAL aspiration = 15;
@@ -1168,7 +1135,7 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
         //  Make a search
         //
 
-        score = AlphaBetaRoot(alpha, beta, m_depth);
+        score = searchRoot(alpha, beta, m_depth);
 
         //m_time.adjust(beta - alpha > 1, m_depth, score);
 
@@ -1323,61 +1290,6 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
         stopWorkerThreads();
 
     return m_best;
-}
-
-void Search::UpdateSortScores(MoveList& mvlist, Move hashMove, int ply)
-{
-    auto mvSize = mvlist.Size();
-    for (size_t j = 0; j < mvSize; ++j)
-    {
-        Move mv = mvlist[j].m_mv;
-        if (mv == hashMove)
-        {
-            mvlist[j].m_score = SORT_HASH;
-            mvlist.Swap(j, 0);
-        }
-        else if (mv.Captured() || mv.Promotion())
-        {
-            EVAL s_piece = SORT_VALUE[mv.Piece()];
-            EVAL s_captured = SORT_VALUE[mv.Captured()];
-            EVAL s_promotion = SORT_VALUE[mv.Promotion()];
-
-            mvlist[j].m_score = SORT_CAPTURE + 10 * (s_captured + s_promotion) - s_piece;
-        }
-        else if (mv == m_killerMoves[ply][0] || mv == m_killerMoves[ply][1])
-            mvlist[j].m_score = SORT_KILLER;
-        else
-        {
-            mvlist[j].m_score = SORT_HISTORY;
-            if (m_histTry[mv.To()][mv.Piece()] > 0)
-                mvlist[j].m_score += 100 * m_histSuccess[mv.To()][mv.Piece()] / m_histTry[mv.To()][mv.Piece()];
-        }
-    }
-}
-
-void Search::UpdateSortScoresQ(MoveList& mvlist, int ply)
-{
-    auto mvSize = mvlist.Size();
-    for (size_t j = 0; j < mvSize; ++j)
-    {
-        Move mv = mvlist[j].m_mv;
-        if (mv.Captured() || mv.Promotion())
-        {
-            EVAL s_piece = SORT_VALUE[mv.Piece()];
-            EVAL s_captured = SORT_VALUE[mv.Captured()];
-            EVAL s_promotion = SORT_VALUE[mv.Promotion()];
-
-            mvlist[j].m_score = SORT_CAPTURE + 10 * (s_captured + s_promotion) - s_piece;
-        }
-        else if (mv == m_killerMoves[ply][0] || mv == m_killerMoves[ply][1])
-            mvlist[j].m_score = SORT_KILLER;
-        else
-        {
-            mvlist[j].m_score = SORT_HISTORY;
-            if (m_histTry[mv.To()][mv.Piece()] > 0)
-                mvlist[j].m_score += 100 * m_histSuccess[mv.To()][mv.Piece()] / m_histTry[mv.To()][mv.Piece()];
-        }
-    }
 }
 
 void Search::setSyzygyDepth(int depth)
