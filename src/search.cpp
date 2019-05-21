@@ -533,11 +533,10 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
                 int reduction = 0;
 
-                if (!onPV && quietMove && depth > 2 && !inCheck && !extended && !m_position.InCheck() && quietMoves.size() >= 4) {
+                if (!improving && !lateEndgame && !onPV && quietMove && depth >= 3 && !extended && !m_position.InCheck() && !inCheck) {
                     reduction = m_logLMRTable[std::min(depth, 63)][std::min(legalMoves, 63)];
 
-                    reduction += !lateEndgame;
-                    reduction += !improving;
+                    /*reduction += !improving;*/
                     reduction -=    mv == m_killerMoves[ply][0]
                                ||   mv == m_killerMoves[ply][1];
 
@@ -1098,10 +1097,10 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
         if (m_best)
             return m_best;
 
-        m_best = hashTableRootSearch();
+        /*m_best = hashTableRootSearch();
 
         if (m_best)
-            return m_best;
+            return m_best;*/
     }
 
     EVAL aspiration = 15;

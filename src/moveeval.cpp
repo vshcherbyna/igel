@@ -29,18 +29,19 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
 
 /*static*/ bool MoveEval::isTacticalMove(const Move & mv)
 {
+
     return (mv.Captured() || mv.Promotion());
 }
 
 /*static */void MoveEval::sortMoves(Search * pSearch, MoveList & mvlist, Move hashMove, int ply)
 {
-    auto counterMove = ply > 2 ? pSearch->m_moveStack[ply - 1] : Move{};
-    auto counterPiece = ply > 2 ? pSearch->m_pieceStack[ply - 1] : 0;
-    auto counterTo = ply > 2 ? counterMove.To() : 0;
+    auto counterMove = ply >= 1 ? pSearch->m_moveStack[ply - 1] : Move{};
+    auto counterPiece = ply >= 1 ? pSearch->m_pieceStack[ply - 1] : 0;
+    auto counterTo = ply >= 1 ? counterMove.To() : 0;
 
-    auto followMove = ply > 2 ? pSearch->m_moveStack[ply - 2] : Move{};
-    auto followPiece = ply > 2 ? pSearch->m_pieceStack[ply - 2] : 0;
-    auto followTo = ply > 2 ? followMove.To() : 0;
+    auto followMove = ply >= 2 ? pSearch->m_moveStack[ply - 2] : Move{};
+    auto followPiece = ply >= 2 ? pSearch->m_pieceStack[ply - 2] : 0;
+    auto followTo = ply >= 2 ? followMove.To() : 0;
 
     auto mvSize = mvlist.Size();
     for (size_t j = 0; j < mvSize; ++j)

@@ -160,7 +160,7 @@ private:
     bool m_initialPosition;
 
 public:
-    static const int m_pawnHashSize = 32768;
+    static const int m_pawnHashSize = 131072;
     PawnHashEntry m_pawnHashTable[m_pawnHashSize];
 };
 

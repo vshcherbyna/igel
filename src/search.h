@@ -31,7 +31,7 @@
 #include <condition_variable>
 #include <functional>
 
-const int MAX_PLY = 64;
+const int MAX_PLY = 128;
 
 const U8 TERMINATED_BY_USER  = 0x01;
 const U8 TERMINATED_BY_LIMIT = 0x02;
