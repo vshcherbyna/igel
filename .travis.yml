@@ -12,11 +12,19 @@ matrix:
           packages: ['cmake-data', 'cmake', 'python3', 'python3-pip']
       env:
 
+    - os: osx
+      compiler: gcc
+      language: generic
+      env:
+        - COMPILER=g++
+        - COMP=gcc
+        - PYTHON=3.6
+
 script:
       - pyenv versions
       - pyenv global 3.6
+      - pip3 install --user python-chess futures
       - cmake .
       - make -j2
       - cd tests
-      - pip3 install --user python-chess futures
       - python ci.py
