@@ -798,16 +798,16 @@ void Evaluator::initEval(const vector<int> & x)
 
         if (Row(f) != 0 && Row(f) != 7)
         {
-            PSQ[PW][f]              = { Q2(Mid_Pawn, x, y) + VAL_P,         Q2(End_Pawn, x, y) + VAL_P};
-            passedPawn[f]           = { Q2(Mid_PawnPassed, x, y),           Q2(End_PawnPassed, x, y) };
-            passedPawnBlocked[f]    = { Q2(Mid_PawnPassedBlocked, x, y),    Q2(End_PawnPassedBlocked, x, y) };
-            passedPawnFree[f]       = { Q2(Mid_PawnPassedFree, x, y),       Q2(End_PawnPassedFree, x, y) };
-            passedPawnConnected[f]  = { Q2(Mid_PawnConnectedFree, x, y),    Q2(End_PawnConnectedFree, x, y) };
-            pawnDoubled[f]          = { Q2(Mid_PawnDoubled, x, y),          Q2(End_PawnDoubled, x, y) };
-            pawnIsolated[f]         = { Q2(Mid_PawnIsolated, x, y),         Q2(End_PawnIsolated, x, y) };
-            pawnDoubledIsolated[f]  = { Q2(Mid_PawnDoubledIsolated, x, y),  Q2(End_PawnDoubledIsolated, x, y) };
-            pawnBlocked[f]          = { Q2(Mid_PawnBlocked, x, y),          Q2(End_PawnBlocked, x, y) };
-            pawnFence[f]            = { Q2(Mid_PawnFence, x, y),            Q2(End_PawnFence, x, y) };
+            PSQ[PW][f]              = Pair { Q2(Mid_Pawn, x, y) + VAL_P,         Q2(End_Pawn, x, y) + VAL_P         };
+            passedPawn[f]           = Pair { Q2(Mid_PawnPassed, x, y),           Q2(End_PawnPassed, x, y)           };
+            passedPawnBlocked[f]    = Pair { Q2(Mid_PawnPassedBlocked, x, y),    Q2(End_PawnPassedBlocked, x, y)    };
+            passedPawnFree[f]       = Pair { Q2(Mid_PawnPassedFree, x, y),       Q2(End_PawnPassedFree, x, y)       };
+            passedPawnConnected[f]  = Pair { Q2(Mid_PawnConnectedFree, x, y),    Q2(End_PawnConnectedFree, x, y)    };
+            pawnDoubled[f]          = Pair { Q2(Mid_PawnDoubled, x, y),          Q2(End_PawnDoubled, x, y)          };
+            pawnIsolated[f]         = Pair { Q2(Mid_PawnIsolated, x, y),         Q2(End_PawnIsolated, x, y)         };
+            pawnDoubledIsolated[f]  = Pair { Q2(Mid_PawnDoubledIsolated, x, y),  Q2(End_PawnDoubledIsolated, x, y)  };
+            pawnBlocked[f]          = Pair { Q2(Mid_PawnBlocked, x, y),          Q2(End_PawnBlocked, x, y)          };
+            pawnFence[f]            = Pair { Q2(Mid_PawnFence, x, y),            Q2(End_PawnFence, x, y)            };
         }
         else
         {
@@ -823,11 +823,11 @@ void Evaluator::initEval(const vector<int> & x)
             pawnFence[f]            = 0;
         }
 
-        PSQ[NW][f] = { VAL_N + Q2(Mid_Knight, x, y),    VAL_N + Q2(End_Knight, x, y) };
-        PSQ[BW][f] = { VAL_B + Q2(Mid_Bishop, x, y),    VAL_B + Q2(End_Bishop, x, y) };
-        PSQ[RW][f] = { VAL_R + Q2(Mid_Rook, x, y),      VAL_R + Q2(End_Rook, x, y) };
-        PSQ[QW][f] = { VAL_Q + Q2(Mid_Queen, x, y),     VAL_Q + Q2(End_Queen, x, y) };
-        PSQ[KW][f] = { VAL_K + Q2(Mid_King, x, y),      VAL_K + Q2(End_King, x, y) };
+        PSQ[NW][f] = Pair { VAL_N + Q2(Mid_Knight, x, y),    VAL_N + Q2(End_Knight, x, y) };
+        PSQ[BW][f] = Pair { VAL_B + Q2(Mid_Bishop, x, y),    VAL_B + Q2(End_Bishop, x, y) };
+        PSQ[RW][f] = Pair { VAL_R + Q2(Mid_Rook, x, y),      VAL_R + Q2(End_Rook, x, y)   };
+        PSQ[QW][f] = Pair { VAL_Q + Q2(Mid_Queen, x, y),     VAL_Q + Q2(End_Queen, x, y)  };
+        PSQ[KW][f] = Pair { VAL_K + Q2(Mid_King, x, y),      VAL_K + Q2(End_King, x, y)   };
 
         PSQ[PB][FLIP[BLACK][f]] = -PSQ[PW][f];
         PSQ[NB][FLIP[BLACK][f]] = -PSQ[NW][f];
@@ -836,9 +836,9 @@ void Evaluator::initEval(const vector<int> & x)
         PSQ[QB][FLIP[BLACK][f]] = -PSQ[QW][f];
         PSQ[KB][FLIP[BLACK][f]] = -PSQ[KW][f];
 
-        knightStrong[f]     = { Q2(Mid_KnightStrong, x, y),     Q2(End_KnightStrong, x, y) };
-        knightForepost[f]   = { Q2(Mid_KnightForpost, x, y),    Q2(End_KnightForpost, x, y) };
-        bishopStrong[f]     = { Q2(Mid_BishopStrong, x, y),     Q2(End_BishopStrong, x, y) };
+        knightStrong[f]     = Pair { Q2(Mid_KnightStrong, x, y),     Q2(End_KnightStrong, x, y)  };
+        knightForepost[f]   = Pair { Q2(Mid_KnightForpost, x, y),    Q2(End_KnightForpost, x, y) };
+        bishopStrong[f]     = Pair { Q2(Mid_BishopStrong, x, y),     Q2(End_BishopStrong, x, y)  };
     }
 
     bishopMobility[0]   = 0;
@@ -849,13 +849,13 @@ void Evaluator::initEval(const vector<int> & x)
     {
         double z = (m - 6.5) / 6.5;
 
-        bishopMobility[m + 1]   = { Q1(Mid_BishopMobility, z),  Q1(End_BishopMobility, z) };
-        rookMobility[m + 2]     = { Q1(Mid_RookMobility, z),    Q1(End_RookMobility, z) };
+        bishopMobility[m + 1]   = Pair { Q1(Mid_BishopMobility, z),  Q1(End_BishopMobility, z) };
+        rookMobility[m + 2]     = Pair { Q1(Mid_RookMobility, z),    Q1(End_RookMobility, z)   };
     }
 
-    rookOnOpenFile  = { (P(Mid_RookOpen, 0),    P(End_RookOpen, 0)) };
-    rookOn7thRank   = { (P(Mid_Rook7th, 0),     P(End_Rook7th, 0)) };
-    queenOn7thRank  = { (P(Mid_Queen7th, 0),    P(End_Queen7th, 0)) };
+    rookOnOpenFile  = Pair { P(Mid_RookOpen, 0),    P(End_RookOpen, 0)  };
+    rookOn7thRank   = Pair { P(Mid_Rook7th, 0),     P(End_Rook7th, 0)   };
+    queenOn7thRank  = Pair { P(Mid_Queen7th, 0),    P(End_Queen7th, 0)  };
 
     queenKingDistance[0] = 0;
     queenKingDistance[1] = 0;
@@ -864,35 +864,35 @@ void Evaluator::initEval(const vector<int> & x)
     {
         double z = (d - 3.5) / 3.5;
 
-        queenKingDistance[d + 2]    = { Q1(Mid_QueenKingDist, z),   Q1(End_QueenKingDist, z) };
-        knightKingDistance[d + 2]   = { Q1(Mid_KnightKingDist, z),  Q1(End_KnightKingDist, z) };
-        bishopKingDistance[d + 2]   = { Q1(Mid_BishopKingDist, z),  Q1(End_BishopKingDist, z) };
-        rookKingDistance[d + 2]     = { Q1(Mid_RookKingDist, z),    Q1(End_RookKingDist, z) };
+        queenKingDistance[d + 2]    = Pair { Q1(Mid_QueenKingDist, z),   Q1(End_QueenKingDist, z) };
+        knightKingDistance[d + 2]   = Pair { Q1(Mid_KnightKingDist, z),  Q1(End_KnightKingDist, z) };
+        bishopKingDistance[d + 2]   = Pair { Q1(Mid_BishopKingDist, z),  Q1(End_BishopKingDist, z) };
+        rookKingDistance[d + 2]     = Pair { Q1(Mid_RookKingDist, z),    Q1(End_RookKingDist, z) };
     }
 
     for (int d = 0; d < 10; ++d)
     {
         double z = (d - 4.5) / 4.5;
-        kingPasserDistance[d] = { Q1(Mid_KingPassedDist, z), Q1(End_KingPassedDist, z) };
+        kingPasserDistance[d] = Pair { Q1(Mid_KingPassedDist, z), Q1(End_KingPassedDist, z) };
     }
 
     for (int p = 0; p < 10; ++p)
     {
         double z = (p - 4.5) / 4.5;
-        kingPawnShield[p]   = { Q1(Mid_KingPawnShield, z),  Q1(End_KingPawnShield, z) };
-        kingPawnStorm[p]    = { Q1(Mid_KingPawnStorm, z),   Q1(End_KingPawnStorm, z) };
+        kingPawnShield[p]   = Pair { Q1(Mid_KingPawnShield, z),  Q1(End_KingPawnShield, z) };
+        kingPawnStorm[p]    = Pair { Q1(Mid_KingPawnStorm, z),   Q1(End_KingPawnStorm, z) };
     }
 
-    strongAttack    = { (P(Mid_AttackStronger, 0),  P(End_AttackStronger, 0)) };
-    centerAttack    = { (P(Mid_AttackCenter, 0),    P(End_AttackCenter, 0)) };
-    tempoAttack     = { (P(Mid_Tempo, 0),           P(End_Tempo, 0)) };
-    rooksConnected  = { (P(Mid_ConnectedRooks, 0),  P(End_ConnectedRooks, 0)) };
-    bishopsPair     = { (P(Mid_BishopsPair, 0),     P(End_BishopsPair, 0)) };
-    rooksPair       = { (P(Mid_RooksPair, 0),       P(End_RooksPair, 0)) };
-    knightsPair     = { (P(Mid_KnightsPair, 0),     P(End_KnightsPair, 0)) };
-    pawnOnBiColor   = { (P(Mid_PawnOnBiColor, 0),   P(End_PawnOnBiColor, 0)) };
-    knightAndQueen  = { (P(Mid_KnightAndQueen, 0),  P(End_KnightAndQueen, 0)) };
-    bishopAndRook   = { (P(Mid_BishopAndRook, 0),   P(End_BishopAndRook, 0)) };
+    strongAttack    = Pair { P(Mid_AttackStronger, 0),  P(End_AttackStronger, 0) };
+    centerAttack    = Pair { P(Mid_AttackCenter, 0),    P(End_AttackCenter, 0)  };
+    tempoAttack     = Pair { P(Mid_Tempo, 0),           P(End_Tempo, 0) };
+    rooksConnected  = Pair { P(Mid_ConnectedRooks, 0),  P(End_ConnectedRooks, 0) };
+    bishopsPair     = Pair { P(Mid_BishopsPair, 0),     P(End_BishopsPair, 0)  };
+    rooksPair       = Pair { P(Mid_RooksPair, 0),       P(End_RooksPair, 0) };
+    knightsPair     = Pair { P(Mid_KnightsPair, 0),     P(End_KnightsPair, 0) };
+    pawnOnBiColor   = Pair { P(Mid_PawnOnBiColor, 0),   P(End_PawnOnBiColor, 0) };
+    knightAndQueen  = Pair { P(Mid_KnightAndQueen, 0),  P(End_KnightAndQueen, 0) };
+    bishopAndRook   = Pair { P(Mid_BishopAndRook, 0),   P(End_BishopAndRook, 0) };
 
     for (int exposed = 0; exposed < 28; ++exposed)
     {
@@ -903,7 +903,7 @@ void Evaluator::initEval(const vector<int> & x)
     }
 
     for (int att = 0; att < 4; ++att)
-        attackKing[att] = { (P(Mid_AttackKingZone, att), P(End_AttackKingZone, att)) };
+        attackKing[att] = Pair { P(Mid_AttackKingZone, att), P(End_AttackKingZone, att) };
 
 #ifdef _DEBUG
     showPsq("pass pawn", passedPawnFree);
