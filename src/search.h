@@ -57,7 +57,7 @@ public:
     void clearHistory();
     void clearKillers();
     void clearStacks();
-    void setPosition(Position pos);
+    void setPosition(Position & pos);
     void setTime(Time time) {m_time = time;}
     void setThreadCount(unsigned int threads);
     void setSyzygyDepth(int depth);

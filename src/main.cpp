@@ -57,7 +57,7 @@ const int MIN_THREADS       = 1;
 const int MAX_THREADS       = 128;
 const int DEFAULT_THREADS   = 1;
 
-Search g_search;
+std::unique_ptr<Search> g_search(new Search());
 deque<string> g_queue;
 FILE* g_log = nullptr;
 
@@ -66,26 +66,26 @@ static vector<string> g_tokens;
 
 void OnEval()
 {
-    cout << Evaluator::evaluate(g_search.m_position) << endl;
+    cout << Evaluator::evaluate(g_search->m_position) << endl;
 }
 
 void OnFEN()
 {
-    cout << g_search.m_position.FEN() << endl;
+    cout << g_search->m_position.FEN() << endl;
 }
 
 void OnGoUci()
 {
     auto & time = Time::instance();
 
-    if (time.parseTime(g_tokens, g_search.m_position.Side() == WHITE) == false)
+    if (time.parseTime(g_tokens, g_search->m_position.Side() == WHITE) == false)
         cout << "Error: unable to parse command line" << endl;
 
     TTable::instance().increaseAge();
-    g_search.m_principalSearcher = true;
+    g_search->m_principalSearcher = true;
 
     Move ponder;
-    Move mv = g_search.startSearch(time, 1, -INFINITY_SCORE, INFINITY_SCORE, ponder);
+    Move mv = g_search->startSearch(time, 1, -INFINITY_SCORE, INFINITY_SCORE, ponder);
 
     cout << "bestmove " << MoveToStrLong(mv);
     if (ponder)
@@ -102,14 +102,14 @@ void OnIsready()
 
 void OnNew()
 {
-    g_search.m_position.SetInitial();
+    g_search->m_position.SetInitial();
 
     TTable::instance().clearHash();
     TTable::instance().clearAge();
 
-    g_search.clearHistory();
-    g_search.clearKillers();
-    g_search.clearStacks();
+    g_search->clearHistory();
+    g_search->clearKillers();
+    g_search->clearStacks();
 
     Time::instance().onNewGame();
 }
@@ -134,11 +134,11 @@ void OnPosition()
                 fen += " ";
             fen += g_tokens[i];
         }
-        g_search.m_position.SetFEN(fen);
+        g_search->m_position.SetFEN(fen);
     }
     else if (g_tokens[1] == "startpos")
     {
-        g_search.m_position.SetInitial();
+        g_search->m_position.SetInitial();
         for (size_t i = 2; i < g_tokens.size(); ++i)
         {
             if (g_tokens[i] == "moves")
@@ -153,8 +153,8 @@ void OnPosition()
     {
         for (size_t i = movesTag + 1; i < g_tokens.size(); ++i)
         {
-            Move mv = StrToMove(g_tokens[i], g_search.m_position);
-            g_search.m_position.MakeMove(mv);
+            Move mv = StrToMove(g_tokens[i], g_search->m_position);
+            g_search->m_position.MakeMove(mv);
         }
     }
 }
@@ -184,7 +184,7 @@ void OnSetoption()
 
         if (threads > MAX_THREADS || threads < MIN_THREADS)
             cout << "Unable set threads value. Make sure number is correct" << endl;
-        g_search.setThreadCount(threads - 1);
+        g_search->setThreadCount(threads - 1);
     }
     else if (name == "SyzygyPath")
     {
@@ -192,7 +192,7 @@ void OnSetoption()
     }
     else if (name == "SyzygyProbeDepth")
     {
-        g_search.setSyzygyDepth(atoi(value.c_str()));
+        g_search->setSyzygyDepth(atoi(value.c_str()));
     }
     else
         cout << "Unknown option " << name << endl;
@@ -253,11 +253,11 @@ NODES Perft(Position & pos, int depth)
 
 void OnBench()
 {
-    Position pos;
-    pos.SetInitial();
+    std::unique_ptr<Position> pos(new Position);
+    pos->SetInitial();
 
     auto start = GetProcTime();
-    auto nodes = Perft(pos, 6);
+    auto nodes = Perft(*pos, 6);
     auto end = GetProcTime();
 
     cout << "Total time (ms)\t: " << (end - start) << endl;
@@ -283,7 +283,7 @@ void RunCommandLine()
       continue;                         \
     }
 
-        ON_CMD(board,      1, g_search.m_position.Print())
+        ON_CMD(board,      1, g_search->m_position.Print())
         ON_CMD(eval,       2, OnEval())
         ON_CMD(fen,        2, OnFEN())
         ON_CMD(go,         1, OnGoUci())
@@ -308,8 +308,8 @@ int main(int argc, const char* argv[])
     InitBitboards();
     Position::InitHashNumbers();
     Evaluator::initEval();
-    g_search.m_position.SetInitial();
-    g_search.setSyzygyDepth(1);
+    g_search->m_position.SetInitial();
+    g_search->setSyzygyDepth(1);
 
     double hashMb = DEFAULT_HASH_SIZE;
 

@@ -238,17 +238,17 @@ double ErrSq(const string& s, double K)
     }
 
     string fen = string(s.c_str() + 2);
-    Position pos;
+    std::unique_ptr<Position> pos(new Position);
 
-    if (!pos.SetFEN(fen))
+    if (!pos->SetFEN(fen))
     {
         cout << "ERR FEN: " << fen << endl;
         return -1;
     }
 
-    EVAL e = Evaluator::evaluate(pos);
+    EVAL e = Evaluator::evaluate(*pos);
 
-    if (pos.Side() == BLACK)
+    if (pos->Side() == BLACK)
         e = -e;
 
     double prediction = 1. / (1. + exp(-e / K));

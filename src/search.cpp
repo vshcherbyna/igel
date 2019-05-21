@@ -141,7 +141,7 @@ void Search::CheckInput()
     }
 }
 
-void Search::setPosition(Position pos)
+void Search::setPosition(Position & pos)
 {
     m_position = pos;
 }

@@ -124,10 +124,10 @@ TEST(TranspositionTableEntryMoveTest, Positive)
     Evaluator::initEval();
 
     MoveList mvlist;
-    Position pos;
-    pos.SetInitial();
+    std::unique_ptr<Position> pos(new Position);
+    pos->SetInitial();
 
-    GenAllMoves(pos, mvlist);
+    GenAllMoves(*pos, mvlist);
 
     auto mvSize = mvlist.Size();
     for (size_t i = 0; i < mvSize; ++i)
