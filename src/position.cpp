@@ -22,6 +22,8 @@
 #include "position.h"
 #include "utils.h"
 
+#include <memory>
+
 extern Pair PSQ[14][64];
 
 const Move MOVE_O_O[2]   = { Move(E1, G1, KW), Move(E8, G8, KB) };
@@ -460,7 +462,8 @@ bool Position::SetFEN(const string& fen)
     if (fen.length() < 5)
         return false;
 
-    Position tmp = *this;
+    std::unique_ptr<Position> tmp(new Position(*this));
+
     Clear();
 
     vector<string> tokens;
@@ -580,7 +583,7 @@ FINAL_CHECK:
 
 ILLEGAL_FEN:
 
-    *this = tmp;
+    *this = *tmp.get();
     return false;
 }
 

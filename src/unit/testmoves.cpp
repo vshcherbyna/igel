@@ -54,16 +54,17 @@ NODES Perft(Position & pos, int depth)
 TEST(MoveGen, Positive)
 {
     std::unique_ptr<Position> pos(new Position);
+
     pos->SetInitial();
 
     // taken from https://chessprogramming.wikispaces.com/Perft%20Results
-    EXPECT_EQ(1, Perft(*pos, 0));
-    EXPECT_EQ(20, Perft(*pos, 1));
-    EXPECT_EQ(400, Perft(*pos, 2));
-    EXPECT_EQ(8902, Perft(*pos, 3));
-    EXPECT_EQ(197281, Perft(*pos, 4));
-    EXPECT_EQ(4865609, Perft(*pos, 5));
-    EXPECT_EQ(119060324, Perft(*pos, 6));
+    EXPECT_EQ(1, Perft(*pos.get(), 0));
+    EXPECT_EQ(20, Perft(*pos.get(), 1));
+    EXPECT_EQ(400, Perft(*pos.get(), 2));
+    EXPECT_EQ(8902, Perft(*pos.get(), 3));
+    EXPECT_EQ(197281, Perft(*pos.get(), 4));
+    EXPECT_EQ(4865609, Perft(*pos.get(), 5));
+    EXPECT_EQ(119060324, Perft(*pos.get(), 6));
 }
 
 TEST(Move, Positive)
