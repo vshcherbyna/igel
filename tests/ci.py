@@ -37,3 +37,10 @@ else:
 
 mate_in_n.fnc_mate_in_n(1)
 king_safety.fnc_king_safety(1)
+
+#
+#   run integration tests with 2 thread
+#
+
+mate_in_n.fnc_mate_in_n(2)
+king_safety.fnc_king_safety(2)
