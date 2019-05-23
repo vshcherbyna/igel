@@ -265,6 +265,9 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
 
 EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 {
+    if (CheckLimits(false, depth, alpha))
+        return -INFINITY_SCORE;
+
     if (ply > MAX_PLY - 2)
         return Evaluator::evaluate(m_position);
 
@@ -362,9 +365,6 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
             }
         }
     }
-
-    if (CheckLimits(onPV, depth, alpha))
-        return -INFINITY_SCORE;
 
     bool inCheck = m_position.InCheck();
 
@@ -598,6 +598,9 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
 EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
 {
+    if (CheckLimits((beta - alpha > 1), ply, alpha))
+        return -INFINITY_SCORE;
+
     if (ply > MAX_PLY - 2)
         return Evaluator::evaluate(m_position);
 
@@ -652,9 +655,6 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
         if (alpha < bestScore) 
             alpha = bestScore;
     }
-
-    if (CheckLimits((beta - alpha > 1), ply, alpha))
-        return -INFINITY_SCORE;
 
     MoveList& mvlist = m_lists[ply];
     if (inCheck)
