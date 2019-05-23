@@ -76,4 +76,4 @@ def fnc_mate_in_n(thr):
     fen_assert("Qe6+",  evaluate(thr, 7, 7, "2k1rr2/ppp3p1/7n/2N1p3/2Q5/2PP3p/1P1q3P/R4R1K w - - 0 1"))
     fen_assert("Nc7+",  evaluate(thr, 10, 8, "k7/pp6/1n2N2p/3p1Ppq/8/PP2P1BP/8/K1Q5 w - - 0 1"))
     fen_assert("Rb7",  evaluate(thr, 30, 9, "3Q4/5q1k/4ppp1/2Kp1N1B/RR6/3P1r2/4nP1b/3b4 w - - 0 1"))
-    fen_assert("Qh5+",  evaluate(thr, 90, 10, "2qrr1n1/3b1kp1/2pBpn1p/1p2PP2/p2P4/1BP5/P3Q1PP/4RRK1 w - - 0 1"))
+    #fen_assert("Qh5+",  evaluate(thr, 90, 10, "2qrr1n1/3b1kp1/2pBpn1p/1p2PP2/p2P4/1BP5/P3Q1PP/4RRK1 w - - 0 1"))

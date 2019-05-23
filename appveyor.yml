@@ -1,0 +1,37 @@
+version: 1.0.{build}
+clone_depth: 50
+
+os: Visual Studio 2017
+
+platform:
+  - x64
+
+configuration:
+  - Release
+
+environment:
+  matrix:
+    - PYTHON: "C:\\Python35"
+      PYTHON_VERSION: 3.5
+      PYTHON_ARCH: 32
+
+install:
+  - SET PATH=%PYTHON%;%path%
+  - SET PATH=%PYTHON%\\Scripts;%path%
+
+init:
+  - cmake --version
+
+before_build:
+  - git submodule update --init --recursive
+
+build_script:
+  - pip3 --version
+  - python -V
+  - cmake -G "Visual Studio 15 2017 Win64" .
+  - cmake --build . --target ALL_BUILD --config %CONFIGURATION%
+  - cp %CONFIGURATION%\igel.exe igel
+  - cp %CONFIGURATION%\unit.exe unit.exe
+  - cd tests
+  - pip3 install --user python-chess futures
+  - python ci.py
