@@ -459,10 +459,10 @@ bool Position::SetFEN(const string& fen)
 {
     m_initialPosition = (fen == STD_POSITION);
 
-    if (fen.length() < 5)
+    if (fen.length() < 5) {
+        std::cout << "Invalid fen " << fen << endl;
         return false;
-
-    std::unique_ptr<Position> tmp(new Position(*this));
+    }
 
     Clear();
 
@@ -583,7 +583,8 @@ FINAL_CHECK:
 
 ILLEGAL_FEN:
 
-    *this = *tmp.get();
+    //*this = *tmp.get();
+    std::cout << "Invalid fen " << fen << endl;
     return false;
 }
 

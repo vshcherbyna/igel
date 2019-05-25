@@ -55,32 +55,19 @@ void Tuner::Tune()
 
         cout << "Epoch: " << ++epoch << endl;
         cout << "Total positions: " << totalFens.size() << endl;
-        cout << "Tune mode: " << "725k per 5h (orig. position)" << endl;
+        cout << "Tune mode: " << "725k per 1h (orig. position)" << endl;
 
         auto rng = std::default_random_engine{};
         std::shuffle(std::begin(totalFens), std::end(totalFens), rng);
 
-        //while (!totalFens.empty())
-        {
-            std::vector<std::string> fens = totalFens;
+        vector<int> x0 = W;
+        setTuneStartTime();
 
-            /*for (int i = 0; i < 145000; ++i) {
-                if (!totalFens.empty()) {
-                    fens.push_back(totalFens.back());
-                    totalFens.pop_back();
-                }
-            }*/
+        vector<int> params;
+        for (int i = 0; i < NUM_PARAMS; ++i)
+            params.push_back(i);
 
-            vector<int> x0 = W;
-            setTuneStartTime();
-
-            vector<int> params;
-            for (int i = 0; i < NUM_PARAMS; ++i)
-                params.push_back(i);
-
-            randomWalk(x0, 5 * 3600, false, params, fens);
-            //cout << "Remaining positions: " << totalFens.size() << endl;
-        }
+        randomWalk(x0, 3600, false, params, totalFens);
     }
 }
 
@@ -221,7 +208,7 @@ void Tuner::randomWalkInfo(double y0Start, double y0, int t)
     cout << setfill(' ');
 }
 
-double ErrSq(const string& s, double K)
+double Tuner::errSq(const string& s, double K)
 {
     char chRes = s[0];
     double result = 0;
@@ -238,23 +225,22 @@ double ErrSq(const string& s, double K)
     }
 
     string fen = string(s.c_str() + 2);
-    std::unique_ptr<Position> pos(new Position);
 
-    if (!pos->SetFEN(fen))
+    if (!m_pos->SetFEN(fen))
     {
         cout << "ERR FEN: " << fen << endl;
         return -1;
     }
 
-    EVAL e = Evaluator::evaluate(*pos);
+    EVAL e = Evaluator::evaluate(*m_pos.get());
 
-    if (pos->Side() == BLACK)
+    if (m_pos->Side() == BLACK)
         e = -e;
 
     double prediction = 1. / (1. + exp(-e / K));
-    double errSq = (prediction - result) * (prediction - result);
+    double err = (prediction - result) * (prediction - result);
 
-    return errSq;
+    return err;
 }
 
 double Tuner::predict(std::vector<string> & fens)
@@ -265,12 +251,12 @@ double Tuner::predict(std::vector<string> & fens)
     double errSqSum = 0;
 
     for (auto const& s : fens) {
-        double errSq = ErrSq(s, K);
-        if (errSq < 0)
+        double err = errSq(s, K);
+        if (err < 0)
             continue;
 
         ++n;
-        errSqSum += errSq;
+        errSqSum += err;
     }
 
     return sqrt(errSqSum / n);

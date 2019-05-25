@@ -33,25 +33,25 @@ const U8 HASH_ALPHA = 0;
 const U8 HASH_EXACT = 1;
 const U8 HASH_BETA = 2;
 
-Search::Search():
-m_nodes(0),
-m_tbHits(0),
-m_t0(0),
-m_flags(0),
-m_depth(0),
-m_syzygyDepth(0),
-m_selDepth(0),
-m_iterPVSize(0),
-m_principalSearcher(false),
-m_thc(0),
-m_threads(nullptr),
-m_threadParams(nullptr),
-m_lazyDepth(0),
-m_lazyAlpha(-INFINITY_SCORE),
-m_lazyBeta(INFINITY_SCORE),
-m_bestSmpEval(0),
-m_smpThreadExit(false),
-m_terminateSmp(false)
+Search::Search() :
+    m_nodes(0),
+    m_tbHits(0),
+    m_t0(0),
+    m_flags(0),
+    m_depth(0),
+    m_syzygyDepth(0),
+    m_selDepth(0),
+    m_iterPVSize(0),
+    m_principalSearcher(false),
+    m_thc(0),
+    m_threads(nullptr),
+    m_threadParams(nullptr),
+    m_lazyDepth(0),
+    m_lazyAlpha(-INFINITY_SCORE),
+    m_lazyBeta(INFINITY_SCORE),
+    m_bestSmpEval(0),
+    m_smpThreadExit(false),
+    m_terminateSmp(false)
 {
     for (int depth = 1; depth < 64; depth++)
         for (int moves = 1; moves < 64; moves++)
@@ -204,7 +204,7 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
 
             ++m_nodes;
             ++legalMoves;
-            m_moveStack[ply]  = mv;
+            m_moveStack[ply] = mv;
             m_pieceStack[ply] = mv.Piece();
 
             if ((m_principalSearcher) && ((GetProcTime() - m_t0) > 2000))
@@ -265,9 +265,6 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
 
 EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 {
-    if (CheckLimits(false, depth, alpha))
-        return -INFINITY_SCORE;
-
     if (ply > MAX_PLY - 2)
         return Evaluator::evaluate(m_position);
 
@@ -342,15 +339,15 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
                 {
                 case TB_WIN:
                     score = TBBASE_SCORE - MAX_PLY - ply;
-                    type  = HASH_BETA;
+                    type = HASH_BETA;
                     break;
                 case TB_LOSS:
                     score = -TBBASE_SCORE + MAX_PLY + ply;
-                    type  = HASH_ALPHA;
+                    type = HASH_ALPHA;
                     break;
                 default:
                     score = 0;
-                    type  = HASH_EXACT;
+                    type = HASH_EXACT;
                     break;
                 }
 
@@ -365,6 +362,9 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
             }
         }
     }
+
+    if (CheckLimits(onPV, depth, alpha))
+        return -INFINITY_SCORE;
 
     bool inCheck = m_position.InCheck();
 
@@ -510,7 +510,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
                 History::fetchHistory(this, mv, ply, history);
             }
 
-            m_moveStack[ply]  = mv;
+            m_moveStack[ply] = mv;
             m_pieceStack[ply] = mv.Piece();
 
             int newDepth = depth - 1;
@@ -537,8 +537,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
                     reduction = m_logLMRTable[std::min(depth, 63)][std::min(legalMoves, 63)];
 
                     /*reduction += !improving;*/
-                    reduction -=    mv == m_killerMoves[ply][0]
-                               ||   mv == m_killerMoves[ply][1];
+                    reduction -= mv == m_killerMoves[ply][0]
+                        || mv == m_killerMoves[ply][1];
 
                     reduction -= std::max(-2, std::min(2, (history.history + history.cmhistory + history.fmhistory) / 5000));
 
@@ -598,14 +598,11 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
 EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
 {
-    if (CheckLimits((beta - alpha > 1), ply, alpha))
-        return -INFINITY_SCORE;
-
     if (ply > MAX_PLY - 2)
         return Evaluator::evaluate(m_position);
 
-    m_pvSize[ply]   = 0;
-    m_selDepth      = std::max(ply, m_selDepth);
+    m_pvSize[ply] = 0;
+    m_selDepth = std::max(ply, m_selDepth);
 
     Move hashMove{};
     TEntry hEntry;
@@ -631,7 +628,7 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
     bool inCheck = m_position.InCheck();
 
     EVAL    bestScore,
-            staticScore;
+        staticScore;
 
     if (inCheck)
     {
@@ -643,18 +640,21 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
 
         if (ttHit)
         {
-            if ((hEntry.type() == HASH_BETA && ttScore > staticScore)  ||
+            if ((hEntry.type() == HASH_BETA && ttScore > staticScore) ||
                 (hEntry.type() == HASH_ALPHA && ttScore < staticScore) ||
                 (hEntry.type() == HASH_EXACT))
                 bestScore = ttScore;
         }
 
-        if (bestScore >= beta) 
+        if (bestScore >= beta)
             return bestScore;
 
-        if (alpha < bestScore) 
+        if (alpha < bestScore)
             alpha = bestScore;
     }
+
+    if (CheckLimits((beta - alpha > 1), ply, alpha))
+        return -INFINITY_SCORE;
 
     MoveList& mvlist = m_lists[ply];
     if (inCheck)

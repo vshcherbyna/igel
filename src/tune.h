@@ -22,13 +22,15 @@
 #define TUNER_H
 
 #include "types.h"
+#include "position.h"
 
+#include <memory>
 #include <vector>
 
 class Tuner
 {
 public:
-    Tuner() {}
+    Tuner() : m_pos(new Position) { }
     Tuner(const Tuner&) = delete;
     Tuner& operator=(const Tuner&) = delete;
 
@@ -41,9 +43,11 @@ private:
     double predict(std::vector<string> & fens);
     void setTuneStartTime();
     double regularization(const vector<int> & x);
+    double errSq(const string& s, double K);
 
 private:
     U32 m_t0;
+    std::unique_ptr<Position> m_pos;
 };
 
 void onTune();
