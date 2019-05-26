@@ -3,6 +3,13 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 1.5.1
+-------------
+09-May-2019
+- Improving time management
+- Fix old cpu builds by removing popcount instructions
+- Optimize lazy smp code
+
 Igel 1.5.0
 -------------
 05-May-2019

@@ -201,9 +201,15 @@ void OnSetoption()
 void OnUCI()
 {
     cout << "id name " << PROGRAM_NAME << " " << VERSION;
+
 #if defined(ENV64BIT)
+#if defined (_BTYPE)
     cout << " 64 POPCNT";
+#else
+    cout << " 64";
 #endif
+#endif
+
     cout << endl << "id author V. Medvedev, V. Shcherbyna" << endl;
 
     cout << "option name Hash type spin" <<
