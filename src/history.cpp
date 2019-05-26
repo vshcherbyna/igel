@@ -22,10 +22,6 @@
 
 #include <algorithm>
 
-History::History()
-{
-}
-
 /*static */void History::updateHistory(Search * pSearch, std::vector<Move> quetMoves, int ply, int bonus)
 {
     assert(ply < MAX_PLY);
@@ -51,19 +47,19 @@ History::History()
         auto piece = mv.Piece();
         auto to = mv.To();
         auto entry = pSearch->m_history[colour][from][to];
-        bonus = std::min(bonus, HistoryMax);
-        entry += HistoryMultiplier * delta - entry * abs(delta) / HistoryDivisor;
+        bonus = std::min(bonus, s_historyMax);
+        entry += s_historyMultiplier * delta - entry * abs(delta) / s_historyDivisor;
         pSearch->m_history[colour][from][to] = entry;
 
         if (counterMove) {
             auto entry = pSearch->m_followTable[0][counterPiece][counterTo][piece][to];
-            entry += HistoryMultiplier * delta - entry * abs(delta) / HistoryDivisor;
+            entry += s_historyMultiplier * delta - entry * abs(delta) / s_historyDivisor;
             pSearch->m_followTable[0][counterPiece][counterTo][piece][to] = entry;
         }
 
         if (followMove) {
             entry = pSearch->m_followTable[1][followPiece][followTo][mv.Piece()][to];
-            entry += HistoryMultiplier * delta - entry * abs(bonus) / HistoryDivisor;
+            entry += s_historyMultiplier * delta - entry * abs(bonus) / s_historyDivisor;
             pSearch->m_followTable[1][followPiece][followTo][piece][to] = entry;
         }
     }

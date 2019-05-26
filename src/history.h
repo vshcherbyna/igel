@@ -27,12 +27,11 @@
 
 class Search;
 
-static const int HistoryMax         = 400;
-static const int HistoryMultiplier  = 32;
-static const int HistoryDivisor     = 512;
-
 class History
 {
+    History() = delete;
+    ~History() = delete;
+
 public:
     struct HistoryHeuristics
     {
@@ -43,13 +42,14 @@ public:
     };
 
 public:
-    History();
-
-public:
     static void updateHistory(Search * pSearch, std::vector<Move> quetMoves, int ply, int bonus);
     static void setKillerMove(Search * pSearch, Move mv, int ply);
     static void fetchHistory(Search * pSearch, Move mv, int ply, HistoryHeuristics & hh);
+
 private:
+    static constexpr int s_historyMax = 400;
+    static constexpr int s_historyMultiplier = 32;
+    static constexpr int s_historyDivisor = 512;
 };
 
 #endif // HISTORY_H

@@ -20,16 +20,10 @@
 #include "moveeval.h"
 #include "eval.h"
 
-const int SORT_HASH     = 7000000;
-const int SORT_CAPTURE  = 6000000;
-const int SORT_KILLER   = 5000000;
-const int SORT_HISTORY  = 0;
-
 const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VAL_R, VAL_R, VAL_Q, VAL_Q, VAL_K, VAL_K };
 
 /*static*/ bool MoveEval::isTacticalMove(const Move & mv)
 {
-
     return (mv.Captured() || mv.Promotion());
 }
 
@@ -49,7 +43,7 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
         Move mv = mvlist[j].m_mv;
         if (mv == hashMove)
         {
-            mvlist[j].m_score = SORT_HASH;
+            mvlist[j].m_score = s_SortHash;
             mvlist.Swap(j, 0);
         }
         else if (mv.Captured() || mv.Promotion())
@@ -58,12 +52,12 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
             EVAL s_captured = SORT_VALUE[mv.Captured()];
             EVAL s_promotion = SORT_VALUE[mv.Promotion()];
 
-            mvlist[j].m_score = SORT_CAPTURE + 10 * (s_captured + s_promotion) - s_piece;
+            mvlist[j].m_score = s_SortCapture + 10 * (s_captured + s_promotion) - s_piece;
         }
         else if (mv == pSearch->m_killerMoves[ply][0] || mv == pSearch->m_killerMoves[ply][1])
-            mvlist[j].m_score = SORT_KILLER;
+            mvlist[j].m_score = s_SortKiller;
         else {
-            mvlist[j].m_score = SORT_HISTORY + 100 * pSearch->m_history[pSearch->m_position.Side()][mv.From()][mv.To()];
+            mvlist[j].m_score = 100 * pSearch->m_history[pSearch->m_position.Side()][mv.From()][mv.To()];
 
             if (counterMove)
                 mvlist[j].m_score += pSearch->m_followTable[0][counterPiece][counterTo][mv.Piece()][mv.To()];
@@ -76,7 +70,7 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
 
 /*static */Move MoveEval::getNextBest(MoveList & mvlist, size_t i)
 {
-    if (i == 0 && mvlist[0].m_score == SORT_HASH)
+    if (i == 0 && mvlist[0].m_score == s_SortHash)
         return mvlist[0].m_mv;
 
     auto mvSize = mvlist.Size();
