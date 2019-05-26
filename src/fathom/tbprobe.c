@@ -67,7 +67,10 @@
 #define BEST_NONE               0xFFFF
 #define SCORE_ILLEGAL           0x7FFF
 
+#if defined (_BTYPE)
 #undef TB_SOFTWARE_POP_COUNT
+#else
+#endif
 
 #if defined(TB_CUSTOM_POP_COUNT)
 #define popcount(x) TB_CUSTOM_POP_COUNT(x)

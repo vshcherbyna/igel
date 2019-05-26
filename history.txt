@@ -3,6 +3,22 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 1.6.0
+-------------
+26-May-2019
+- Re-write killer moves functionality and drop mate killers
+- Re-write move ordering and introduce counter move heuristics
+- Re-write LMR functionality: take into account 'improving' factor and prune more aggressively
+- Increase MAX_PLY to 128 from 64
+- Use tt moves in qsearch as a first move
+
+Igel 1.5.1
+-------------
+09-May-2019
+- Improving time management
+- Fix old cpu builds by removing popcount instructions
+- Optimize lazy smp code
+
 Igel 1.5.0
 -------------
 05-May-2019

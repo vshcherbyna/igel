@@ -47,7 +47,7 @@
 #endif
 
 const string PROGRAM_NAME   = "Igel";
-const string VERSION        = "1.5.1";
+const string VERSION        = "1.6.0";
 
 const int MIN_HASH_SIZE     = 1;
 const int MAX_HASH_SIZE     = 131072;
@@ -109,6 +109,7 @@ void OnNew()
 
     g_search.clearHistory();
     g_search.clearKillers();
+    g_search.clearStacks();
 
     Time::instance().onNewGame();
 }
@@ -200,9 +201,15 @@ void OnSetoption()
 void OnUCI()
 {
     cout << "id name " << PROGRAM_NAME << " " << VERSION;
+
 #if defined(ENV64BIT)
+#if defined (_BTYPE)
     cout << " 64 POPCNT";
+#else
+    cout << " 64";
 #endif
+#endif
+
     cout << endl << "id author V. Medvedev, V. Shcherbyna" << endl;
 
     cout << "option name Hash type spin" <<
@@ -252,11 +259,11 @@ NODES Perft(Position & pos, int depth)
 
 void OnBench()
 {
-    Position pos;
-    pos.SetInitial();
+    std::unique_ptr<Position> pos(new Position);
+    pos->SetInitial();
 
     auto start = GetProcTime();
-    auto nodes = Perft(pos, 6);
+    auto nodes = Perft(*pos, 6);
     auto end = GetProcTime();
 
     cout << "Total time (ms)\t: " << (end - start) << endl;

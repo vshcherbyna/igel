@@ -31,7 +31,7 @@
 #include <condition_variable>
 #include <functional>
 
-const int MAX_PLY = 64;
+const int MAX_PLY = 128;
 
 const U8 TERMINATED_BY_USER  = 0x01;
 const U8 TERMINATED_BY_LIMIT = 0x02;
@@ -43,6 +43,9 @@ const U8 MODE_SILENT  = 0x10;
 
 class Search
 {
+    friend class History;
+    friend class MoveEval;
+
 public:
     Search();
     ~Search();
@@ -53,29 +56,26 @@ public:
     Move startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & ponder);
     void clearHistory();
     void clearKillers();
-    void setPosition(Position pos);
+    void clearStacks();
+    void setPosition(Position & pos);
     void setTime(Time time) {m_time = time;}
     void setThreadCount(unsigned int threads);
     void setSyzygyDepth(int depth);
 
 private:
+    void startWorkerThreads(Time time);
+    void stopWorkerThreads();
+    Move hashTableRootSearch();
     void LazySmpSearcher();
     Move tableBaseRootSearch();
-    EVAL AlphaBetaRoot(EVAL alpha, EVAL beta, int depth);
-    EVAL AlphaBeta(EVAL alpha, EVAL beta, int depth, int ply, bool isNull);
-    EVAL AlphaBetaQ(EVAL alpha, EVAL beta, int ply, int qply);
-    int Extensions(Move mv, Move lastMove, bool inCheck, int ply, bool onPV);
-    Move GetNextBest(MoveList& mvlist, size_t i);
-    bool IsGoodCapture(Move mv);
+    EVAL searchRoot(EVAL alpha, EVAL beta, int depth);
+    EVAL abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull);
+    EVAL qSearch(EVAL alpha, EVAL beta, int ply);
+    int extensionRequired(Move mv, Move lastMove, bool inCheck, int ply, bool onPV, size_t quietMoves, int cmhistory, int fmhistory);
     bool ProbeHash(TEntry & hentry);
-    void RecordHash(Move mv, EVAL score, I8 depth, int ply, U8 type);
-    EVAL SEE(Move mv);
-    void UpdateSortScores(MoveList& mvlist, Move hashMove, int ply);
-    void UpdateSortScoresQ(MoveList& mvlist, int ply);
     bool HaveSingleMove(Position& pos, Move & bestMove);
     bool IsGameOver(Position& pos, string& result, string& comment);
     void PrintPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, const string& sign);
-    EVAL SEE_Exchange(FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ);
     Move FirstLegalMove(Position& pos);
 
     void ProcessInput(const string& s);
@@ -96,10 +96,14 @@ private:
     Move m_pv[MAX_PLY][MAX_PLY];
     int m_pvSize[MAX_PLY];
     Move m_iterPV[MAX_PLY];
-    Move m_mateKillers[MAX_PLY];
-    Move m_killers[MAX_PLY];
-    int m_histTry[64][14];
-    int m_histSuccess[64][14];
+    Move m_killerMoves[MAX_PLY][2];
+    int m_history[2][64][64];
+    Move m_moveStack[MAX_PLY + 4];
+    PIECE m_pieceStack[MAX_PLY + 4];
+    EVAL m_evalStack[MAX_PLY + 4];
+    int m_followTable[2][14][64][14][64];
+    Move m_counterTable[2][14][64];
+    int m_logLMRTable[64][64];
     Time m_time;
 
 public:

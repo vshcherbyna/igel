@@ -21,6 +21,8 @@
 
 import os
 import platform
+import mate_in_n
+import king_safety
 
 if platform.system() == 'Windows':
     if os.system('..\\unit.exe') != 0:
@@ -28,7 +30,10 @@ if platform.system() == 'Windows':
 else:
     if os.system('../unit') != 0:
         raise Exception("test failed:", "unit")
-if os.system('python ./mate_in_n.py') != 0:
-    raise Exception("test failed:", "mate in n")
-if os.system('python ./king_safety.py') != 0:
-    raise Exception("test failed:", "king safety")
+
+#
+#   run integration tests with 1 thread
+#
+
+mate_in_n.fnc_mate_in_n(1)
+king_safety.fnc_king_safety(1)

@@ -13,10 +13,13 @@ matrix:
       env:
 
 script:
-      - pyenv versions
-      - pyenv global 3.6
       - cmake .
       - make -j2
       - cd tests
-      - pip3 install --user python-chess futures
+      - pyenv versions
+      - pyenv global 3.6
+      - pip install --upgrade pip
+      - pip --version
+      - python -V
+      - pip install python-chess futures
       - python ci.py

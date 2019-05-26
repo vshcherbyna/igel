@@ -90,6 +90,7 @@ inline FLD PopLSB(U64& b)
     return f;
 }
 
+#if defined (_BTYPE)
 inline unsigned int CountBits(U64 b)
 {
 #if _WIN32 || _WIN64
@@ -97,12 +98,11 @@ inline unsigned int CountBits(U64 b)
 #else
     return __builtin_popcountl(b);
 #endif
-
-    //
-    //  Old implementation
-    //
-
-    /*if (b == 0)
+}
+#else
+inline unsigned int CountBits(U64 b)
+{
+    if (b == 0)
         return 0;
 
     static const U64 mask_1 = LL(0x5555555555555555);   // 0101 0101 0101 0101 0101 0101 0101 0101 ...
@@ -116,9 +116,9 @@ inline unsigned int CountBits(U64 b)
     x = (x & mask_8) + ((x >> 8) & mask_8);
 
     U32 y = U32(x) + U32(x >> 32);
-    return (y + (y >> 16)) & 0x3f;*/
+    return (y + (y >> 16)) & 0x3f;
 }
-
+#endif
 
 U64  Attacks(FLD f, U64 occ, PIECE piece);
 U64  BishopAttacks(FLD f, U64 occ);

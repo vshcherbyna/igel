@@ -87,8 +87,8 @@ Pair bishopAndRook;
 
 /*static */EVAL Evaluator::evaluate(Position & pos)
 {
-    U64 kingZone[2]     = { BB_KING_ATTACKS[pos.King(WHITE)], BB_KING_ATTACKS[pos.King(BLACK)] };
-    int attackKing[2]   = { 0, 0 };
+    U64 kingZone[2] = { BB_KING_ATTACKS[pos.King(WHITE)], BB_KING_ATTACKS[pos.King(BLACK)] };
+    int attackKing[2] = { 0, 0 };
 
     PawnHashEntry *ps = nullptr;
 
@@ -486,7 +486,7 @@ Pair bishopAndRook;
     while (x)
     {
         f = PopLSB(x);
-        
+
         int dist = distance(f, pos.King(WHITE));
         score -= rookKingDistance[dist];
 
@@ -789,38 +789,38 @@ void Evaluator::initEval(const vector<int> & x)
 {
     W = x;
 
-    #define P(name, index) W[lines[name].start + index]
+#define P(name, index) W[lines[name].start + index]
 
     for (FLD f = 0; f < 64; ++f)
     {
-        double x = ((Col(f) > 3)? Col(f) - 3.5 : 3.5 - Col(f)) / 3.5;
+        double x = ((Col(f) > 3) ? Col(f) - 3.5 : 3.5 - Col(f)) / 3.5;
         double y = (3.5 - Row(f)) / 3.5;
 
         if (Row(f) != 0 && Row(f) != 7)
         {
-            PSQ[PW][f]              = { Q2(Mid_Pawn, x, y) + VAL_P,         Q2(End_Pawn, x, y) + VAL_P};
-            passedPawn[f]           = { Q2(Mid_PawnPassed, x, y),           Q2(End_PawnPassed, x, y) };
-            passedPawnBlocked[f]    = { Q2(Mid_PawnPassedBlocked, x, y),    Q2(End_PawnPassedBlocked, x, y) };
-            passedPawnFree[f]       = { Q2(Mid_PawnPassedFree, x, y),       Q2(End_PawnPassedFree, x, y) };
-            passedPawnConnected[f]  = { Q2(Mid_PawnConnectedFree, x, y),    Q2(End_PawnConnectedFree, x, y) };
-            pawnDoubled[f]          = { Q2(Mid_PawnDoubled, x, y),          Q2(End_PawnDoubled, x, y) };
-            pawnIsolated[f]         = { Q2(Mid_PawnIsolated, x, y),         Q2(End_PawnIsolated, x, y) };
-            pawnDoubledIsolated[f]  = { Q2(Mid_PawnDoubledIsolated, x, y),  Q2(End_PawnDoubledIsolated, x, y) };
-            pawnBlocked[f]          = { Q2(Mid_PawnBlocked, x, y),          Q2(End_PawnBlocked, x, y) };
-            pawnFence[f]            = { Q2(Mid_PawnFence, x, y),            Q2(End_PawnFence, x, y) };
+            PSQ[PW][f] = { Q2(Mid_Pawn, x, y) + VAL_P,         Q2(End_Pawn, x, y) + VAL_P };
+            passedPawn[f] = { Q2(Mid_PawnPassed, x, y),           Q2(End_PawnPassed, x, y) };
+            passedPawnBlocked[f] = { Q2(Mid_PawnPassedBlocked, x, y),    Q2(End_PawnPassedBlocked, x, y) };
+            passedPawnFree[f] = { Q2(Mid_PawnPassedFree, x, y),       Q2(End_PawnPassedFree, x, y) };
+            passedPawnConnected[f] = { Q2(Mid_PawnConnectedFree, x, y),    Q2(End_PawnConnectedFree, x, y) };
+            pawnDoubled[f] = { Q2(Mid_PawnDoubled, x, y),          Q2(End_PawnDoubled, x, y) };
+            pawnIsolated[f] = { Q2(Mid_PawnIsolated, x, y),         Q2(End_PawnIsolated, x, y) };
+            pawnDoubledIsolated[f] = { Q2(Mid_PawnDoubledIsolated, x, y),  Q2(End_PawnDoubledIsolated, x, y) };
+            pawnBlocked[f] = { Q2(Mid_PawnBlocked, x, y),          Q2(End_PawnBlocked, x, y) };
+            pawnFence[f] = { Q2(Mid_PawnFence, x, y),            Q2(End_PawnFence, x, y) };
         }
         else
         {
-            PSQ[PW][f]              = VAL_P;
-            passedPawn[f]           = 0;
-            passedPawnBlocked[f]    = 0;
-            passedPawnFree[f]       = 0;
-            passedPawnConnected[f]  = 0;
-            pawnDoubled[f]          = 0;
-            pawnIsolated[f]         = 0;
-            pawnDoubledIsolated[f]  = 0;
-            pawnBlocked[f]          = 0;
-            pawnFence[f]            = 0;
+            PSQ[PW][f] = VAL_P;
+            passedPawn[f] = 0;
+            passedPawnBlocked[f] = 0;
+            passedPawnFree[f] = 0;
+            passedPawnConnected[f] = 0;
+            pawnDoubled[f] = 0;
+            pawnIsolated[f] = 0;
+            pawnDoubledIsolated[f] = 0;
+            pawnBlocked[f] = 0;
+            pawnFence[f] = 0;
         }
 
         PSQ[NW][f] = { VAL_N + Q2(Mid_Knight, x, y),    VAL_N + Q2(End_Knight, x, y) };
@@ -836,26 +836,26 @@ void Evaluator::initEval(const vector<int> & x)
         PSQ[QB][FLIP[BLACK][f]] = -PSQ[QW][f];
         PSQ[KB][FLIP[BLACK][f]] = -PSQ[KW][f];
 
-        knightStrong[f]     = { Q2(Mid_KnightStrong, x, y),     Q2(End_KnightStrong, x, y) };
-        knightForepost[f]   = { Q2(Mid_KnightForpost, x, y),    Q2(End_KnightForpost, x, y) };
-        bishopStrong[f]     = { Q2(Mid_BishopStrong, x, y),     Q2(End_BishopStrong, x, y) };
+        knightStrong[f] = { Q2(Mid_KnightStrong, x, y),     Q2(End_KnightStrong, x, y) };
+        knightForepost[f] = { Q2(Mid_KnightForpost, x, y),    Q2(End_KnightForpost, x, y) };
+        bishopStrong[f] = { Q2(Mid_BishopStrong, x, y),     Q2(End_BishopStrong, x, y) };
     }
 
-    bishopMobility[0]   = 0;
-    rookMobility[0]     = 0;
-    rookMobility[1]     = 0;
+    bishopMobility[0] = 0;
+    rookMobility[0] = 0;
+    rookMobility[1] = 0;
 
     for (int m = 0; m < 13; ++m)
     {
         double z = (m - 6.5) / 6.5;
 
-        bishopMobility[m + 1]   = { Q1(Mid_BishopMobility, z),  Q1(End_BishopMobility, z) };
-        rookMobility[m + 2]     = { Q1(Mid_RookMobility, z),    Q1(End_RookMobility, z) };
+        bishopMobility[m + 1] = { Q1(Mid_BishopMobility, z),  Q1(End_BishopMobility, z) };
+        rookMobility[m + 2] = { Q1(Mid_RookMobility, z),    Q1(End_RookMobility, z) };
     }
 
-    rookOnOpenFile  = { (P(Mid_RookOpen, 0),    P(End_RookOpen, 0)) };
-    rookOn7thRank   = { (P(Mid_Rook7th, 0),     P(End_Rook7th, 0)) };
-    queenOn7thRank  = { (P(Mid_Queen7th, 0),    P(End_Queen7th, 0)) };
+    rookOnOpenFile = { (P(Mid_RookOpen, 0),    P(End_RookOpen, 0)) };
+    rookOn7thRank = { (P(Mid_Rook7th, 0),     P(End_Rook7th, 0)) };
+    queenOn7thRank = { (P(Mid_Queen7th, 0),    P(End_Queen7th, 0)) };
 
     queenKingDistance[0] = 0;
     queenKingDistance[1] = 0;
@@ -864,10 +864,10 @@ void Evaluator::initEval(const vector<int> & x)
     {
         double z = (d - 3.5) / 3.5;
 
-        queenKingDistance[d + 2]    = { Q1(Mid_QueenKingDist, z),   Q1(End_QueenKingDist, z) };
-        knightKingDistance[d + 2]   = { Q1(Mid_KnightKingDist, z),  Q1(End_KnightKingDist, z) };
-        bishopKingDistance[d + 2]   = { Q1(Mid_BishopKingDist, z),  Q1(End_BishopKingDist, z) };
-        rookKingDistance[d + 2]     = { Q1(Mid_RookKingDist, z),    Q1(End_RookKingDist, z) };
+        queenKingDistance[d + 2] = { Q1(Mid_QueenKingDist, z),   Q1(End_QueenKingDist, z) };
+        knightKingDistance[d + 2] = { Q1(Mid_KnightKingDist, z),  Q1(End_KnightKingDist, z) };
+        bishopKingDistance[d + 2] = { Q1(Mid_BishopKingDist, z),  Q1(End_BishopKingDist, z) };
+        rookKingDistance[d + 2] = { Q1(Mid_RookKingDist, z),    Q1(End_RookKingDist, z) };
     }
 
     for (int d = 0; d < 10; ++d)
@@ -879,20 +879,20 @@ void Evaluator::initEval(const vector<int> & x)
     for (int p = 0; p < 10; ++p)
     {
         double z = (p - 4.5) / 4.5;
-        kingPawnShield[p]   = { Q1(Mid_KingPawnShield, z),  Q1(End_KingPawnShield, z) };
-        kingPawnStorm[p]    = { Q1(Mid_KingPawnStorm, z),   Q1(End_KingPawnStorm, z) };
+        kingPawnShield[p] = { Q1(Mid_KingPawnShield, z),  Q1(End_KingPawnShield, z) };
+        kingPawnStorm[p] = { Q1(Mid_KingPawnStorm, z),   Q1(End_KingPawnStorm, z) };
     }
 
-    strongAttack    = { (P(Mid_AttackStronger, 0),  P(End_AttackStronger, 0)) };
-    centerAttack    = { (P(Mid_AttackCenter, 0),    P(End_AttackCenter, 0)) };
-    tempoAttack     = { (P(Mid_Tempo, 0),           P(End_Tempo, 0)) };
-    rooksConnected  = { (P(Mid_ConnectedRooks, 0),  P(End_ConnectedRooks, 0)) };
-    bishopsPair     = { (P(Mid_BishopsPair, 0),     P(End_BishopsPair, 0)) };
-    rooksPair       = { (P(Mid_RooksPair, 0),       P(End_RooksPair, 0)) };
-    knightsPair     = { (P(Mid_KnightsPair, 0),     P(End_KnightsPair, 0)) };
-    pawnOnBiColor   = { (P(Mid_PawnOnBiColor, 0),   P(End_PawnOnBiColor, 0)) };
-    knightAndQueen  = { (P(Mid_KnightAndQueen, 0),  P(End_KnightAndQueen, 0)) };
-    bishopAndRook   = { (P(Mid_BishopAndRook, 0),   P(End_BishopAndRook, 0)) };
+    strongAttack = { (P(Mid_AttackStronger, 0),  P(End_AttackStronger, 0)) };
+    centerAttack = { (P(Mid_AttackCenter, 0),    P(End_AttackCenter, 0)) };
+    tempoAttack = { (P(Mid_Tempo, 0),           P(End_Tempo, 0)) };
+    rooksConnected = { (P(Mid_ConnectedRooks, 0),  P(End_ConnectedRooks, 0)) };
+    bishopsPair = { (P(Mid_BishopsPair, 0),     P(End_BishopsPair, 0)) };
+    rooksPair = { (P(Mid_RooksPair, 0),       P(End_RooksPair, 0)) };
+    knightsPair = { (P(Mid_KnightsPair, 0),     P(End_KnightsPair, 0)) };
+    pawnOnBiColor = { (P(Mid_PawnOnBiColor, 0),   P(End_PawnOnBiColor, 0)) };
+    knightAndQueen = { (P(Mid_KnightAndQueen, 0),  P(End_KnightAndQueen, 0)) };
+    bishopAndRook = { (P(Mid_BishopAndRook, 0),   P(End_BishopAndRook, 0)) };
 
     for (int exposed = 0; exposed < 28; ++exposed)
     {
@@ -1021,4 +1021,3 @@ void PawnHashEntry::Read(const Position& pos)
         m_strongFields[WHITE] &= ~y;
     }
 }
-

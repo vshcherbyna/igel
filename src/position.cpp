@@ -22,6 +22,8 @@
 #include "position.h"
 #include "utils.h"
 
+#include <memory>
+
 extern Pair PSQ[14][64];
 
 const Move MOVE_O_O[2]   = { Move(E1, G1, KW), Move(E8, G8, KB) };
@@ -457,10 +459,11 @@ bool Position::SetFEN(const string& fen)
 {
     m_initialPosition = (fen == STD_POSITION);
 
-    if (fen.length() < 5)
+    if (fen.length() < 5) {
+        std::cout << "Invalid fen " << fen << endl;
         return false;
+    }
 
-    Position tmp = *this;
     Clear();
 
     vector<string> tokens;
@@ -580,7 +583,8 @@ FINAL_CHECK:
 
 ILLEGAL_FEN:
 
-    *this = tmp;
+    //*this = *tmp.get();
+    std::cout << "Invalid fen " << fen << endl;
     return false;
 }
 
