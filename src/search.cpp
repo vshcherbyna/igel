@@ -494,6 +494,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     auto mvSize = mvlist.Size();
     std::vector<Move> quietMoves;
     auto improving = ply >= 2 && staticEval > m_evalStack[ply - 2];
+    m_killerMoves[ply + 1][0] = m_killerMoves[ply + 1][1] = 0;
 
     for (size_t i = 0; i < mvSize; ++i) {
         Move mv = MoveEval::getNextBest(mvlist, i);
@@ -533,12 +534,11 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
                 int reduction = 0;
 
-                if (!improving && !lateEndgame && !onPV && quietMove && depth >= 3 && !extended && !m_position.InCheck() && !inCheck) {
+                if (!improving && !lateEndgame && !onPV && quietMove && depth >= 3 && !extended && !inCheck && !m_position.InCheck() && !MoveEval::isSpecialMove(mv, this)) {
                     reduction = m_logLMRTable[std::min(depth, 63)][std::min(legalMoves, 63)];
 
-                    /*reduction += !improving;*/
-                    reduction -= mv == m_killerMoves[ply][0]
-                        || mv == m_killerMoves[ply][1];
+                    reduction -=    mv == m_killerMoves[ply][0]
+                              ||    mv == m_killerMoves[ply][1];
 
                     reduction -= std::max(-2, std::min(2, (history.history + history.cmhistory + history.fmhistory) / 5000));
 
@@ -754,11 +754,7 @@ int Search::extensionRequired(Move mv, Move lastMove, bool inCheck, int ply, boo
         return 1;
     else if (ply < 2 * m_depth)
     {
-        if (mv.Piece() == PW && Row(mv.To()) == 1)
-            return 1;
-        else if (mv.Piece() == PB && Row(mv.To()) == 6)
-            return 1;
-        else if (onPV && lastMove && mv.To() == lastMove.To() && lastMove.Captured())
+        if (onPV && lastMove && mv.To() == lastMove.To() && lastMove.Captured())
             return 1;
     }
     return 0;
