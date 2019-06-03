@@ -534,7 +534,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
                 int reduction = 0;
 
-                if (!improving && !lateEndgame && !onPV && quietMove && depth >= 3 && !extended && !inCheck && !m_position.InCheck() && !MoveEval::isSpecialMove(mv, this)) {
+                if (!rootNode && !improving && !lateEndgame && !onPV && quietMove && !extended && !inCheck && !m_position.InCheck() && !MoveEval::isSpecialMove(mv, this)) {
                     reduction = m_logLMRTable[std::min(depth, 63)][std::min(legalMoves, 63)];
 
                     reduction -=    mv == m_killerMoves[ply][0]
