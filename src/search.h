@@ -125,6 +125,16 @@ private:
     Move m_best;
     bool m_smpThreadExit;
     bool m_terminateSmp;
+    static constexpr int m_lmpDepth = 8;
+    static constexpr int m_lmpPruningTable[2][9] =
+    {
+        {  0,  3,  4,  6, 10, 14, 19, 25, 31 },
+        {  0,  5,  7, 11, 17, 26, 36, 48, 63 },
+    };
+    static constexpr int m_cmpDepth[]        = { 3, 2 };
+    static constexpr int m_cmpHistoryLimit[] = { 0, -1000 };
+    static constexpr int m_fmpDepth[]        = { 3, 2 };
+    static constexpr int m_fmpHistoryLimit[] = { -2000, -4000 };
 };
 
 #endif

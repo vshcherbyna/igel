@@ -495,20 +495,44 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
     std::vector<Move> quietMoves;
     auto improving = ply >= 2 && staticEval > m_evalStack[ply - 2];
     m_killerMoves[ply + 1][0] = m_killerMoves[ply + 1][1] = 0;
+    auto quietsTried = 0;
+    auto skipQuiets = false;
 
     for (size_t i = 0; i < mvSize; ++i) {
+
         Move mv = MoveEval::getNextBest(mvlist, i);
+        auto quietMove = !MoveEval::isTacticalMove(mv);
+
+        if (quietMove)
+        {
+            ++quietsTried;
+
+            if (skipQuiets)
+                continue;
+        }
+
+        History::HistoryHeuristics history{};
+        History::fetchHistory(this, mv, ply, history);
+
+        if (quietMove && bestMove) {
+
+            if (depth <= m_lmpDepth && quietsTried >= m_lmpPruningTable[improving][depth])
+                skipQuiets = true;
+
+            if (depth <= m_cmpDepth[improving] && history.cmhistory < m_cmpHistoryLimit[improving])
+                continue;
+
+            if (depth <= m_fmpDepth[improving] && history.fmhistory < m_fmpHistoryLimit[improving])
+                continue;
+        }
+
         if (m_position.MakeMove(mv))
         {
             ++m_nodes;
             ++legalMoves;
 
-            auto quietMove = !MoveEval::isTacticalMove(mv);
-            History::HistoryHeuristics history{};
-
             if (quietMove) {
                 quietMoves.emplace_back(mv);
-                History::fetchHistory(this, mv, ply, history);
             }
 
             m_moveStack[ply] = mv;

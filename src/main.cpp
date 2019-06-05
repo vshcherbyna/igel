@@ -47,7 +47,7 @@
 #endif
 
 const string PROGRAM_NAME   = "Igel";
-const string VERSION        = "1.7.1";
+const string VERSION        = "1.7.2";
 
 const int MIN_HASH_SIZE     = 1;
 const int MAX_HASH_SIZE     = 131072;
