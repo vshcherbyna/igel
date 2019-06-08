@@ -220,12 +220,12 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
 
             EVAL e;
             if (legalMoves == 1)
-                e = -abSearch(-beta, -alpha, newDepth, ply + 1, false);
+                e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, true);
             else
             {
-                e = -abSearch(-alpha - 1, -alpha, newDepth, ply + 1, false);
+                e = -abSearch(-alpha - 1, -alpha, newDepth, ply + 1, false, true);
                 if (e > alpha && e < beta)
-                    e = -abSearch(-beta, -alpha, newDepth, ply + 1, false);
+                    e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, true);
             }
             m_position.UnmakeMove();
 
@@ -263,7 +263,7 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
     return alpha;
 }
 
-EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
+EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves)
 {
     if (ply > MAX_PLY - 2)
         return Evaluator::evaluate(m_position);
@@ -390,81 +390,79 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
             return rAlpha;
     }
 
-    //
-    //   futility
-    //
-
     EVAL staticEval = m_evalStack[ply] = Evaluator::evaluate(m_position);
 
-    bool nonPawnMaterial = m_position.NonPawnMaterial();
-    static const EVAL MARGIN[4] = { 0, 50, 350, 550 };
+    if (pruneMoves) {
 
-    if (nonPawnMaterial && !onPV && !inCheck && depth >= 1 && depth <= 3) {
-        if (staticEval <= alpha - MARGIN[depth])
+        //
+        //   futility
+        //
+
+        bool nonPawnMaterial = m_position.NonPawnMaterial();
+        static const EVAL MARGIN[4] = { 0, 50, 350, 550 };
+
+        if (nonPawnMaterial && !onPV && !inCheck && depth >= 1 && depth <= 3) {
+            if (staticEval <= alpha - MARGIN[depth])
+                return qSearch(alpha, beta, ply);
+            if (staticEval >= beta + MARGIN[depth])
+                return beta;
+        }
+
+        //
+        //   razoring
+        //
+
+        if (!onPV && !inCheck && depth <= 1 && staticEval + 325 < alpha)
             return qSearch(alpha, beta, ply);
-        if (staticEval >= beta + MARGIN[depth])
-            return beta;
-    }
 
-    //
-    //   razoring
-    //
+        //
+        //  static null move pruning
+        //
 
-    if (!onPV && !inCheck && depth <= 1 && staticEval + 325 < alpha)
-        return qSearch(alpha, beta, ply);
+        if (!onPV && !inCheck && depth <= 4 && (abs(beta - 1) > -INFINITY_SCORE + 100) && staticEval - 85 * depth > beta)
+            return staticEval;
 
-    //
-    //  static null move pruning
-    //
+        //
+        //   null move
+        //
 
-    if (!onPV && !inCheck && depth <= 4 && (abs(beta - 1) > -INFINITY_SCORE + 100) && staticEval - 85 * depth > beta)
-        return staticEval;
+        if (!isNull && !onPV && !inCheck && depth >= 2 && nonPawnMaterial && staticEval >= beta) {
+            int R = 4 + depth / 6 + min(3, (staticEval - beta) / 200);
 
-    //
-    //   null move
-    //
+            m_position.MakeNullMove();
+            m_moveStack[ply] = 0;
+            EVAL nullScore = -abSearch(-beta, -beta + 1, depth - R, ply + 1, true, false);
+            m_position.UnmakeNullMove();
 
-    if (!isNull && !onPV && !inCheck && depth >= 2 && nonPawnMaterial && staticEval >= beta) {
-        int R = 4 + depth / 6 + min(3, (staticEval - beta) / 200);
+            if (nullScore >= beta)
+                return beta;
+        }
 
-        m_position.MakeNullMove();
-        m_moveStack[ply] = 0;
-        EVAL nullScore = -abSearch(-beta, -beta + 1, depth - R, ply + 1, true);
-        m_position.UnmakeNullMove();
+        //
+        //  probcut
+        //
 
-        if (nullScore >= beta)
-            return beta;
-    }
+        if (!onPV && depth >= 5) {
+            auto betaCut = beta + 100;
+            MoveList captureMoves;
+            GenCapturesAndPromotions(m_position, captureMoves);
+            auto captureMovesSize = captureMoves.Size();
 
-    //
-    //  probcut
-    //
-    /*
+            for (size_t i = 0; i < captureMovesSize; ++i)
+            {
+                if (MoveEval::SEE(this, captureMoves[i].m_mv) < betaCut - staticEval)
+                    continue;
 
-    // interestingly it does not work out well in Igel
+                if (m_position.MakeMove(captureMoves[i].m_mv)) {
+                    auto score = -abSearch(-betaCut, -betaCut + 1, depth - 4, ply + 1, isNull, true);
+                    m_position.UnmakeMove();
 
-    if (!onPV && depth >= 5) {
-        auto betaCut = beta + 100;
-        MoveList captureMoves;
-        GenCapturesAndPromotions(m_position, captureMoves);
-        auto captureMovesSize = captureMoves.Size();
-
-        for (size_t i = 0; i < captureMovesSize; ++i)
-        {
-            if (SEE(captureMoves[i].m_mv) < betaCut - staticEval)
-                continue;
-
-            if (m_position.MakeMove(captureMoves[i].m_mv)) {
-                auto score = -abSearch(-betaCut, -betaCut + 1, depth - 4, ply + 1, isNull);
-                m_position.UnmakeMove();
-
-                if (score >= betaCut)
-                    return score;
+                    if (score >= betaCut)
+                        return score;
+                }
             }
         }
     }
-
-    */
 
     //
     //   iid
@@ -472,7 +470,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
     if (onPV && hashMove == 0 && depth > 4)
     {
-        abSearch(alpha, beta, depth - 4, ply, isNull);
+        abSearch(alpha, beta, depth - 4, ply, isNull, false);
         if (m_pvSize[ply] > 0)
             hashMove = m_pv[ply][0];
     }
@@ -549,7 +547,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
 
             EVAL e;
             if (legalMoves == 1)
-                e = -abSearch(-beta, -alpha, newDepth, ply + 1, false);
+                e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, true);
             else
             {
                 //
@@ -570,12 +568,12 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull)
                         reduction = 0;
                 }
 
-                e = -abSearch(-alpha - 1, -alpha, newDepth - reduction, ply + 1, false);
+                e = -abSearch(-alpha - 1, -alpha, newDepth - reduction, ply + 1, false, true);
 
                 if (e > alpha && reduction > 0)
-                    e = -abSearch(-alpha - 1, -alpha, newDepth, ply + 1, false);
+                    e = -abSearch(-alpha - 1, -alpha, newDepth, ply + 1, false, true);
                 if (e > alpha && e < beta)
-                    e = -abSearch(-beta, -alpha, newDepth, ply + 1, false);
+                    e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, true);
             }
             m_position.UnmakeMove();
 
