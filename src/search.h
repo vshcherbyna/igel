@@ -65,7 +65,6 @@ public:
 private:
     void startWorkerThreads(Time time);
     void stopWorkerThreads();
-    Move hashTableRootSearch();
     void LazySmpSearcher();
     Move tableBaseRootSearch();
     EVAL searchRoot(EVAL alpha, EVAL beta, int depth);
@@ -73,10 +72,8 @@ private:
     EVAL qSearch(EVAL alpha, EVAL beta, int ply);
     int extensionRequired(Move mv, Move lastMove, bool inCheck, int ply, bool onPV, size_t quietMoves, int cmhistory, int fmhistory);
     bool ProbeHash(TEntry & hentry);
-    bool HaveSingleMove(Position& pos, Move & bestMove);
-    bool IsGameOver(Position& pos, string& result, string& comment);
+    bool isGameOver(Position & pos, string & result, string & comment, Move & bestMove, int & legalMoves);
     void PrintPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, const string& sign);
-    Move FirstLegalMove(Position& pos);
 
     void ProcessInput(const string& s);
     bool CheckLimits(bool onPv, int depth, EVAL score);
