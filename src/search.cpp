@@ -270,7 +270,7 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
     return alpha;
 }
 
-EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves)
+EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves/*, Move skipMove = 0*/)
 {
     if (ply > MAX_PLY - 2)
         return Evaluator::evaluate(m_position);
@@ -529,6 +529,21 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                 continue;
         }
 
+        int newDepth = depth - 1;
+
+        /*
+        //
+        //  singular extensions
+        //
+
+        if (depth >= 8 && !skipMove && hashMove == mv && !rootNode && bestMove && hEntry.type() == HASH_BETA && hEntry.depth() >= depth - 3) {
+            auto betaCut = hEntry.score() - depth;
+            auto score = abSearch(betaCut - 1, betaCut, depth / 2, ply + 1, true, mv);
+            if (score < betaCut)
+                newDepth++;
+        }
+        */
+
         if (m_position.MakeMove(mv))
         {
             ++m_nodes;
@@ -540,8 +555,6 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
             m_moveStack[ply] = mv;
             m_pieceStack[ply] = mv.Piece();
-
-            int newDepth = depth - 1;
 
             //
             //   extensions

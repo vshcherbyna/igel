@@ -3,6 +3,16 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 1.7.0
+-------------
+17-Jun-2019
+- Avoid LMR for moves that make pawn pushes to 5th and 6th ranks
+- Apply LMR at shallow depths
+- Implement counter move, follow up move and history move pruning 
+- Implement probcut
+- Avoid prunning in IID path
+- Enable LMR during endgames
+
 Igel 1.6.0
 -------------
 26-May-2019

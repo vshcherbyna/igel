@@ -68,7 +68,7 @@ private:
     void LazySmpSearcher();
     Move tableBaseRootSearch();
     EVAL searchRoot(EVAL alpha, EVAL beta, int depth);
-    EVAL abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves);
+    EVAL abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves/*, Move skipMove = 0*/);
     EVAL qSearch(EVAL alpha, EVAL beta, int ply);
     int extensionRequired(Move mv, Move lastMove, bool inCheck, int ply, bool onPV, size_t quietMoves, int cmhistory, int fmhistory);
     bool ProbeHash(TEntry & hentry);
