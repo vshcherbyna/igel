@@ -33,6 +33,13 @@ const U8 HASH_ALPHA = 0;
 const U8 HASH_EXACT = 1;
 const U8 HASH_BETA = 2;
 
+/*static */constexpr int Search::m_lmpDepth;
+/*static */constexpr int Search::m_lmpPruningTable[2][9];
+/*static */constexpr int Search::m_cmpDepth[2];
+/*static */constexpr int Search::m_cmpHistoryLimit[2];
+/*static */constexpr int Search::m_fmpDepth[2];
+/*static */constexpr int Search::m_fmpHistoryLimit[2];
+
 Search::Search() :
     m_nodes(0),
     m_tbHits(0),
@@ -487,7 +494,6 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
     MoveEval::sortMoves(this, mvlist, hashMove, ply);
 
-    COLOR side = m_position.Side();
     auto mvSize = mvlist.Size();
     std::vector<Move> quietMoves;
     auto improving = ply >= 2 && staticEval > m_evalStack[ply - 2];
@@ -783,15 +789,6 @@ int Search::extensionRequired(Move mv, Move lastMove, bool inCheck, int ply, boo
 
 bool Search::isGameOver(Position & pos, string & result, string & comment, Move & bestMove, int & legalMoves)
 {
-    if (pos.Count(PW) == 0 && pos.Count(PB) == 0) {
-        if (pos.MatIndex(WHITE) < 5 && pos.MatIndex(BLACK) < 5)
-        {
-            result = "1/2-1/2";
-            comment = "{Insufficient material}";
-            return true;
-        }
-    }
-
     MoveList mvlist;
     GenAllMoves(pos, mvlist);
     legalMoves = 0;
@@ -804,10 +801,20 @@ bool Search::isGameOver(Position & pos, string & result, string & comment, Move 
         if (pos.MakeMove(mv)) {
             ++legalMoves;
             lastLegal = mv;
+            bestMove  = lastLegal;
             pos.UnmakeMove();
 
             if (legalMoves > 1)
                 break;
+        }
+    }
+
+    if (pos.Count(PW) == 0 && pos.Count(PB) == 0) {
+        if (pos.MatIndex(WHITE) < 5 && pos.MatIndex(BLACK) < 5)
+        {
+            result = "1/2-1/2";
+            comment = "{Insufficient material}";
+            return true;
         }
     }
 
