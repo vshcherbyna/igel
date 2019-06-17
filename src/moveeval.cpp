@@ -27,6 +27,27 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
     return (mv.Captured() || mv.Promotion());
 }
 
+/*static*/ bool MoveEval::isSpecialMove(const Move & mv, Search * pSearch)
+{
+    PIECE piece = mv.Piece();
+
+    //
+    // non pawn moves are no special
+    //
+
+    if (!(piece == PB || piece == PW))
+        return false;
+
+    //
+    //  check pawn move rank, and if it is 5th or 6th treat it as a special move
+    //
+
+    int row = Row(mv.To());
+    auto passerPush = piece == PB ? (row == 5 || row == 6) : (row == 1 || row == 2);
+
+    return passerPush;
+}
+
 /*static */void MoveEval::sortMoves(Search * pSearch, MoveList & mvlist, Move hashMove, int ply)
 {
     auto counterMove = ply >= 1 ? pSearch->m_moveStack[ply - 1] : Move{};

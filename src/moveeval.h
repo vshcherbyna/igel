@@ -30,6 +30,7 @@ class MoveEval
 
 public:
     static bool isTacticalMove(const Move & mv);
+    static bool isSpecialMove(const Move & mv, Search * pSearch);
     static bool isGoodCapture(const Move & mv);
     static void sortMoves(Search * pSearch, MoveList & mvlist, Move hashMove, int ply);
     static Move getNextBest(MoveList & mvlist, size_t i);

@@ -65,18 +65,15 @@ public:
 private:
     void startWorkerThreads(Time time);
     void stopWorkerThreads();
-    Move hashTableRootSearch();
     void LazySmpSearcher();
     Move tableBaseRootSearch();
     EVAL searchRoot(EVAL alpha, EVAL beta, int depth);
-    EVAL abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull);
+    EVAL abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves/*, Move skipMove = 0*/);
     EVAL qSearch(EVAL alpha, EVAL beta, int ply);
     int extensionRequired(Move mv, Move lastMove, bool inCheck, int ply, bool onPV, size_t quietMoves, int cmhistory, int fmhistory);
     bool ProbeHash(TEntry & hentry);
-    bool HaveSingleMove(Position& pos, Move & bestMove);
-    bool IsGameOver(Position& pos, string& result, string& comment);
+    bool isGameOver(Position & pos, string & result, string & comment, Move & bestMove, int & legalMoves);
     void PrintPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, const string& sign);
-    Move FirstLegalMove(Position& pos);
 
     void ProcessInput(const string& s);
     bool CheckLimits(bool onPv, int depth, EVAL score);
@@ -125,6 +122,16 @@ private:
     Move m_best;
     bool m_smpThreadExit;
     bool m_terminateSmp;
+    static constexpr int m_lmpDepth = 8;
+    static constexpr int m_lmpPruningTable[2][9] =
+    {
+        {  0,  3,  4,  6, 10, 14, 19, 25, 31 },
+        {  0,  5,  7, 11, 17, 26, 36, 48, 63 },
+    };
+    static constexpr int m_cmpDepth[]        = { 3, 2 };
+    static constexpr int m_cmpHistoryLimit[] = { 0, -1000 };
+    static constexpr int m_fmpDepth[]        = { 3, 2 };
+    static constexpr int m_fmpHistoryLimit[] = { -2000, -4000 };
 };
 
 #endif

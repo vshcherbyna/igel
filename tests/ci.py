@@ -22,7 +22,6 @@
 import os
 import platform
 import mate_in_n
-import king_safety
 
 if platform.system() == 'Windows':
     if os.system('..\\unit.exe') != 0:
@@ -36,4 +35,4 @@ else:
 #
 
 mate_in_n.fnc_mate_in_n(1)
-king_safety.fnc_king_safety(1)
+mate_in_n.fnc_mate_in_n(2)
