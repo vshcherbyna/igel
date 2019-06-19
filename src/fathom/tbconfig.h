@@ -92,6 +92,10 @@
  */
 /* #define TB_NO_HW_POP_COUNT */
 
+#if !defined (_BTYPE)
+#define TB_NO_HW_POP_COUNT
+#endif
+
 /**
  * Define TB_USE_ATOMIC to use C++ 11 (or higher) <atomic> feature 
  * (recommended if using C++ and compiler supports it).
