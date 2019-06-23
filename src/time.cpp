@@ -184,12 +184,17 @@ bool Time::evaluate()
 
 bool Time::adjust(bool onPv, int depth, EVAL score)
 {
+    if (abs(score) >= INFINITY_SCORE)
+        return false;
+
     //
-    //  Do not bother with too shallow depth
+    //  Do not bother with shallow depth
     //
 
-    if (depth < 5)
+    if (depth < 5) {
+        m_prevScore = score;
         return false;
+    }
 
     //
     //  We are back on track and pv is obtained
@@ -197,49 +202,44 @@ bool Time::adjust(bool onPv, int depth, EVAL score)
 
     if (onPv && !m_onPv) {
         m_onPv = true;
-        //m_score = score;
-        return false;
     }
 
-    //
-    //  We just lost the pv, request more time
-    //
+    ////
+    ////  We just lost the pv, request more time
+    ////
 
-    if (m_onPv && !onPv) {
-        m_onPv = onPv;
-        //m_score = score;
-        auto newTime = (m_softLimit + (m_softLimit / 250));
-        if (newTime < m_hardLimit) {
-            m_softLimit = newTime;
-            return true;
-        }
-    }
+    //if (m_onPv && !onPv) {
+    //    m_onPv = onPv;
+    //    m_prevScore = score;
+    //    auto newTime = (m_softLimit + (m_softLimit / 250));
+    //    if (newTime < m_hardLimit) {
+    //        m_softLimit = newTime;
+    //        return true;
+    //    }
+    //}
 
-    /*
     //
     //  Score is dropping, request more time
     //
 
-    if (m_score > (score - 25)) {
-        m_score = score;
+    double delta = score - m_prevScore;
 
-        auto newTime = (m_softLimit + (m_softLimit / 100));
-        if (newTime < m_hardLimit) {
-            m_softLimit = newTime;
-            return true;
-        }
+    if (delta < -50) {
+        double factor = abs(500 / delta);
+        m_prevScore = score;
+
+        auto newTime = (m_softLimit + (m_softLimit / factor));
+        m_softLimit = std::min(static_cast<int>(newTime), static_cast<int>(m_hardLimit));
+        return true;
     }
 
-    m_score = score;
-    */
-
+    m_prevScore = score;
     return false;
 }
-
 void Time::resetAdjustment()
 {
     m_onPv  = false;
-    m_score = -INFINITY_SCORE;
+    m_prevScore = -INFINITY_SCORE;
 }
 
 U32 Time::getSoftLimit()
@@ -274,6 +274,13 @@ Time::TimeControl Time::getTimeMode()
         return TimeControl::NodesLimit;
 
     return TimeControl::TimeLimit;
+}
+
+void Time::setPonderMode(bool ponder)
+{
+    m_infinite  = ponder;
+    m_depth     = 0;
+    m_nodes     = 0;
 }
 
 U32 Time::getEnemyLowTimeBonus()

@@ -28,6 +28,7 @@
 #include "moveeval.h"
 
 #include <algorithm>
+#include <chrono>
 
 const U8 HASH_ALPHA = 0;
 const U8 HASH_EXACT = 1;
@@ -40,6 +41,8 @@ const U8 HASH_BETA = 2;
 /*static */constexpr int Search::m_fmpDepth[2];
 /*static */constexpr int Search::m_fmpHistoryLimit[2];
 
+extern FILE * g_log;
+
 Search::Search() :
     m_nodes(0),
     m_tbHits(0),
@@ -50,6 +53,7 @@ Search::Search() :
     m_selDepth(0),
     m_iterPVSize(0),
     m_principalSearcher(false),
+    m_ponderHit(false),
     m_thc(0),
     m_threads(nullptr),
     m_threadParams(nullptr),
@@ -58,7 +62,8 @@ Search::Search() :
     m_lazyBeta(INFINITY_SCORE),
     m_bestSmpEval(0),
     m_smpThreadExit(false),
-    m_terminateSmp(false)
+    m_terminateSmp(false),
+    m_lazyPonder(false)
 {
     for (int depth = 1; depth < 64; depth++)
         for (int moves = 1; moves < 64; moves++)
@@ -70,7 +75,7 @@ Search::~Search()
     releaseHelperThreads();
 }
 
-bool Search::CheckLimits(bool onPv, int depth, EVAL score)
+bool Search::checkLimits()
 {
     if (m_flags & SEARCH_TERMINATED)
         return true;
@@ -92,60 +97,19 @@ bool Search::CheckLimits(bool onPv, int depth, EVAL score)
 
     if (m_flags & MODE_PLAY)
     {
-        //m_time.adjust(onPv, depth, score);
         if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getHardLimit())
         {
             m_flags |= TERMINATED_BY_LIMIT;
 
-            stringstream ss;
-            ss << "Search stopped by stHard, dt = " << dt;
-            Log(ss.str());
+            if (g_log) {
+                stringstream ss;
+                ss << "Search stopped by stHard, dt = " << dt;
+                Log(ss.str());
+            }
         }
     }
 
     return (m_flags & SEARCH_TERMINATED);
-}
-
-void Search::ProcessInput(const string& s)
-{
-    vector<string> tokens;
-    Split(s, tokens);
-    if (tokens.empty())
-        return;
-
-    string cmd = tokens[0];
-
-    if (m_flags & MODE_PLAY)
-    {
-        if (cmd == "?")
-            m_flags |= TERMINATED_BY_USER;
-        else if (Is(cmd, "result", 1))
-        {
-            //m_iterPVSize = 0;
-            m_flags |= TERMINATED_BY_USER;
-        }
-    }
-
-    if (Is(cmd, "exit", 1))
-        m_flags |= TERMINATED_BY_USER;
-    else if (Is(cmd, "quit", 1))
-        exit(0);
-    else if (Is(cmd, "stop", 1))
-    {
-        for (unsigned int i = 0; i < m_thc; ++i)
-            m_threadParams[i].m_flags |= TERMINATED_BY_USER;
-        m_flags |= TERMINATED_BY_USER;
-    }
-}
-
-void Search::CheckInput()
-{
-    if (InputAvailable())
-    {
-        string s;
-        getline(cin, s);
-        ProcessInput(s);
-    }
 }
 
 void Search::setPosition(Position & pos)
@@ -163,8 +127,8 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
     int legalMoves = 0;
     Move bestMove = 0;
     U8 type = HASH_ALPHA;
-    bool inCheck = m_position.InCheck();
-    bool onPV = (beta - alpha > 1);
+    auto inCheck = m_position.InCheck();
+    auto rootNode = depth == 0;
 
     if (m_pv[0][0])
         hashMove = m_pv[0][0];
@@ -191,17 +155,18 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
 
     std::vector<Move> quietMoves;
 
-    for (size_t i = 0; i < mvSize; ++i)
-    {
-        if (m_principalSearcher)
-            CheckInput();
+    for (size_t i = 0; i < mvSize; ++i) {
 
-        if (CheckLimits(onPV, depth, alpha))
+        if (!rootNode && checkLimits()) {
             break;
+        }
+
+        auto onPV = (beta - alpha) > 1;
+        m_time.adjust(onPV, depth, alpha);
 
         Move mv = MoveEval::getNextBest(mvlist, i);
-        if (m_position.MakeMove(mv))
-        {
+
+        if (m_position.MakeMove(mv)) {
             History::HistoryHeuristics history{};
 
             if (!MoveEval::isTacticalMove(mv)) {
@@ -234,10 +199,14 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
                 if (e > alpha && e < beta)
                     e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, true);
             }
+
             m_position.UnmakeMove();
 
-            if (e > alpha)
-            {
+            if (m_flags & SEARCH_TERMINATED) {
+                break;
+            }
+
+            if (e > alpha) {
                 alpha = e;
                 bestMove = mv;
                 type = HASH_EXACT;
@@ -248,8 +217,7 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
                 History::updateHistory(this, quietMoves, ply, depth * depth);
             }
 
-            if (alpha >= beta)
-            {
+            if (alpha >= beta) {
                 type = HASH_BETA;
                 if (!mv.Captured() && !mv.Promotion())
                     History::setKillerMove(this, mv, ply);
@@ -258,8 +226,7 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
         }
     }
 
-    if (legalMoves == 0)
-    {
+    if (legalMoves == 0) {
         if (inCheck)
             alpha = -CHECKMATE_SCORE + ply;
         else
@@ -272,6 +239,11 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
 
 EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves/*, Move skipMove = 0*/)
 {
+    auto rootNode = ply == 0;
+
+    if (!rootNode && checkLimits())
+        return -INFINITY_SCORE;
+
     if (ply > MAX_PLY - 2)
         return Evaluator::evaluate(m_position);
 
@@ -370,9 +342,6 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         }
     }
 
-    if (CheckLimits(onPV, depth, alpha))
-        return -INFINITY_SCORE;
-
     bool inCheck = m_position.InCheck();
 
     //
@@ -381,8 +350,6 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
     if (!inCheck && depth <= 0)
         return qSearch(alpha, beta, ply);
-
-    auto rootNode = ply == 0;
 
     if (!rootNode) {
 
@@ -596,7 +563,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             m_position.UnmakeMove();
 
             if (m_flags & SEARCH_TERMINATED)
-                break;
+                return -INFINITY_SCORE;
 
             if (e > alpha)
             {
@@ -638,6 +605,9 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
 EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
 {
+    if (checkLimits())
+        return -INFINITY_SCORE;
+
     if (ply > MAX_PLY - 2)
         return Evaluator::evaluate(m_position);
 
@@ -668,7 +638,7 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
     bool inCheck = m_position.InCheck();
 
     EVAL    bestScore,
-        staticScore;
+            staticScore;
 
     if (inCheck)
     {
@@ -693,9 +663,6 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
             alpha = bestScore;
     }
 
-    if (CheckLimits((beta - alpha > 1), ply, alpha))
-        return -INFINITY_SCORE;
-
     MoveList& mvlist = m_lists[ply];
     if (inCheck)
         GenMovesInCheck(m_position, mvlist);
@@ -708,15 +675,13 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
     auto mvSize = mvlist.Size();
     Move bestMove = ttHit ? hEntry.move() : Move{};
 
-    for (size_t i = 0; i < mvSize; ++i)
-    {
+    for (size_t i = 0; i < mvSize; ++i) {
         Move mv = MoveEval::getNextBest(mvlist, i);
 
         if (!inCheck && MoveEval::SEE(this, mv) < 0)
             continue;
 
-        if (m_position.MakeMove(mv))
-        {
+        if (m_position.MakeMove(mv)) {
             ++m_nodes;
             ++legalMoves;
 
@@ -727,10 +692,9 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
             m_position.UnmakeMove();
 
             if (m_flags & SEARCH_TERMINATED)
-                break;
+                return -INFINITY_SCORE;
 
-            if (e > bestScore)
-            {
+            if (e > bestScore) {
                 bestScore = e;
                 if (e > alpha) {
                     alpha = e;
@@ -1017,14 +981,19 @@ void Search::startWorkerThreads(Time time)
     }
 }
 
-void Search::stopWorkerThreads()
+void Search::indicateWorkersStop()
 {
-    volatile int j = 0;
-
     for (unsigned int i = 0; i < m_thc; ++i) {
         m_threadParams[i].m_smpThreadExit = true;
         m_threadParams[i].m_flags |= TERMINATED_BY_LIMIT;
     }
+}
+
+void Search::stopWorkerThreads()
+{
+    indicateWorkersStop();
+
+    volatile int j = 0;
 
 lbl_retry:
     for (unsigned int i = 0; i < m_thc; ++i)
@@ -1036,18 +1005,77 @@ lbl_retry:
             goto lbl_retry;
 }
 
-Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & ponder)
+void Search::waitUntilCompletion()
 {
-    m_time = time;
+    using namespace std::literals::chrono_literals;
+
+    if (m_principalSearcher && (m_flags & MODE_ANALYZE)) {
+        while ((m_flags & SEARCH_TERMINATED) == 0)
+            std::this_thread::sleep_for(20.0ms); // we must wait explicitely for stop command
+    }
+}
+
+void Search::isReady()
+{
+    indicateWorkersStop();
+    m_flags |= TERMINATED_BY_USER;
+    std::unique_lock<std::mutex> lk(m_readyMutex);
+    std::cout << "readyok" << std::endl;
+}
+
+void Search::stopPrincipalSearch()
+{
+    releaseHelperThreads();
+    m_flags |= TERMINATED_BY_USER;
+}
+
+void Search::startPrincipalSearch(Time time, bool ponder)
+{
+    m_principalSearcher = true;
+
+    if (!m_principalThread)
+        m_principalThread.reset(new std::thread(&Search::lazySmpSearcher, this));
+
+    m_lazyMutex.lock();
+    setTime(time);
+    m_lazyAlpha = -INFINITY_SCORE;
+    m_lazyBeta = INFINITY_SCORE;
+    m_lazyDepth = 1;
+    m_lazyPonder = ponder;
+    m_lazyMutex.unlock();
+    m_lazycv.notify_one();
+}
+
+void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponderSearch)
+{
+    std::unique_lock<std::mutex> lk(m_readyMutex);
+
     m_t0 = GetProcTime();
-    m_flags = (m_time.getTimeMode() == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
+    m_time = time;
     m_iterPVSize = 0;
     m_nodes = 0;
     m_selDepth = 0;
     m_tbHits = 0;
+    m_ponderHit = false;
+
+    if (ponderSearch)
+        m_time.setPonderMode(true);
+
+    m_flags = (m_time.getTimeMode() == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
 
     memset(&m_pv, 0, sizeof(m_pv));
     m_time.resetAdjustment();
+
+    Move ponder{};
+
+    auto printBestMove = [](Move m, Move p) {
+        if (m) 
+            cout << "bestmove " << MoveToStrLong(m);
+
+        if (p)
+            cout << " ponder " << MoveToStrLong(p);
+        cout << endl;
+    };
 
     if (m_principalSearcher) {
 
@@ -1058,16 +1086,21 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
         string result, comment;
         int legalMoves = 0;
         if (isGameOver(m_position, result, comment, m_best, legalMoves)) {
+            waitUntilCompletion();
             cout << result << " " << comment << endl << endl;
-            return m_best;
+            printBestMove(m_best, ponder);
+            return;
         }
 
         //
         //  Check if only a single legal move possible at this position
         //
 
-        if (legalMoves == 1)
-            return m_best;
+        if (legalMoves == 1) {
+            waitUntilCompletion();
+            printBestMove(m_best, ponder);
+            return;
+        }
 
         //
         //  Probe tablebases/tt at root
@@ -1075,8 +1108,11 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
 
         m_best = tableBaseRootSearch();
 
-        if (m_best)
-            return m_best;
+        if (m_best) {
+            waitUntilCompletion();
+            printBestMove(m_best, ponder);
+            return;
+        }
     }
 
     //
@@ -1107,7 +1143,16 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
 
         score = searchRoot(alpha, beta, m_depth);
 
-        //m_time.adjust(beta - alpha > 1, m_depth, score);
+        //
+        //  Validate if we received a ponderhit
+        //
+
+        if (ponderSearch && m_ponderHit) {
+            m_time = time;
+            m_flags = (m_time.getTimeMode() == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
+            ponderSearch = false;
+            m_ponderHit = false;
+        }
 
         if (m_flags & SEARCH_TERMINATED)
             break;
@@ -1145,7 +1190,7 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
                 m_best = m_pv[0][0];
                 m_bestSmpEval = score;
 
-                if (m_pv[0][1])
+                if (m_iterPVSize > 1 && m_pv[0][1])
                     ponder = m_pv[0][1];
                 else
                     ponder = 0;
@@ -1158,9 +1203,11 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
             {
                 m_flags |= TERMINATED_BY_LIMIT;
 
-                stringstream ss;
-                ss << "Search stopped by stSoft, dt = " << dt;
-                Log(ss.str());
+                if (g_log) {
+                    stringstream ss;
+                    ss << "Search stopped by stSoft, dt = " << dt;
+                    Log(ss.str());
+                }
 
                 break;
             }
@@ -1189,7 +1236,7 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
                 m_best = m_pv[0][0];
                 m_bestSmpEval = score;
 
-                if (m_pv[0][1])
+                if (m_iterPVSize > 1 && m_pv[0][1])
                     ponder = m_pv[0][1];
                 else
                     ponder = 0;
@@ -1207,16 +1254,18 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
 
         dt = GetProcTime() - m_t0;
 
-        if (m_principalSearcher && (dt > 2000))
+        if (m_principalSearcher && (dt > 5000))
             cout << "info depth " << m_depth << " time " << dt << " nodes " << m_nodes << " nps " << 1000 * m_nodes / dt << endl;
 
         if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getSoftLimit())
         {
             m_flags |= TERMINATED_BY_LIMIT;
 
-            stringstream ss;
-            ss << "Search stopped by stSoft, dt = " << dt;
-            Log(ss.str());
+            if (g_log) {
+                stringstream ss;
+                ss << "Search stopped by stSoft, dt = " << dt;
+                Log(ss.str());
+            }
 
             break;
         }
@@ -1228,16 +1277,6 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
         }
     }
 
-    if (m_flags & MODE_ANALYZE)
-    {
-        while ((m_flags & SEARCH_TERMINATED) == 0)
-        {
-            string s;
-            getline(cin, s);
-            ProcessInput(s);
-        }
-    }
-
     //
     //  Stop worker threads if necessary
     //
@@ -1245,7 +1284,19 @@ Move Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & pon
     if (smpStarted)
         stopWorkerThreads();
 
-    return m_best;
+    //
+    //  In case we are pondering, wait until stop/ponderhit is issued
+    //
+
+    waitUntilCompletion();
+
+    if (m_principalSearcher)
+        printBestMove(m_best, ponder);
+}
+
+void Search::setPonderHit()
+{
+    m_ponderHit = true;
 }
 
 void Search::setSyzygyDepth(int depth)
@@ -1265,14 +1316,15 @@ void Search::setThreadCount(unsigned int threads)
     m_threadParams.reset(new Search[threads]);
 
     for (unsigned int i = 0; i < m_thc; ++i)
-        m_threads[i] = std::thread(&Search::LazySmpSearcher, &m_threadParams[i]);
+        m_threads[i] = std::thread(&Search::lazySmpSearcher, &m_threadParams[i]);
 }
 
-void Search::LazySmpSearcher()
+void Search::lazySmpSearcher()
 {
     while (!m_terminateSmp)
     {
         int alpha, beta;
+        bool ponder;
 
         {
             std::unique_lock<std::mutex> lk(m_lazyMutex);
@@ -1284,9 +1336,9 @@ void Search::LazySmpSearcher()
             alpha = m_lazyAlpha;
             beta = m_lazyBeta;
             m_depth = m_lazyDepth;
+            ponder = m_lazyPonder;
         }
 
-        Move ponder;
         startSearch(m_time, m_depth, alpha, beta, ponder);
         resetLazySmpWork();
     }

@@ -45,6 +45,7 @@ public:
     void resetAdjustment();
     bool parseTime(const std::vector<std::string> & cmdline, bool whiteSide);
     TimeControl getTimeMode();
+    void setPonderMode(bool ponder);
     U32 getSoftLimit();
     U32 getHardLimit();
     U32 getDepthLimit();
@@ -73,7 +74,7 @@ private:
 
 private:
     bool m_onPv;
-    EVAL m_score;
+    EVAL m_prevScore;
     U32  m_movesPlayed;
 };
 
