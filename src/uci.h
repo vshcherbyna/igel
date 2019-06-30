@@ -40,6 +40,7 @@ public:
 
 private:
     void onUci();
+    void onUciNewGame();
     void onIsready();
     void onNewGame();
     void onGo(commandParams params);

@@ -67,9 +67,7 @@ int Uci::handleCommands()
         std::string cmd;
         std::getline(std::cin, cmd);
 
-        if (startsWith(cmd, "uci"))
-            onUci();
-        else if (startsWith(cmd, "go"))
+        if (startsWith(cmd, "go"))
             onGo(split(cmd));
         else if (startsWith(cmd, "position"))
             onPosition(split(cmd));
@@ -83,6 +81,10 @@ int Uci::handleCommands()
             onPonderHit();
         else if (startsWith(cmd, "quit"))
             exit(0);
+        else if (startsWith(cmd, "ucinewgame"))
+            onUciNewGame();
+        else if (startsWith(cmd, "uci"))
+            onUci();
     }
 
     return 0;
@@ -119,6 +121,20 @@ void Uci::onUci()
         " default false" << endl;
 
     std::cout << "uciok" << std::endl;
+}
+
+void Uci::onUciNewGame()
+{
+    m_searcher.m_position.SetInitial();
+
+    TTable::instance().clearHash();
+    TTable::instance().clearAge();
+
+    m_searcher.clearHistory();
+    m_searcher.clearKillers();
+    m_searcher.clearStacks();
+
+    Time::instance().onNewGame();
 }
 
 void Uci::onGo(commandParams params)

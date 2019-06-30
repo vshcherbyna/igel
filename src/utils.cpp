@@ -24,7 +24,6 @@
 extern FILE* g_log;
 
 U64 g_rand64 = 42;
-static int g_pipe = 0;
 
 #ifndef _MSC_VER
 
@@ -141,4 +140,3 @@ string Timestamp()
     sprintf(buf, "%02d:%02d:%02d", now->tm_hour, now->tm_min, now->tm_sec);
     return string(buf);
 }
-

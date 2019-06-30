@@ -991,25 +991,18 @@ void Search::stopWorkerThreads()
 {
     indicateWorkersStop();
 
-    volatile int j = 0;
-
-lbl_retry:
-    for (unsigned int i = 0; i < m_thc; ++i)
-        while (m_threadParams[i].m_lazyDepth)
-            ++j;
-
-    for (unsigned int i = 0; i < m_thc; ++i)
-        if (m_threadParams[i].m_lazyDepth)
-            goto lbl_retry;
+    for (unsigned int i = 0; i < m_thc; ++i) {
+        while (m_threadParams[i].m_lazyDepth) {
+            std::this_thread::sleep_for(chrono::duration<double, milli>(1));
+        }
+    }
 }
 
 void Search::waitUntilCompletion()
 {
-    using namespace std::literals::chrono_literals;
-
     if (m_principalSearcher && (m_flags & MODE_ANALYZE)) {
         while ((m_flags & SEARCH_TERMINATED) == 0)
-            std::this_thread::sleep_for(20.0ms); // we must wait explicitely for stop command
+            std::this_thread::sleep_for(chrono::duration<double, milli>(1)); // we must wait explicitely for stop command
     }
 }
 
@@ -1023,7 +1016,6 @@ void Search::isReady()
 
 void Search::stopPrincipalSearch()
 {
-    releaseHelperThreads();
     m_flags |= TERMINATED_BY_USER;
 }
 
@@ -1067,12 +1059,14 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
     Move ponder{};
 
     auto printBestMove = [](Move m, Move p) {
+
         if (m) 
             cout << "bestmove " << MoveToStrLong(m);
 
         if (p)
             cout << " ponder " << MoveToStrLong(p);
         cout << endl;
+
     };
 
     if (m_principalSearcher) {

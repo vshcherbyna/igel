@@ -905,23 +905,23 @@ void Evaluator::initEval(const vector<int> & x)
     for (int att = 0; att < 4; ++att)
         attackKing[att] = { (P(Mid_AttackKingZone, att), P(End_AttackKingZone, att)) };
 
-#ifdef _DEBUG
-    showPsq("pass pawn", passedPawnFree);
-    showPsq("blocked pass pawn", passedPawnBlocked);
-    showPsq("connected pass pawn", passedPawnConnected);
-    showPsq("doubled pawn", pawnDoubled);
-    showPsq("isolated pawn", pawnIsolated);
-    showPsq("strong knight", knightStrong);
-    showPsq("strong bishop", bishopStrong);
-
-    //  pieces
-    showPsq("pawns", PSQ[PW], VAL_P, VAL_P);
-    showPsq("knights", PSQ[NW], VAL_N, VAL_N);
-    showPsq("bishops", PSQ[BW], VAL_B, VAL_B);
-    showPsq("rooks", PSQ[RW], VAL_R, VAL_R);
-    showPsq("queens", PSQ[QW], VAL_Q, VAL_Q);
-    showPsq("kings", PSQ[KW], VAL_K, VAL_K);
-#endif
+//#ifdef _DEBUG
+//    showPsq("pass pawn", passedPawnFree);
+//    showPsq("blocked pass pawn", passedPawnBlocked);
+//    showPsq("connected pass pawn", passedPawnConnected);
+//    showPsq("doubled pawn", pawnDoubled);
+//    showPsq("isolated pawn", pawnIsolated);
+//    showPsq("strong knight", knightStrong);
+//    showPsq("strong bishop", bishopStrong);
+//
+//    //  pieces
+//    showPsq("pawns", PSQ[PW], VAL_P, VAL_P);
+//    showPsq("knights", PSQ[NW], VAL_N, VAL_N);
+//    showPsq("bishops", PSQ[BW], VAL_B, VAL_B);
+//    showPsq("rooks", PSQ[RW], VAL_R, VAL_R);
+//    showPsq("queens", PSQ[QW], VAL_Q, VAL_Q);
+//    showPsq("kings", PSQ[KW], VAL_K, VAL_K);
+//#endif
 }
 
 void Evaluator::initEval()
