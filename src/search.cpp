@@ -1144,6 +1144,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
             m_flags = (m_time.getTimeMode() == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
             ponderSearch = false;
             m_ponderHit = false;
+            m_t0 = GetProcTime();
         }
 
         if (m_flags & SEARCH_TERMINATED)
