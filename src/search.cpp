@@ -157,12 +157,11 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
 
     for (size_t i = 0; i < mvSize; ++i) {
 
-        if (!rootNode && checkLimits()) {
-            break;
-        }
+        if (!rootNode && checkLimits())
+            return -INFINITY_SCORE;
 
         auto onPV = (beta - alpha) > 1;
-        m_time.adjust(onPV, depth, alpha);
+        //m_time.adjust(onPV, depth, alpha);
 
         Move mv = MoveEval::getNextBest(mvlist, i);
 
@@ -202,9 +201,8 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
 
             m_position.UnmakeMove();
 
-            if (m_flags & SEARCH_TERMINATED) {
-                break;
-            }
+            if (m_flags & SEARCH_TERMINATED)
+                return -INFINITY_SCORE;
 
             if (e > alpha) {
                 alpha = e;

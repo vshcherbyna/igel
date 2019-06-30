@@ -224,7 +224,7 @@ bool Time::adjust(bool onPv, int depth, EVAL score)
 
     double delta = score - m_prevScore;
 
-    if (delta < -50) {
+    if (delta < -25) {
         double factor = abs(500 / delta);
         m_prevScore = score;
 
