@@ -78,6 +78,7 @@ private:
     int extensionRequired(Move mv, Move lastMove, bool inCheck, int ply, bool onPV, size_t quietMoves, int cmhistory, int fmhistory);
     bool ProbeHash(TEntry & hentry);
     bool isGameOver(Position & pos, string & result, string & comment, Move & bestMove, int & legalMoves);
+    Move forceFetchPonder(Position & pos, const Move & bestMove);
     void PrintPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, const string& sign);
 
     void ProcessInput(const string& s);

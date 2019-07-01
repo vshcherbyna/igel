@@ -238,14 +238,13 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
 EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves/*, Move skipMove = 0*/)
 {
     auto rootNode = ply == 0;
+    m_pvSize[ply] = 0;
 
     if (!rootNode && checkLimits())
         return -INFINITY_SCORE;
 
     if (ply > MAX_PLY - 2)
         return Evaluator::evaluate(m_position);
-
-    m_pvSize[ply] = 0;
 
     if (!isNull && m_position.Repetitions() >= 2)
         return DRAW_SCORE;
@@ -603,13 +602,14 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
 EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
 {
+    m_pvSize[ply] = 0;
+
     if (checkLimits())
         return -INFINITY_SCORE;
 
     if (ply > MAX_PLY - 2)
         return Evaluator::evaluate(m_position);
 
-    m_pvSize[ply] = 0;
     m_selDepth = std::max(ply, m_selDepth);
 
     Move hashMove{};
@@ -760,6 +760,32 @@ int Search::extensionRequired(Move mv, Move lastMove, bool inCheck, int ply, boo
             return 1;
     }
     return 0;
+}
+
+Move Search::forceFetchPonder(Position & pos, const Move & bestMove)
+{
+    Move ponder{};
+    auto legalMoves = 0;
+
+    if (pos.MakeMove(bestMove)) {
+        MoveList mvlist{};
+        GenAllMoves(pos, mvlist);
+
+        for (size_t i = 0; i < mvlist.Size(); ++i) {
+            ponder = mvlist[i].m_mv;
+            if (pos.MakeMove(ponder)) {
+                ++legalMoves;
+                pos.UnmakeMove();
+
+                if (legalMoves > 1)
+                    break;
+            }
+        }
+
+        pos.UnmakeMove();
+    }
+
+    return legalMoves ? ponder : Move{};
 }
 
 bool Search::isGameOver(Position & pos, string & result, string & comment, Move & bestMove, int & legalMoves)
@@ -1058,10 +1084,13 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
 
     Move ponder{};
 
-    auto printBestMove = [](Move m, Move p) {
+    auto printBestMove = [](Search * pthis, Position & pos, Move m, Move p) {
 
         if (m) 
             cout << "bestmove " << MoveToStrLong(m);
+
+        if (!p)
+            p = pthis->forceFetchPonder(pos, m);
 
         if (p)
             cout << " ponder " << MoveToStrLong(p);
@@ -1080,7 +1109,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
         if (isGameOver(m_position, result, comment, m_best, legalMoves)) {
             waitUntilCompletion();
             cout << result << " " << comment << endl << endl;
-            printBestMove(m_best, ponder);
+            printBestMove(this, m_position, m_best, ponder);
             return;
         }
 
@@ -1090,7 +1119,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
 
         if (legalMoves == 1) {
             waitUntilCompletion();
-            printBestMove(m_best, ponder);
+            printBestMove(this, m_position, m_best, ponder);
             return;
         }
 
@@ -1102,7 +1131,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
 
         if (m_best) {
             waitUntilCompletion();
-            printBestMove(m_best, ponder);
+            printBestMove(this, m_position, m_best, ponder);
             return;
         }
     }
@@ -1284,7 +1313,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
     waitUntilCompletion();
 
     if (m_principalSearcher)
-        printBestMove(m_best, ponder);
+        printBestMove(this, m_position, m_best, ponder);
 }
 
 void Search::setPonderHit()
