@@ -835,7 +835,7 @@ bool Search::isGameOver(Position & pos, string & result, string & comment, Move 
 
 void Search::PrintPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, const string& sign)
 {
-    if (!pvSize)
+    if (abs(score) >= INFINITY_SCORE || !pvSize)
         return;
 
     U32 dt = GetProcTime() - m_t0;
