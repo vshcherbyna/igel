@@ -24,7 +24,6 @@
 extern FILE* g_log;
 
 U64 g_rand64 = 42;
-static int g_pipe = 0;
 
 #ifndef _MSC_VER
 
@@ -41,86 +40,15 @@ U32 GetProcTime()
     return (U32)((uint64_t)time.tv_sec * 1000 + time.tv_nsec / 1000000);
 }
 
-void InitIO()
-{
-    g_pipe = !isatty(0);
-    if (g_pipe) signal(SIGINT, SIG_IGN);
-    setbuf(stdout, NULL);
-    setbuf(stdin, NULL);
-}
-
-bool InputAvailable()
-{
-    static fd_set input_fd_set;
-    static fd_set except_fd_set;
-
-    FD_ZERO(&input_fd_set);
-    FD_ZERO(&except_fd_set);
-    FD_SET(0, &input_fd_set);
-    FD_SET(1, &except_fd_set);
-
-    static struct timeval timeout;
-    timeout.tv_sec = timeout.tv_usec = 0;
-    static int max_fd = 2;
-    // XXX -- track exceptions (in the select(2) sense) here?
-
-    int retval = select(max_fd, &input_fd_set, NULL, &except_fd_set, &timeout);
-
-    if (retval < 0)  // Error occured.
-        return false;
-
-    if (retval == 0)  // timeout.
-        return false;
-
-    if (FD_ISSET(0, &input_fd_set)) // There is input
-        return true;
-
-    if (FD_ISSET(1, &except_fd_set)) // Exception on write,
-        exit(1);                       // probably, connection closed.
-
-    return 0;
-}
-
 #else
 
 #include <windows.h>
-
-static HANDLE g_console = 0;
 
 U32 GetProcTime()
 {
     return GetTickCount();
 }
 
-void InitIO()
-{
-    setbuf(stdout, NULL);
-    g_console = GetStdHandle(STD_INPUT_HANDLE);
-    DWORD mode;
-
-    g_pipe = !GetConsoleMode(g_console, &mode);
-
-    if (!g_pipe)
-    {
-        SetConsoleMode(g_console, mode & ~(ENABLE_MOUSE_INPUT | ENABLE_WINDOW_INPUT));
-        FlushConsoleInputBuffer(g_console);
-    }
-}
-
-bool InputAvailable()
-{
-    DWORD dwEvents = 0;
-
-    if (g_pipe)
-    {
-        if (!PeekNamedPipe(g_console, NULL, 0, NULL, &dwEvents, NULL))
-            return true;
-    }
-    else
-        GetNumberOfConsoleInputEvents(g_console, &dwEvents);
-
-    return dwEvents;
-}
 #endif
 
 bool Is(const string& cmd, const string& pattern, size_t minLen)
@@ -130,7 +58,7 @@ bool Is(const string& cmd, const string& pattern, size_t minLen)
 
 void Log(const string& s)
 {
-    if (g_log == NULL)
+    if (!g_log)
         return;
 
     fprintf(g_log, "%s %s\n", Timestamp().c_str(), s.c_str());
@@ -212,4 +140,3 @@ string Timestamp()
     sprintf(buf, "%02d:%02d:%02d", now->tm_hour, now->tm_min, now->tm_sec);
     return string(buf);
 }
-

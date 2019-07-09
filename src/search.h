@@ -53,7 +53,7 @@ public:
     Search& operator=(const Search&) = delete;
 
 public:
-    Move startSearch(Time time, int depth, EVAL alpha, EVAL beta, Move & ponder);
+    void startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponder);
     void clearHistory();
     void clearKillers();
     void clearStacks();
@@ -61,11 +61,16 @@ public:
     void setTime(Time time) {m_time = time;}
     void setThreadCount(unsigned int threads);
     void setSyzygyDepth(int depth);
+    void setPonderHit();
+    void startPrincipalSearch(Time time, bool ponder);
+    void stopPrincipalSearch();
+    void isReady();
 
 private:
     void startWorkerThreads(Time time);
     void stopWorkerThreads();
-    void LazySmpSearcher();
+    void lazySmpSearcher();
+    void indicateWorkersStop();
     Move tableBaseRootSearch();
     EVAL searchRoot(EVAL alpha, EVAL beta, int depth);
     EVAL abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves/*, Move skipMove = 0*/);
@@ -73,18 +78,19 @@ private:
     int extensionRequired(Move mv, Move lastMove, bool inCheck, int ply, bool onPV, size_t quietMoves, int cmhistory, int fmhistory);
     bool ProbeHash(TEntry & hentry);
     bool isGameOver(Position & pos, string & result, string & comment, Move & bestMove, int & legalMoves);
+    Move forceFetchPonder(Position & pos, const Move & bestMove);
     void PrintPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, const string& sign);
 
     void ProcessInput(const string& s);
-    bool CheckLimits(bool onPv, int depth, EVAL score);
-    void CheckInput();
+    bool checkLimits();
     void releaseHelperThreads();
+    void waitUntilCompletion();
 
 private:
     NODES m_nodes;
     NODES m_tbHits;
     U32 m_t0;
-    U8 m_flags;
+    volatile U8 m_flags;
     int m_depth;
     int m_syzygyDepth;
     int m_selDepth;
@@ -102,9 +108,12 @@ private:
     Move m_counterTable[2][14][64];
     int m_logLMRTable[64][64];
     Time m_time;
+    std::unique_ptr<std::thread> m_principalThread;
+    std::mutex m_readyMutex;
 
 public:
     bool m_principalSearcher;
+    bool m_ponderHit;
     Position m_position;
 
 private:
@@ -120,8 +129,9 @@ private:
     int m_lazyBeta;
     EVAL m_bestSmpEval;
     Move m_best;
-    bool m_smpThreadExit;
+    volatile bool m_smpThreadExit;
     bool m_terminateSmp;
+    bool m_lazyPonder;
     static constexpr int m_lmpDepth = 8;
     static constexpr int m_lmpPruningTable[2][9] =
     {

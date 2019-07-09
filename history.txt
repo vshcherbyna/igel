@@ -3,6 +3,16 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 1.8.0
+-------------
+09-Jul-2019
+- Re-write UCI communication functionality
+- Implement ponder (aka 'permanent brain')
+- Do not store result from interrupted search in tt hash
+- Do not return result from interrupted search as 'best move'
+- Fix the pv count when returning draw or moves from tt hash
+- Move to Visual Studio 2019 cmake syntax
+
 Igel 1.7.0
 -------------
 17-Jun-2019
