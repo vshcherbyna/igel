@@ -91,7 +91,7 @@ inline FLD PopLSB(U64& b)
 }
 
 #if defined (_BTYPE)
-inline unsigned int CountBits(U64 b)
+inline unsigned int countBits(U64 b)
 {
 #if _WIN32 || _WIN64
     return __popcnt64(b);
@@ -100,7 +100,7 @@ inline unsigned int CountBits(U64 b)
 #endif
 }
 #else
-inline unsigned int CountBits(U64 b)
+inline unsigned int countBits(U64 b)
 {
     if (b == 0)
         return 0;
@@ -161,6 +161,10 @@ inline U64 BackwardRight(U64 b, COLOR side) { return (side == WHITE)? DownRight(
 const U64 BB_WHITE_FIELDS = LL(0xaa55aa55aa55aa55);
 const U64 BB_BLACK_FIELDS = LL(0x55aa55aa55aa55aa);
 
-const U64 BB_CENTER[2] = { LL(0x0000181818000000), LL(0x0000001818180000) };
+const U64 BB_CENTER[2]  = { LL(0x0000181818000000), LL(0x0000001818180000) };
+const U64 L1MASK        = LL(0xfefefefefefefefe);
+const U64 L2MASK        = LL(0xfcfcfcfcfcfcfcfc);
+const U64 R1MASK        = LL(0x7f7f7f7f7f7f7f7f);
+const U64 R2MASK        = LL(0x3f3f3f3f3f3f3f3f);
 
 #endif

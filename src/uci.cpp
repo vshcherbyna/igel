@@ -20,13 +20,14 @@
 #include "uci.h"
 #include "time.h"
 #include "notation.h"
+#include "tune.h"
 
 #include "fathom/tbprobe.h"
 
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "1.8.2";
+const std::string VERSION = "1.9.0";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 131072;
@@ -85,6 +86,8 @@ int Uci::handleCommands()
             onUciNewGame();
         else if (startsWith(cmd, "uci"))
             onUci();
+        else if (startsWith(cmd, "tune"))
+            onTune();
     }
 
     return 0;

@@ -37,8 +37,8 @@ void onTune()
 
 void Tuner::Tune()
 {
-    //W.resize(0);
-    //W.resize(NUM_PARAMS);
+    W.resize(0);
+    W.resize(NUM_PARAMS);
 
     auto epoch = 0;
 
@@ -53,10 +53,7 @@ void Tuner::Tune()
 
         RandSeed(time(0));
 
-        cout << "Epoch: " << ++epoch << endl;
-        cout << "Total positions: " << totalFens.size() << endl;
-        cout << "Tune mode: " << "725k per 1h (orig. position)" << endl;
-
+        cout << "Epoch #" << epoch << endl;
         auto rng = std::default_random_engine{};
         std::shuffle(std::begin(totalFens), std::end(totalFens), rng);
 
@@ -68,7 +65,92 @@ void Tuner::Tune()
             params.push_back(i);
 
         randomWalk(x0, 3600, false, params, totalFens);
+
+        std::ifstream  src("igel.txt");
+        std::ofstream  dst("igel.txt_" + std::to_string(++epoch));
+        dst << src.rdbuf();
     }
+}
+
+void Tuner::coordinateDescent(vector<int> & x0, const vector<int>& params, std::vector<string> & fens)
+{
+    Evaluator::initEval(x0);
+    double y0 = predict(fens) + regularization(x0);
+    double y0Start = y0;
+
+    cout << "Algorithm:     coordinate descent" << endl;
+    cout << "Parameters:    " << NUM_PARAMS << endl;
+    cout << "Initial value: " << left << y0Start << endl;
+
+    for (size_t i = 0; i < params.size(); ++i)
+    {
+        int param = params[i];
+
+        int t = (GetProcTime() - m_t0) / 1000;
+        coordinateDescentInfo(param, x0[param], y0Start, y0, t);
+
+        int step = 1;
+        while (step > 0)
+        {
+            vector<int> x1 = x0;
+            x1[param] += step;
+
+            if (x1[param] != x0[param])
+            {
+                Evaluator::initEval(x1);
+                double y1 = predict(fens) + regularization(x1);
+                if (y1 < y0)
+                {
+                    x0 = x1;
+                    y0 = y1;
+                    t = (GetProcTime() - m_t0) / 1000;
+                    coordinateDescentInfo(param, x0[param], y0Start, y0, t);
+
+                    WriteParamsToFile(x0, "igel.txt");
+                    continue;
+                }
+            }
+
+            vector<int> x2 = x0;
+            x2[param] -= step;
+
+            if (x2[param] != x0[param])
+            {
+                Evaluator::initEval(x2);
+                double y2 = predict(fens) + regularization(x2);
+                if (y2 < y0)
+                {
+                    x0 = x2;
+                    y0 = y2;
+                    t = (GetProcTime() - m_t0) / 1000;
+                    coordinateDescentInfo(param, x0[param], y0Start, y0, t);
+
+                    WriteParamsToFile(x0, "igel.txt");
+                    continue;
+                }
+            }
+
+            step /= 2;
+        }
+    }
+
+    cout << endl << endl;
+    Evaluator::initEval(x0);
+}
+
+void Tuner::coordinateDescentInfo(int param, int value, double y0Start, double y0, int t)
+{
+    int hh = t / 3600;
+    int mm = (t - 3600 * hh) / 60;
+    int ss = t - 3600 * hh - 60 * mm;
+
+    cout << right;
+    cout << setw(2) << setfill('0') << hh << ":";
+    cout << setw(2) << setfill('0') << mm << ":";
+    cout << setw(2) << setfill('0') << ss << " ";
+    cout << setfill(' ');
+
+    cout << left << "      " << setw(8) << y0 << " " << 100 * (y0 - y0Start) / y0Start << " % " << ParamNumberToName(param) << " = " << value << "          \r";
 }
 
 void getRandomStep(vector<int>& step, const vector<int>& params)

@@ -338,7 +338,7 @@ void FindMaskB()
 
     for (FLD f = 0; f < 64; ++f)
     {
-        cout << setw(2) << setfill(' ') << CountBits(mask[f]);
+        cout << setw(2) << setfill(' ') << countBits(mask[f]);
         if (f < 63)
             cout << ", ";
         if (Col(f) == 7)
@@ -367,7 +367,7 @@ void FindMaskR()
 
     for (FLD f = 0; f < 64; ++f)
     {
-        cout << setw(2) << setfill(' ') << CountBits(mask[f]);
+        cout << setw(2) << setfill(' ') << countBits(mask[f]);
         if (f < 63)
             cout << ", ";
         if (Col(f) == 7)

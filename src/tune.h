@@ -27,6 +27,8 @@
 #include <memory>
 #include <vector>
 
+void onTune();
+
 class Tuner
 {
 public:
@@ -40,6 +42,8 @@ public:
 private:
     void randomWalk(vector<int> & x0, int limitTimeInSec, bool simulatedAnnealing, const vector<int> & params, std::vector<string> & fens);
     void randomWalkInfo(double y0Start, double y0, int t);
+    void coordinateDescent(vector<int> & x0, const vector<int>& params, std::vector<string> & fens);
+    void coordinateDescentInfo(int param, int value, double y0Start, double y0, int t);
     double predict(std::vector<string> & fens);
     void setTuneStartTime();
     double regularization(const vector<int> & x);
@@ -49,7 +53,5 @@ private:
     U32 m_t0;
     std::unique_ptr<Position> m_pos;
 };
-
-void onTune();
 
 #endif // TUNER_H

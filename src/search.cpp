@@ -281,7 +281,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     //
 
     if (TB_LARGEST && depth >= 2 && !m_position.Fifty() && !(m_position.CanCastle(m_position.Side(), KINGSIDE) || m_position.CanCastle(m_position.Side(), QUEENSIDE))) {
-        auto pieces = CountBits(m_position.BitsAll());
+        auto pieces = countBits(m_position.BitsAll());
 
         if ((pieces < TB_LARGEST) || (pieces == TB_LARGEST && depth >= m_syzygyDepth)) {
             EVAL score;
@@ -899,7 +899,7 @@ bool Search::ProbeHash(TEntry & hentry)
 
 Move Search::tableBaseRootSearch()
 {
-    if (!TB_LARGEST || CountBits(m_position.BitsAll()) > TB_LARGEST)
+    if (!TB_LARGEST || countBits(m_position.BitsAll()) > TB_LARGEST)
         return 0;
 
     auto result =
