@@ -55,7 +55,6 @@ private:
     void reset();
     bool evaluate();
     U32 getEnemyLowTimeBonus();
-    U32 getMiddleGameTimeBonus(U32 remainingTime, U32 hardLimit);
 
 private:
     U32 m_defTimeSlice;
