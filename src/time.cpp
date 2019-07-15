@@ -164,7 +164,7 @@ bool Time::evaluate()
     //
 
     m_hardLimit = (m_remainingTime / 4) + (m_increment / 2) + getEnemyLowTimeBonus();
-    m_softLimit = m_hardLimit / 5;
+    m_softLimit = m_hardLimit / 12;
 
     return true;
 }
