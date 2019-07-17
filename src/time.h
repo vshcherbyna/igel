@@ -40,7 +40,6 @@ public:
 
 public:
     void onNewGame();
-    void onPlayedMove();
     bool adjust(bool onPv, int depth, EVAL score);
     void resetAdjustment();
     bool parseTime(const std::vector<std::string> & cmdline, bool whiteSide);
@@ -55,6 +54,7 @@ private:
     void reset();
     bool evaluate();
     U32 getEnemyLowTimeBonus();
+    U32 getMiddleGameTimeBonus(U32 remainingTime, U32 hardLimit);
 
 private:
     U32 m_defTimeSlice;

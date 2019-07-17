@@ -149,8 +149,6 @@ void Uci::onGo(commandParams params)
     assert(params[0] == "go");
 
     TTable::instance().increaseAge();
-    //time.onPlayedMove();
-
     m_searcher.startPrincipalSearch(time, params[1] == "ponder");
 }
 
