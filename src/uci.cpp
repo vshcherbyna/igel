@@ -26,7 +26,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "1.8.0";
+const std::string VERSION = "1.8.2";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 131072;
@@ -149,8 +149,6 @@ void Uci::onGo(commandParams params)
     assert(params[0] == "go");
 
     TTable::instance().increaseAge();
-    //time.onPlayedMove();
-
     m_searcher.startPrincipalSearch(time, params[1] == "ponder");
 }
 

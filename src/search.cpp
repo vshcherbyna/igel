@@ -1074,10 +1074,14 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
     m_tbHits = 0;
     m_ponderHit = false;
 
-    if (ponderSearch)
-        m_time.setPonderMode(true);
+    if (m_principalSearcher) {
+        if (ponderSearch)
+            m_time.setPonderMode(true);
 
-    m_flags = (m_time.getTimeMode() == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
+        m_flags = (m_time.getTimeMode() == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
+    }
+    else
+        m_time.setPonderMode(true); // always run smp threads in analyze mode
 
     memset(&m_pv, 0, sizeof(m_pv));
     m_time.resetAdjustment();

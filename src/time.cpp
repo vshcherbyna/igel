@@ -55,11 +55,6 @@ void Time::onNewGame()
     m_movesPlayed = 0;
 }
 
-void Time::onPlayedMove()
-{
-    ++m_movesPlayed;
-}
-
 bool Time::parseTime(const std::vector<std::string> & cmdline, bool whiteSide)
 {
     reset();
@@ -127,18 +122,6 @@ bool Time::parseTime(const std::vector<std::string> & cmdline, bool whiteSide)
     return evaluate();
 }
 
-U32 Time::getMiddleGameTimeBonus(U32 remainingTime, U32 hardLimit)
-{
-    //
-    //  During first 20/40 moves allocate more time
-    //
-
-    if (m_movesPlayed < 20)
-        hardLimit *= 1.50;
-
-    return std::min(hardLimit, remainingTime);
-}
-
 bool Time::evaluate()
 {
     //
@@ -152,6 +135,9 @@ bool Time::evaluate()
 
         return true;
     }
+
+    if (m_remainingTime > 200)
+        m_remainingTime -= 100; // allocate some reserve
 
     //
     //  Fixed time per number of moves
@@ -167,7 +153,6 @@ bool Time::evaluate()
             m_hardLimit = getMiddleGameTimeBonus(m_remainingTime, m_hardLimit);
 
         m_softLimit = m_hardLimit / 2;
-
         return true;
     }
 
@@ -175,9 +160,8 @@ bool Time::evaluate()
     //  Normal time control
     //
 
-    m_hardLimit = (m_remainingTime / 2) + (m_increment / 2) + getEnemyLowTimeBonus();
-    m_hardLimit = getMiddleGameTimeBonus(m_remainingTime, m_hardLimit);
-    m_softLimit = m_hardLimit / 40;
+    m_hardLimit = (m_remainingTime / 4) + (m_increment / 2) + getEnemyLowTimeBonus();
+    m_softLimit = m_hardLimit / 12;
 
     return true;
 }
@@ -291,4 +275,16 @@ U32 Time::getEnemyLowTimeBonus()
     U32 diff = m_remainingTime - m_remainingEnemyTime;
 
     return (diff / 10);
+}
+
+U32 Time::getMiddleGameTimeBonus(U32 remainingTime, U32 hardLimit)
+{
+    //
+    //  During first 20/40 moves allocate more time
+    //
+
+    if (m_movesPlayed < 20)
+        hardLimit *= 1.50;
+
+    return std::min(hardLimit, remainingTime);
 }
