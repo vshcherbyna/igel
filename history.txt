@@ -3,6 +3,20 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 1.8.3
+-------------
+28-Jul-2019
+- Drop into qsearch at depth <= 0 without checking for tt
+- Avoid null move prunning if a tt hit has been discovered
+- Fix the detection of a root position
+- SEE margin improvements
+
+Igel 1.8.2
+-------------
+17-Jul-2019
+- Improve time management of worker threads when number of workers is high
+- Improve time management in absolute time controls
+
 Igel 1.8.0
 -------------
 09-Jul-2019
