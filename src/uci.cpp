@@ -95,7 +95,11 @@ void Uci::onUci()
     std::cout << "id name Igel " << VERSION;
 
 #if defined(ENV64BIT)
-    std::cout << " 64 POPCNT";
+#if defined (_BTYPE)
+    cout << " 64 POPCNT";
+#else
+    cout << " 64";
+#endif
 #endif
 
     std::cout << std::endl << "id author V. Medvedev, V. Shcherbyna" << std::endl;
