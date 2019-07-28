@@ -128,7 +128,7 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
     Move bestMove = 0;
     U8 type = HASH_ALPHA;
     auto inCheck = m_position.InCheck();
-    auto rootNode = depth == 0;
+    auto rootNode = depth == 1;
 
     if (m_pv[0][0])
         hashMove = m_pv[0][0];
@@ -237,8 +237,19 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
 
 EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves/*, Move skipMove = 0*/)
 {
-    auto rootNode = ply == 0;
     m_pvSize[ply] = 0;
+    m_selDepth = std::max(ply, m_selDepth);
+
+    bool inCheck = m_position.InCheck();
+
+    //
+    //   qsearch
+    //
+
+    if (!inCheck && depth <= 0)
+        return qSearch(alpha, beta, ply);
+
+    auto rootNode = ply == 1;
 
     if (!rootNode && checkLimits())
         return -INFINITY_SCORE;
@@ -249,7 +260,18 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     if (!isNull && m_position.Repetitions() >= 2)
         return DRAW_SCORE;
 
-    m_selDepth = std::max(ply, m_selDepth);
+    if (!rootNode) {
+
+        //
+        // mate distance pruning
+        //
+
+        auto rAlpha = alpha > -CHECKMATE_SCORE + ply ? alpha : -CHECKMATE_SCORE + ply;
+        auto rBeta = beta < CHECKMATE_SCORE - ply - 1 ? beta : CHECKMATE_SCORE - ply - 1;
+
+        if (rAlpha >= rBeta)
+            return rAlpha;
+    }
 
     //
     //   probe hash
@@ -257,9 +279,11 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
     Move hashMove{};
     TEntry hEntry;
-    auto onPV = (beta - alpha > 1);
+    auto onPV  = (beta - alpha > 1);
+    auto ttHit = false;
 
     if (ProbeHash(hEntry)) {
+        ttHit = hEntry.type() == HASH_EXACT;
         if (hEntry.depth() >= depth && (depth == 0 || !onPV)) {
             EVAL score = hEntry.score();
             if (score > CHECKMATE_SCORE - 50 && score <= CHECKMATE_SCORE)
@@ -339,45 +363,9 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         }
     }
 
-    bool inCheck = m_position.InCheck();
-
-    //
-    //   qsearch
-    //
-
-    if (!inCheck && depth <= 0)
-        return qSearch(alpha, beta, ply);
-
-    if (!rootNode) {
-
-        //
-        // mate distance pruning
-        //
-
-        auto rAlpha = alpha > -CHECKMATE_SCORE + ply ? alpha : -CHECKMATE_SCORE + ply;
-        auto rBeta = beta < CHECKMATE_SCORE - ply - 1 ? beta : CHECKMATE_SCORE - ply - 1;
-
-        if (rAlpha >= rBeta)
-            return rAlpha;
-    }
-
     EVAL staticEval = m_evalStack[ply] = Evaluator::evaluate(m_position);
 
     if (pruneMoves) {
-
-        //
-        //   futility
-        //
-
-        bool nonPawnMaterial = m_position.NonPawnMaterial();
-        static const EVAL MARGIN[4] = { 0, 50, 350, 550 };
-
-        if (nonPawnMaterial && !onPV && !inCheck && depth >= 1 && depth <= 3) {
-            if (staticEval <= alpha - MARGIN[depth])
-                return qSearch(alpha, beta, ply);
-            if (staticEval >= beta + MARGIN[depth])
-                return beta;
-        }
 
         //
         //   razoring
@@ -397,7 +385,9 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //   null move
         //
 
-        if (!isNull && !onPV && !inCheck && depth >= 2 && nonPawnMaterial && staticEval >= beta) {
+        bool nonPawnMaterial = m_position.NonPawnMaterial();
+
+        if (!isNull && !onPV && !inCheck && depth >= 2 && nonPawnMaterial && staticEval >= beta && !ttHit) {
             int R = 4 + depth / 6 + min(3, (staticEval - beta) / 200);
 
             m_position.MakeNullMove();
@@ -413,7 +403,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //  probcut
         //
 
-        if (!onPV && depth >= 5) {
+        if (!onPV && depth >= 5 && abs(beta) < (CHECKMATE_SCORE + 50)) {
             auto betaCut = beta + 100;
             MoveList captureMoves;
             GenCapturesAndPromotions(m_position, captureMoves);
@@ -464,6 +454,13 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     m_killerMoves[ply + 1][0] = m_killerMoves[ply + 1][1] = 0;
     auto quietsTried = 0;
     auto skipQuiets = false;
+    int seeMargin[2];
+
+    static const int SEEQuietMargin = -80;
+    static const int SEENoisyMargin = -18;
+
+    seeMargin[0] = SEENoisyMargin * depth * depth;
+    seeMargin[1] = SEEQuietMargin * depth;
 
     for (size_t i = 0; i < mvSize; ++i) {
 
@@ -490,6 +487,11 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                 continue;
 
             if (depth <= m_fmpDepth[improving] && history.fmhistory < m_fmpHistoryLimit[improving])
+                continue;
+        }
+
+        if (depth <= 8) {
+            if (MoveEval::SEE(this, mv) < seeMargin[quietMove])
                 continue;
         }
 
