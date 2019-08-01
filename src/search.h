@@ -41,6 +41,9 @@ const U8 MODE_PLAY    = 0x04;
 const U8 MODE_ANALYZE = 0x08;
 const U8 MODE_SILENT  = 0x10;
 
+#define isCheckMateScore(score)        ((score) <= -CHECKMATE_SCORE + 50|| \
+                                        (score) >=  CHECKMATE_SCORE - 50)
+
 class Search
 {
     friend class History;
@@ -89,6 +92,7 @@ private:
 private:
     NODES m_nodes;
     NODES m_tbHits;
+    NODES m_limitCheck;
     U32 m_t0;
     volatile U8 m_flags;
     int m_depth;
@@ -138,10 +142,11 @@ private:
         {  0,  3,  4,  6, 10, 14, 19, 25, 31 },
         {  0,  5,  7, 11, 17, 26, 36, 48, 63 },
     };
-    static constexpr int m_cmpDepth[]        = { 3, 2 };
-    static constexpr int m_cmpHistoryLimit[] = { 0, -1000 };
-    static constexpr int m_fmpDepth[]        = { 3, 2 };
-    static constexpr int m_fmpHistoryLimit[] = { -2000, -4000 };
+    static constexpr int m_cmpDepth[]        = { 3, 2           };
+    static constexpr int m_cmpHistoryLimit[] = { 0, -1000       };
+    static constexpr int m_fmpDepth[]        = { 3, 2           };
+    static constexpr int m_fmpHistoryLimit[] = { -2000, -4000   };
+    static constexpr int m_fpHistoryLimit[]  = { 12000, 6000    };
 };
 
 #endif
