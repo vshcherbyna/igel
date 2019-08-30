@@ -64,7 +64,8 @@ void Tuner::Tune()
         for (int i = 0; i < NUM_PARAMS; ++i)
             params.push_back(i);
 
-        randomWalk(x0, 3600, false, params, totalFens);
+        coordinateDescent(x0, params, totalFens);
+        //randomWalk(x0, 3600, false, params, totalFens);
 
         std::ifstream  src("igel.txt");
         std::ofstream  dst("igel.txt_" + std::to_string(++epoch));

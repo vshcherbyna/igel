@@ -846,49 +846,77 @@ void Evaluator::showPsq(const char * stable, Pair* table, EVAL mid_w/* = 0*/, EV
     }
 }
 
+int refParam(int tag, int f)
+{
+    int * ptr = &(W[lines[tag].start]);
+    return ptr[f];
+}
+
 void Evaluator::initEval(const vector<int> & x)
 {
     W = x;
 
-#define P(name, index) W[lines[name].start + index]
-
-    for (FLD f = 0; f < 64; ++f)
-    {
-        double x = ((Col(f) > 3) ? Col(f) - 3.5 : 3.5 - Col(f)) / 3.5;
-        double y = (3.5 - Row(f)) / 3.5;
-
+    for (FLD f = 0; f < 64; ++f) {
         if (Row(f) != 0 && Row(f) != 7)
         {
-            PSQ[PW][f] = { Q2(Mid_Pawn, x, y) + VAL_P,         Q2(End_Pawn, x, y) + VAL_P };
-            passedPawn[f] = { Q2(Mid_PawnPassed, x, y),           Q2(End_PawnPassed, x, y) };
-            passedPawnBlocked[f] = { Q2(Mid_PawnPassedBlocked, x, y),    Q2(End_PawnPassedBlocked, x, y) };
-            passedPawnFree[f] = { Q2(Mid_PawnPassedFree, x, y),       Q2(End_PawnPassedFree, x, y) };
-            passedPawnConnected[f] = { Q2(Mid_PawnConnectedFree, x, y),    Q2(End_PawnConnectedFree, x, y) };
-            pawnDoubled[f] = { Q2(Mid_PawnDoubled, x, y),          Q2(End_PawnDoubled, x, y) };
-            pawnIsolated[f] = { Q2(Mid_PawnIsolated, x, y),         Q2(End_PawnIsolated, x, y) };
-            pawnDoubledIsolated[f] = { Q2(Mid_PawnDoubledIsolated, x, y),  Q2(End_PawnDoubledIsolated, x, y) };
-            pawnBlocked[f] = { Q2(Mid_PawnBlocked, x, y),          Q2(End_PawnBlocked, x, y) };
-            pawnFence[f] = { Q2(Mid_PawnFence, x, y),            Q2(End_PawnFence, x, y) };
+            PSQ[PW][f].mid = VAL_P + refParam(Mid_Pawn, f);
+            PSQ[PW][f].end = VAL_P + refParam(End_Pawn, f);
+
+            passedPawn[f].mid = refParam(Mid_PawnPassed, f);
+            passedPawn[f].end = refParam(End_PawnPassed, f);
+
+            passedPawnBlocked[f].mid = refParam(Mid_PawnPassedBlocked, f);
+            passedPawnBlocked[f].end = refParam(End_PawnPassedBlocked, f);
+
+            passedPawnFree[f].mid = refParam(Mid_PawnPassedFree, f);
+            passedPawnFree[f].end = refParam(End_PawnPassedFree, f);
+
+            passedPawnConnected[f].mid = refParam(Mid_PawnConnectedFree, f);
+            passedPawnConnected[f].end = refParam(End_PawnConnectedFree, f);
+
+            pawnDoubled[f].mid = refParam(Mid_PawnDoubled, f);
+            pawnDoubled[f].end = refParam(End_PawnDoubled, f);
+
+            pawnIsolated[f].mid = refParam(Mid_PawnIsolated, f);
+            pawnIsolated[f].end = refParam(End_PawnIsolated, f);
+
+            pawnDoubledIsolated[f].mid = refParam(Mid_PawnDoubledIsolated, f);
+            pawnDoubledIsolated[f].end = refParam(End_PawnDoubledIsolated, f);
+
+            pawnBlocked[f].mid = refParam(Mid_PawnBlocked, f);
+            pawnBlocked[f].end = refParam(End_PawnBlocked, f);
+
+            pawnFence[f].mid = refParam(Mid_PawnFence, f);
+            pawnFence[f].end = refParam(End_PawnFence, f);
         }
         else
         {
-            PSQ[PW][f] = VAL_P;
-            passedPawn[f] = 0;
-            passedPawnBlocked[f] = 0;
-            passedPawnFree[f] = 0;
-            passedPawnConnected[f] = 0;
-            pawnDoubled[f] = 0;
-            pawnIsolated[f] = 0;
-            pawnDoubledIsolated[f] = 0;
-            pawnBlocked[f] = 0;
-            pawnFence[f] = 0;
+            PSQ[PW][f]              = VAL_P;
+            passedPawn[f]           = 0;
+            passedPawnBlocked[f]    = 0;
+            passedPawnFree[f]       = 0;
+            passedPawnConnected[f]  = 0;
+            pawnDoubled[f]          = 0;
+            pawnIsolated[f]         = 0;
+            pawnDoubledIsolated[f]  = 0;
+            pawnBlocked[f]          = 0;
+            pawnFence[f]            = 0;
         }
 
-        PSQ[NW][f] = { VAL_N + Q2(Mid_Knight, x, y),    VAL_N + Q2(End_Knight, x, y) };
-        PSQ[BW][f] = { VAL_B + Q2(Mid_Bishop, x, y),    VAL_B + Q2(End_Bishop, x, y) };
-        PSQ[RW][f] = { VAL_R + Q2(Mid_Rook, x, y),      VAL_R + Q2(End_Rook, x, y) };
-        PSQ[QW][f] = { VAL_Q + Q2(Mid_Queen, x, y),     VAL_Q + Q2(End_Queen, x, y) };
-        PSQ[KW][f] = { VAL_K + Q2(Mid_King, x, y),      VAL_K + Q2(End_King, x, y) };
+        PSQ[NW][f].mid = VAL_N + refParam(Mid_Knight, f);
+        PSQ[NW][f].end = VAL_N + refParam(End_Knight, f);
+
+        PSQ[BW][f].mid = VAL_B + refParam(Mid_Bishop, f);
+        PSQ[BW][f].end = VAL_B + refParam(End_Bishop, f);
+
+        PSQ[RW][f].mid = VAL_R + refParam(Mid_Rook, f);
+        PSQ[RW][f].end = VAL_R + refParam(End_Rook, f);
+
+        PSQ[QW][f].mid = VAL_Q + refParam(Mid_Queen, f);
+        PSQ[QW][f].end = VAL_Q + refParam(End_Queen, f);
+
+        PSQ[KW][f].mid = VAL_K + refParam(Mid_King, f);
+        PSQ[KW][f].end = VAL_K + refParam(End_King, f);
 
         PSQ[PB][FLIP[BLACK][f]] = -PSQ[PW][f];
         PSQ[NB][FLIP[BLACK][f]] = -PSQ[NW][f];
@@ -897,89 +925,116 @@ void Evaluator::initEval(const vector<int> & x)
         PSQ[QB][FLIP[BLACK][f]] = -PSQ[QW][f];
         PSQ[KB][FLIP[BLACK][f]] = -PSQ[KW][f];
 
-        knightStrong[f] = { Q2(Mid_KnightStrong, x, y),     Q2(End_KnightStrong, x, y) };
-        knightForepost[f] = { Q2(Mid_KnightForpost, x, y),    Q2(End_KnightForpost, x, y) };
-        bishopStrong[f] = { Q2(Mid_BishopStrong, x, y),     Q2(End_BishopStrong, x, y) };
+        knightStrong[f].mid = refParam(Mid_KnightStrong, f);
+        knightStrong[f].end = refParam(End_KnightStrong, f);
+
+        bishopStrong[f].mid = refParam(Mid_BishopStrong, f);
+        bishopStrong[f].end = refParam(End_BishopStrong, f);
+
+        knightForepost[f].mid = refParam(Mid_KnightForpost, f);
+        knightForepost[f].end = refParam(End_KnightForpost, f);
     }
 
     for (int m = 0; m < 9; ++m) {
-        double z = (m - 6.5) / 6.5;
-        knightMobility[m] = { Q1(Mid_KnightMobility, z), Q1(End_KnightMobility, z) };
+        knightMobility[m].mid = refParam(Mid_KnightMobility, m);
+        knightMobility[m].end = refParam(End_KnightMobility, m);
     }
 
     for (int m = 0; m < 14; ++m) {
-        double z = (m - 6.5) / 6.5;
-        bishopMobility[m] = { Q1(Mid_BishopMobility, z), Q1(End_BishopMobility, z) };
+        bishopMobility[m].mid = refParam(Mid_BishopMobility, m);
+        bishopMobility[m].end = refParam(End_BishopMobility, m);
     }
 
     for (int m = 0; m < 15; ++m) {
-        double z = (m - 6.5) / 6.5;
-        rookMobility[m] = { Q1(Mid_RookMobility, z), Q1(End_RookMobility, z) };
+        rookMobility[m].mid = refParam(Mid_RookMobility, m);
+        rookMobility[m].end = refParam(End_RookMobility, m);
     }
 
     for (int m = 0; m < 28; ++m) {
-        double z = (m - 6.5) / 6.5;
-        queenMobility[m] = { Q1(Mid_QueenMobility, z), Q1(End_QueenMobility, z) };
+        queenMobility[m].mid = refParam(Mid_QueenMobility, m);
+        queenMobility[m].end = refParam(End_QueenMobility, m);
     }
 
-    rookOnOpenFile = { (P(Mid_RookOpen, 0),    P(End_RookOpen, 0)) };
-    rookOn7thRank = { (P(Mid_Rook7th, 0),     P(End_Rook7th, 0)) };
-    queenOn7thRank = { (P(Mid_Queen7th, 0),    P(End_Queen7th, 0)) };
+    rookOnOpenFile.mid = refParam(Mid_RookOpen, 0);
+    rookOnOpenFile.end = refParam(End_RookOpen, 0);
 
-    queenKingDistance[0] = 0;
-    queenKingDistance[1] = 0;
+    rookOn7thRank.mid = refParam(Mid_Rook7th, 0);
+    rookOn7thRank.end = refParam(End_Rook7th, 0);
 
-    for (int d = 0; d < 8; ++d)
-    {
-        double z = (d - 3.5) / 3.5;
+    queenOn7thRank.mid = refParam(Mid_Queen7th, 0);
+    queenOn7thRank.end = refParam(End_Queen7th, 0);
 
-        queenKingDistance[d + 2] = { Q1(Mid_QueenKingDist, z),   Q1(End_QueenKingDist, z) };
-        knightKingDistance[d + 2] = { Q1(Mid_KnightKingDist, z),  Q1(End_KnightKingDist, z) };
-        bishopKingDistance[d + 2] = { Q1(Mid_BishopKingDist, z),  Q1(End_BishopKingDist, z) };
-        rookKingDistance[d + 2] = { Q1(Mid_RookKingDist, z),    Q1(End_RookKingDist, z) };
+    for (int d = 0; d < 10; ++d) {
+        queenKingDistance[d].mid = refParam(Mid_QueenKingDist, d);
+        queenKingDistance[d].end = refParam(End_QueenKingDist, d);
+
+        knightKingDistance[d].mid = refParam(Mid_KnightKingDist, d);
+        knightKingDistance[d].end = refParam(End_KnightKingDist, d);
+
+        bishopKingDistance[d].mid = refParam(Mid_BishopKingDist, d);
+        bishopKingDistance[d].end = refParam(End_BishopKingDist, d);
+
+        rookKingDistance[d].mid = refParam(Mid_RookKingDist, d);
+        rookKingDistance[d].end = refParam(End_RookKingDist, d);
+
+        kingPasserDistance[d].mid = refParam(Mid_KingPassedDist, d);
+        kingPasserDistance[d].end = refParam(End_KingPassedDist, d);
     }
 
-    for (int d = 0; d < 10; ++d)
-    {
-        double z = (d - 4.5) / 4.5;
-        kingPasserDistance[d] = { Q1(Mid_KingPassedDist, z), Q1(End_KingPassedDist, z) };
+    for (int p = 0; p < 10; ++p) {
+        kingPawnShield[p].mid = refParam(Mid_KingPawnShield, p);
+        kingPawnShield[p].end = refParam(End_KingPawnShield, p);
+
+        kingPawnStorm[p].mid = refParam(Mid_KingPawnStorm, p);
+        kingPawnStorm[p].end = refParam(End_KingPawnStorm, p);
     }
 
-    for (int p = 0; p < 10; ++p)
-    {
-        double z = (p - 4.5) / 4.5;
-        kingPawnShield[p] = { Q1(Mid_KingPawnShield, z),  Q1(End_KingPawnShield, z) };
-        kingPawnStorm[p] = { Q1(Mid_KingPawnStorm, z),   Q1(End_KingPawnStorm, z) };
+    strongAttack.mid = refParam(Mid_AttackStronger, 0);
+    strongAttack.end = refParam(End_AttackStronger, 0);
+
+    centerAttack.mid = refParam(Mid_AttackCenter, 0);
+    centerAttack.end = refParam(End_AttackCenter, 0);
+
+    tempoAttack.mid = refParam(Mid_Tempo, 0);
+    tempoAttack.end = refParam(End_Tempo, 0);
+
+    rooksConnected.mid = refParam(Mid_ConnectedRooks, 0);
+    rooksConnected.end = refParam(End_ConnectedRooks, 0);
+
+    bishopsPair.mid = refParam(Mid_BishopsPair, 0);
+    bishopsPair.end = refParam(End_BishopsPair, 0);
+
+    rooksPair.mid = refParam(Mid_RooksPair, 0);
+    rooksPair.end = refParam(End_RooksPair, 0);
+
+    knightsPair.mid = refParam(Mid_KnightsPair, 0);
+    knightsPair.end = refParam(End_KnightsPair, 0);
+
+    pawnOnBiColor.mid = refParam(Mid_PawnOnBiColor, 0);
+    pawnOnBiColor.end = refParam(End_PawnOnBiColor, 0);
+
+    knightAndQueen.mid = refParam(Mid_KnightAndQueen, 0);
+    knightAndQueen.end = refParam(End_KnightAndQueen, 0);
+
+    bishopAndRook.mid = refParam(Mid_BishopAndRook, 0);
+    bishopAndRook.end = refParam(End_BishopAndRook, 0);
+
+    for (int exposed = 0; exposed < 28; ++exposed) {
+        kingExplosed[exposed].mid = refParam(Mid_KingExposed, exposed);
+        kingExplosed[exposed].end = refParam(End_KingExposed, exposed);
     }
 
-    strongAttack = { (P(Mid_AttackStronger, 0),  P(End_AttackStronger, 0)) };
-    centerAttack = { (P(Mid_AttackCenter, 0),    P(End_AttackCenter, 0)) };
-    tempoAttack = { (P(Mid_Tempo, 0),           P(End_Tempo, 0)) };
-    rooksConnected = { (P(Mid_ConnectedRooks, 0),  P(End_ConnectedRooks, 0)) };
-    bishopsPair = { (P(Mid_BishopsPair, 0),     P(End_BishopsPair, 0)) };
-    rooksPair = { (P(Mid_RooksPair, 0),       P(End_RooksPair, 0)) };
-    knightsPair = { (P(Mid_KnightsPair, 0),     P(End_KnightsPair, 0)) };
-    pawnOnBiColor = { (P(Mid_PawnOnBiColor, 0),   P(End_PawnOnBiColor, 0)) };
-    knightAndQueen = { (P(Mid_KnightAndQueen, 0),  P(End_KnightAndQueen, 0)) };
-    bishopAndRook = { (P(Mid_BishopAndRook, 0),   P(End_BishopAndRook, 0)) };
-
-    for (int exposed = 0; exposed < 28; ++exposed)
-    {
-        double z = exposed / 28.0;
-
-        kingExplosed[exposed].mid = EVAL(P(Mid_KingExposed, 0) * z * z + P(Mid_KingExposed, 1) * z);
-        kingExplosed[exposed].end = EVAL(P(End_KingExposed, 0) * z * z + P(End_KingExposed, 1) * z);
+    for (int att = 0; att < 4; ++att) {
+        attackKing[att].mid = refParam(Mid_AttackKingZone, att);
+        attackKing[att].end = refParam(End_AttackKingZone, att);
     }
-
-    for (int att = 0; att < 4; ++att)
-        attackKing[att] = { (P(Mid_AttackKingZone, att), P(End_AttackKingZone, att)) };
 }
 
 void Evaluator::initEval()
 {
     InitParamLines();
 
-    //if (!ReadParamsFromFile(W, "igel.txt"))
+    if (!ReadParamsFromFile(W, "igel.txt"))
     SetDefaultValues(W);
     initEval(W);
 }
