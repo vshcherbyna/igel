@@ -67,8 +67,8 @@ Search::Search() :
     m_terminateSmp(false),
     m_lazyPonder(false)
 {
-    for (int depth = 1; depth < 64; depth++)
-        for (int moves = 1; moves < 64; moves++)
+    for (int depth = 1; depth < 64; ++depth)
+        for (int moves = 1; moves < 64; ++moves)
             m_logLMRTable[depth][moves] = 0.75 + log(depth) * log(moves) / 2.25;
 }
 
@@ -88,6 +88,7 @@ bool Search::checkLimits()
     }
 
     ++m_limitCheck;
+
     if (!(m_limitCheck &= 1023)) {
         if (m_time.getTimeMode() == Time::TimeControl::NodesLimit)
         {
@@ -168,7 +169,8 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
         auto onPV = (beta - alpha) > 1;
         //m_time.adjust(onPV, depth, alpha);
 
-        Move mv = MoveEval::getNextBest(mvlist, i);
+        auto mv = MoveEval::getNextBest(mvlist, i);
+        auto lastMove = m_position.LastMove();
 
         if (m_position.MakeMove(mv)) {
             History::HistoryHeuristics history{};
@@ -192,7 +194,7 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
             //   EXTENSIONS
             //
 
-            newDepth += extensionRequired(mv, m_position.LastMove(), inCheck, ply, onPV, quietMoves.size(), history.cmhistory, history.fmhistory);
+            newDepth += extensionRequired(mv, lastMove, inCheck, ply, onPV, quietMoves.size(), history.cmhistory, history.fmhistory);
 
             EVAL e;
             if (legalMoves == 1)
@@ -531,6 +533,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         }
         */
 
+        auto lastMove = m_position.LastMove();
+
         if (m_position.MakeMove(mv))
         {
             ++m_nodes;
@@ -547,7 +551,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             //   extensions
             //
 
-            newDepth += extensionRequired(mv, m_position.LastMove(), inCheck, ply, onPV, quietMoves.size(), history.cmhistory, history.fmhistory);
+            newDepth += extensionRequired(mv, lastMove, inCheck, ply, onPV, quietMoves.size(), history.cmhistory, history.fmhistory);
             auto extended = newDepth != (depth - 1);
 
             EVAL e;
