@@ -761,7 +761,7 @@ void Search::clearKillers()
 void Search::clearStacks()
 {
     memset(m_moveStack, 0, sizeof(m_moveStack));
-    memset(m_pieceStack, 0, sizeof(m_moveStack));
+    memset(m_pieceStack, 0, sizeof(m_pieceStack));
     memset(m_followTable, 0, sizeof(m_followTable));
     memset(m_counterTable, 0, sizeof(m_counterTable));
     memset(m_evalStack, 0, sizeof(m_evalStack));
