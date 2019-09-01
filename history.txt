@@ -3,6 +3,17 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 1.9.0
+-------------
+01-Sep-2019
+- Support macOS
+- Use different base for evaluation parameters and tune them using coordinate descent
+- Implement queen and knight mobility evaluation
+- Improve speed when checking time limits
+- Fix underrun bug when clearing pieceStack
+- Extend recaptures only when searching in PV
+- Disable ponder until discovered issues are fixed
+
 Igel 1.8.3
 -------------
 28-Jul-2019

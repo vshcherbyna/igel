@@ -25,10 +25,10 @@
 #include "position.h"
 
 const EVAL VAL_P = 100;
-const EVAL VAL_N = 400;
-const EVAL VAL_B = 400;
-const EVAL VAL_R = 600;
-const EVAL VAL_Q = 1200;
+const EVAL VAL_N = 310;
+const EVAL VAL_B = 330;
+const EVAL VAL_R = 500;
+const EVAL VAL_Q = 1000;
 const EVAL VAL_K = 20000;
 
 class Evaluator
@@ -57,6 +57,11 @@ private:
     static int pawnShieldPenalty(const PawnHashEntry *ps, int fileK, COLOR side);
     static int pawnStormPenalty(const PawnHashEntry *ps, int fileK, COLOR side);
     static void showPsq(const char * stable, Pair* table, EVAL mid_w = 0, EVAL end_w = 0);
+
+private:
+    static constexpr int WhiteAttacks = NOPIECE;
+    static constexpr int BlackAttacks = NOPIECE + 1;
+    static U64 m_pieceAttacks[KB];
 };
 
 #endif

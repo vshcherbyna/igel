@@ -40,12 +40,14 @@ const U8 HASH_BETA = 2;
 /*static */constexpr int Search::m_cmpHistoryLimit[2];
 /*static */constexpr int Search::m_fmpDepth[2];
 /*static */constexpr int Search::m_fmpHistoryLimit[2];
+/*static */constexpr int Search::m_fpHistoryLimit[2];
 
 extern FILE * g_log;
 
 Search::Search() :
     m_nodes(0),
     m_tbHits(0),
+    m_limitCheck(1023),
     m_t0(0),
     m_flags(0),
     m_depth(0),
@@ -65,8 +67,8 @@ Search::Search() :
     m_terminateSmp(false),
     m_lazyPonder(false)
 {
-    for (int depth = 1; depth < 64; depth++)
-        for (int moves = 1; moves < 64; moves++)
+    for (int depth = 1; depth < 64; ++depth)
+        for (int moves = 1; moves < 64; ++moves)
             m_logLMRTable[depth][moves] = 0.75 + log(depth) * log(moves) / 2.25;
 }
 
@@ -85,26 +87,30 @@ bool Search::checkLimits()
         return true;
     }
 
-    if (m_time.getTimeMode() == Time::TimeControl::NodesLimit)
-    {
-        if (m_nodes >= m_time.getNodesLimit())
-            m_flags |= TERMINATED_BY_LIMIT;
+    ++m_limitCheck;
 
-        return (m_flags & SEARCH_TERMINATED);
-    }
-
-    U32 dt = GetProcTime() - m_t0;
-
-    if (m_flags & MODE_PLAY)
-    {
-        if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getHardLimit())
+    if (!(m_limitCheck &= 1023)) {
+        if (m_time.getTimeMode() == Time::TimeControl::NodesLimit)
         {
-            m_flags |= TERMINATED_BY_LIMIT;
+            if (m_nodes >= m_time.getNodesLimit())
+                m_flags |= TERMINATED_BY_LIMIT;
 
-            if (g_log) {
-                stringstream ss;
-                ss << "Search stopped by stHard, dt = " << dt;
-                Log(ss.str());
+            return (m_flags & SEARCH_TERMINATED);
+        }
+
+        U32 dt = GetProcTime() - m_t0;
+
+        if (m_flags & MODE_PLAY)
+        {
+            if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getHardLimit())
+            {
+                m_flags |= TERMINATED_BY_LIMIT;
+
+                if (g_log) {
+                    stringstream ss;
+                    ss << "Search stopped by stHard, dt = " << dt;
+                    Log(ss.str());
+                }
             }
         }
     }
@@ -163,7 +169,8 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
         auto onPV = (beta - alpha) > 1;
         //m_time.adjust(onPV, depth, alpha);
 
-        Move mv = MoveEval::getNextBest(mvlist, i);
+        auto mv = MoveEval::getNextBest(mvlist, i);
+        auto lastMove = m_position.LastMove();
 
         if (m_position.MakeMove(mv)) {
             History::HistoryHeuristics history{};
@@ -187,7 +194,7 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
             //   EXTENSIONS
             //
 
-            newDepth += extensionRequired(mv, m_position.LastMove(), inCheck, ply, onPV, quietMoves.size(), history.cmhistory, history.fmhistory);
+            newDepth += extensionRequired(mv, lastMove, inCheck, ply, onPV, quietMoves.size(), history.cmhistory, history.fmhistory);
 
             EVAL e;
             if (legalMoves == 1)
@@ -305,7 +312,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     //
 
     if (TB_LARGEST && depth >= 2 && !m_position.Fifty() && !(m_position.CanCastle(m_position.Side(), KINGSIDE) || m_position.CanCastle(m_position.Side(), QUEENSIDE))) {
-        auto pieces = CountBits(m_position.BitsAll());
+        auto pieces = countBits(m_position.BitsAll());
 
         if ((pieces < TB_LARGEST) || (pieces == TB_LARGEST && depth >= m_syzygyDepth)) {
             EVAL score;
@@ -365,7 +372,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
     EVAL staticEval = m_evalStack[ply] = Evaluator::evaluate(m_position);
 
-    if (pruneMoves) {
+    if (pruneMoves && !isCheckMateScore(beta)) {
 
         //
         //   razoring
@@ -387,6 +394,15 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
         bool nonPawnMaterial = m_position.NonPawnMaterial();
 
+        static const EVAL MARGIN[4] = { 0, 50, 350, 550 };
+
+        if (nonPawnMaterial && !onPV && !inCheck && depth >= 1 && depth <= 3) {
+            if (staticEval <= alpha - MARGIN[depth])
+                return qSearch(alpha, beta, ply);
+            if (staticEval >= beta + MARGIN[depth])
+                return beta;
+        }
+
         if (!isNull && !onPV && !inCheck && depth >= 2 && nonPawnMaterial && staticEval >= beta && !ttHit) {
             int R = 4 + depth / 6 + min(3, (staticEval - beta) / 200);
 
@@ -396,7 +412,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             m_position.UnmakeNullMove();
 
             if (nullScore >= beta)
-                return beta;
+                return isCheckMateScore(nullScore) ? beta : nullScore;
         }
 
         //
@@ -462,6 +478,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     seeMargin[0] = SEENoisyMargin * depth * depth;
     seeMargin[1] = SEEQuietMargin * depth;
 
+    auto futilityMargin = staticEval + 90 * depth;
+
     for (size_t i = 0; i < mvSize; ++i) {
 
         Move mv = MoveEval::getNextBest(mvlist, i);
@@ -479,6 +497,11 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         History::fetchHistory(this, mv, ply, history);
 
         if (quietMove && bestMove) {
+
+            if (futilityMargin <= alpha
+                && depth <= 8
+                && history.history + history.cmhistory + history.fmhistory < m_fpHistoryLimit[improving])
+                skipQuiets = true;
 
             if (depth <= m_lmpDepth && quietsTried >= m_lmpPruningTable[improving][depth])
                 skipQuiets = true;
@@ -510,6 +533,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         }
         */
 
+        auto lastMove = m_position.LastMove();
+
         if (m_position.MakeMove(mv))
         {
             ++m_nodes;
@@ -526,7 +551,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             //   extensions
             //
 
-            newDepth += extensionRequired(mv, m_position.LastMove(), inCheck, ply, onPV, quietMoves.size(), history.cmhistory, history.fmhistory);
+            newDepth += extensionRequired(mv, lastMove, inCheck, ply, onPV, quietMoves.size(), history.cmhistory, history.fmhistory);
             auto extended = newDepth != (depth - 1);
 
             EVAL e;
@@ -543,8 +568,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                 if (!rootNode && !improving && !onPV && quietMove && !extended && !inCheck && !m_position.InCheck() && !MoveEval::isSpecialMove(mv, this)) {
                     reduction = m_logLMRTable[std::min(depth, 63)][std::min(legalMoves, 63)];
 
-                    reduction -=    mv == m_killerMoves[ply][0]
-                              ||    mv == m_killerMoves[ply][1];
+                    reduction -= mv == m_killerMoves[ply][0]
+                        || mv == m_killerMoves[ply][1];
 
                     reduction -= std::max(-2, std::min(2, (history.history + history.cmhistory + history.fmhistory) / 5000));
 
@@ -736,7 +761,7 @@ void Search::clearKillers()
 void Search::clearStacks()
 {
     memset(m_moveStack, 0, sizeof(m_moveStack));
-    memset(m_pieceStack, 0, sizeof(m_moveStack));
+    memset(m_pieceStack, 0, sizeof(m_pieceStack));
     memset(m_followTable, 0, sizeof(m_followTable));
     memset(m_counterTable, 0, sizeof(m_counterTable));
     memset(m_evalStack, 0, sizeof(m_evalStack));
@@ -901,7 +926,7 @@ bool Search::ProbeHash(TEntry & hentry)
 
 Move Search::tableBaseRootSearch()
 {
-    if (!TB_LARGEST || CountBits(m_position.BitsAll()) > TB_LARGEST)
+    if (!TB_LARGEST || countBits(m_position.BitsAll()) > TB_LARGEST)
         return 0;
 
     auto result =
@@ -1074,6 +1099,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
     m_nodes = 0;
     m_selDepth = 0;
     m_tbHits = 0;
+    m_limitCheck = 1023;
     m_ponderHit = false;
 
     if (m_principalSearcher) {
