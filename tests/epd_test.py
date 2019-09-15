@@ -24,19 +24,17 @@
 #
 
 import chess
-import chess.uci
+import chess.engine
 import time
 import sys
 
 def test_epd(engine, epd,  wait_time):
     position = chess.Board()
     epd_info = position.set_epd(epd)
-    engine.ucinewgame()
-    engine.position(position)
-
-    enginemove, pondermove = engine.go(movetime=wait_time)
-
-    if enginemove in epd_info["bm"]:
+    info = engine.analyse(position, chess.engine.Limit(time=wait_time))
+    bestmove = info["pv"]
+    
+    if bestmove[0] in epd_info["bm"]:
         print ("%s (expecting %s): +1" % (
             epd_info["id"],
             " or ".join(position.san(bm) for bm in epd_info["bm"])))
@@ -45,56 +43,13 @@ def test_epd(engine, epd,  wait_time):
         print ("%s (expecting %s): +0 (got %s)" % (
             epd_info["id"],
             " or ".join(position.san(bm) for bm in epd_info["bm"]),
-            position.san(enginemove)))
+            position.san(bestmove[0])))
         return 0.0
 
-def test_epd_with_fractional_scores(engine, epd,  wait_time):
-    info_handler = chess.uci.InfoHandler()
-    engine.info_handlers.append(info_handler)
-
-    position = chess.Board()
-    epd_info = position.set_epd(epd)
-
-    engine.ucinewgame()
-    engine.position(position)
-
-    # search in background
-    search = engine.go(infinite=True, async_callback=True)
-    score = 0.0
-
-    print ("%s (expecting %s):" % (
-        epd_info["id"],
-        " or ".join(position.san(bm) for bm in epd_info["bm"]))),
-
-    for step in range(0, 3):
-        time.sleep(wait_time / 4)
-
-        # assess the current principal variation
-        with info_handler as info:
-            if 1 in info["pv"] and len(info["pv"][1]) >= 1:
-                if info["pv"][1][0] in epd_info["bm"]:
-                    score = 1.0 / (4 - step)
-                print ("(%s)" % position.san(info["pv"][1][0])),
-            else:
-                print ("(no pv)"),
-
-    # assess the final best move by the engine
-    time.sleep(wait_time / 4)
-    engine.stop()
-    enginemove, pondermove = search.result()
-    if enginemove in epd_info["bm"]:
-        score = 1.0
-
-    print ("%s | +%g" % (position.san(enginemove), score))
-    engine.info_handlers.remove(info_handler)
-
-    return score
-
 def run_test(eng,  wt,  f, mem, threads):
-    engine = chess.uci.popen_engine(eng)
-    engine.setoption({"Hash": mem})
-    engine.setoption({"Threads": threads})
-    engine.ucinewgame()
+    engine = chess.engine.SimpleEngine.popen_uci("../igel")
+    engine.configure({"Threads": threads})
+    engine.configure({"Hash": mem})
 
     file = open(f, 'r') 
     epds = file.read()
