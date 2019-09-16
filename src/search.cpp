@@ -87,19 +87,18 @@ bool Search::checkLimits()
         return true;
     }
 
+    if (m_time.getTimeMode() == Time::TimeControl::NodesLimit) {
+        if (m_nodes >= m_time.getNodesLimit())
+            m_flags |= TERMINATED_BY_LIMIT;
+
+        return (m_flags & SEARCH_TERMINATED);
+    }
+
     ++m_limitCheck;
 
     if (!(m_limitCheck &= 1023)) {
-        if (m_time.getTimeMode() == Time::TimeControl::NodesLimit)
-        {
-            if (m_nodes >= m_time.getNodesLimit())
-                m_flags |= TERMINATED_BY_LIMIT;
-
-            return (m_flags & SEARCH_TERMINATED);
-        }
 
         U32 dt = GetProcTime() - m_t0;
-
         if (m_flags & MODE_PLAY)
         {
             if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getHardLimit())
@@ -1118,16 +1117,14 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
 
     auto printBestMove = [](Search * pthis, Position & pos, Move m, Move p) {
 
-        if (m) 
-            cout << "bestmove " << MoveToStrLong(m);
+        if (m)
+            cout << "bestmove " << MoveToStrLong(m) << endl;
 
-        if (!p)
+        /*if (!p)
             p = pthis->forceFetchPonder(pos, m);
 
         if (p)
-            cout << " ponder " << MoveToStrLong(p);
-        cout << endl;
-
+            cout << " ponder " << MoveToStrLong(p);*/
     };
 
     if (m_principalSearcher) {
@@ -1159,11 +1156,11 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
         //  Probe tablebases/tt at root
         //
 
-        m_best = tableBaseRootSearch();
+        auto bestTb = tableBaseRootSearch();
 
-        if (m_best) {
+        if (bestTb) {
             waitUntilCompletion();
-            printBestMove(this, m_position, m_best, ponder);
+            printBestMove(this, m_position, bestTb, ponder);
             return;
         }
     }
