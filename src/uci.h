@@ -48,6 +48,7 @@ private:
     void onPonderHit();
     void onPosition(commandParams params);
     void onSetOption(commandParams params);
+    void onEval();
     bool startsWith(const std::string & str, const std::string & ptrn);
 
 private:
