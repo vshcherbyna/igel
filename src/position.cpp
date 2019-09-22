@@ -531,12 +531,24 @@ bool Position::SetFEN(const string& fen)
     {
         switch (tokens[2][i])
         {
-            case 'K': m_castlings |= CASTLINGS[WHITE][KINGSIDE];  break;
-            case 'Q': m_castlings |= CASTLINGS[WHITE][QUEENSIDE]; break;
-            case 'k': m_castlings |= CASTLINGS[BLACK][KINGSIDE];  break;
-            case 'q': m_castlings |= CASTLINGS[BLACK][QUEENSIDE]; break;
-            case '-': break;
-            default: goto ILLEGAL_FEN;
+        case 'K':
+            if (m_board[E1] == KW && m_board[H1] == RW)
+                m_castlings |= CASTLINGS[WHITE][KINGSIDE];
+            break;
+        case 'Q':
+            if (m_board[E1] == KW && m_board[A1] == RW)
+                m_castlings |= CASTLINGS[WHITE][QUEENSIDE];
+            break;
+        case 'k':
+            if (m_board[E8] == KB && m_board[H8] == RB)
+                m_castlings |= CASTLINGS[BLACK][KINGSIDE];
+            break;
+        case 'q':
+            if (m_board[E8] == KB && m_board[A8] == RB)
+                m_castlings |= CASTLINGS[BLACK][QUEENSIDE];
+            break;
+        case '-': break;
+        default: goto ILLEGAL_FEN;
         }
     }
 
