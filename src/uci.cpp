@@ -21,13 +21,14 @@
 #include "time.h"
 #include "notation.h"
 #include "tune.h"
+#include "eval.h"
 
 #include "fathom/tbprobe.h"
 
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "1.9.0";
+const std::string VERSION = "1.9.1";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 131072;
@@ -86,6 +87,8 @@ int Uci::handleCommands()
             onUci();
         else if (startsWith(cmd, "tune"))
             onTune();
+        else if (startsWith(cmd, "eval"))
+            onEval();
     }
 
     return 0;
@@ -166,6 +169,11 @@ void Uci::onPonderHit()
 {
     m_searcher.setPonderHit();
     onStop();
+}
+
+void Uci::onEval()
+{
+    std::cout << "eval: " << Evaluator::evaluate(m_searcher.m_position) << std::endl;
 }
 
 void Uci::onPosition(commandParams params)

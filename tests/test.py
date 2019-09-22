@@ -38,7 +38,7 @@ score = 0
 improvements = 0
 def_mem = 256
 def_threads = 1
-def_search_time = 10000
+def_search_time = 10
 
 def run_epd_test(name,  expected_pass,  epd,  tc, mem, threads):
     global improvements
@@ -69,14 +69,14 @@ if "skip" != skip_errors:
     if os.system('python ./go_infinite_test.py') != 0:
         raise Exception("test failed:", "go infinite test")
 
-executor = ThreadPoolExecutor(max_workers=6)
+executor = ThreadPoolExecutor(max_workers=1)
 
 #
 #   fundamental test suites
 #
 
-executor.submit(run_epd_test, 'null move test',  4,  'epds/null_move.epd', 60000, def_mem, def_threads)
-executor.submit(run_epd_test, 'bratko kopec test',  17,  'epds/bk.epd', 60000, def_mem, def_threads)
+executor.submit(run_epd_test, 'bratko kopec test',  17,  'epds/bk.epd', 60, def_mem, def_threads)
+executor.submit(run_epd_test, 'null move test',  4,  'epds/null_move.epd', 60, def_mem, def_threads)
 executor.submit(run_epd_test, 'win at chess test',  296,  'epds/wacnew.epd', def_search_time, def_mem, def_threads)
 executor.submit(run_epd_test, 'dann corbit tune test',  115,  'epds/dann_corbit_tune.epd', def_search_time, def_mem, def_threads)
 

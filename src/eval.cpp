@@ -71,7 +71,6 @@ Pair rooksConnected;
 Pair kingPawnShield[10];
 Pair kingPawnStorm[10];
 Pair kingPasserDistance[10];
-Pair kingExplosed[28];
 Pair attackKing[8];
 Pair strongAttack;
 Pair centerAttack;
@@ -641,18 +640,12 @@ Pair bishopAndRook;
     int storm = pawnStormPenalty(ps, fileK, WHITE);
     score += kingPawnStorm[storm];
 
-    U64 y = QueenAttacks(f, occ);
-    score += kingExplosed[countBits(y)];
-
     f = pos.King(BLACK);
     fileK = Col(f) + 1;
     shield = pawnShieldPenalty(ps, fileK, BLACK);
     score -= kingPawnShield[shield];
     storm = pawnStormPenalty(ps, fileK, BLACK);
     score -= kingPawnStorm[storm];
-
-    y = QueenAttacks(f, occ);
-    score -= kingExplosed[countBits(y)];
 
     return score;
 }
@@ -1019,11 +1012,6 @@ void Evaluator::initEval(const vector<int> & x)
     bishopAndRook.mid = refParam(Mid_BishopAndRook, 0);
     bishopAndRook.end = refParam(End_BishopAndRook, 0);
 
-    for (int exposed = 0; exposed < 28; ++exposed) {
-        kingExplosed[exposed].mid = refParam(Mid_KingExposed, exposed);
-        kingExplosed[exposed].end = refParam(End_KingExposed, exposed);
-    }
-
     for (int att = 0; att < 4; ++att) {
         attackKing[att].mid = refParam(Mid_AttackKingZone, att);
         attackKing[att].end = refParam(End_AttackKingZone, att);
@@ -1037,6 +1025,7 @@ void Evaluator::initEval()
     //if (!ReadParamsFromFile(W, "igel.txt"))
     SetDefaultValues(W);
     initEval(W);
+    //WriteParamsToFile(W, "igel.txt");
 }
 
 void PawnHashEntry::Read(const Position& pos)
