@@ -37,8 +37,8 @@ void onTune()
 
 void Tuner::Tune()
 {
-    W.resize(0);
-    W.resize(NUM_PARAMS);
+    //W.resize(0);
+    //W.resize(NUM_PARAMS);
 
     auto epoch = 0;
 
