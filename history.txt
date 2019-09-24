@@ -3,6 +3,22 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 1.9.2
+-------------
+24-Sep-2019
+
+- Tuning of evaluation parameters
+
+Igel 1.9.1
+-------------
+22-Sep-2019
+
+- Fix time control mode "nodes limit"
+- Fix problem when a bestmove may become 0 in case tb search failed
+- Fix bug #96: incorrect evaluation of position 4k3/8/8/8/5n2/1R6/6P1/5K2 w KQkq -
+- Fix bug #97: incorrect evaluation of king exposed
+- Expose evaluation of a position by implementing "eval" command option
+
 Igel 1.9.0
 -------------
 01-Sep-2019
