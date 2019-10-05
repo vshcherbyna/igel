@@ -22,6 +22,7 @@
 #define TUNER_H
 
 #include "types.h"
+#include "eval.h"
 #include "position.h"
 
 #include <memory>
@@ -32,7 +33,7 @@ void onTune();
 class Tuner
 {
 public:
-    Tuner() : m_pos(new Position) { }
+    Tuner() : m_pos(new Position), m_evaluator(new Evaluator) { }
     Tuner(const Tuner&) = delete;
     Tuner& operator=(const Tuner&) = delete;
 
@@ -52,6 +53,7 @@ private:
 private:
     U32 m_t0;
     std::unique_ptr<Position> m_pos;
+    std::unique_ptr<Evaluator> m_evaluator;
 };
 
 #endif // TUNER_H

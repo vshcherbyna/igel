@@ -315,7 +315,7 @@ double Tuner::errSq(const string& s, double K)
         return -1;
     }
 
-    EVAL e = Evaluator::evaluate(*m_pos.get());
+    EVAL e = m_evaluator->evaluate(*m_pos.get());
 
     if (m_pos->Side() == BLACK)
         e = -e;

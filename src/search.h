@@ -21,6 +21,7 @@
 #ifndef SEARCH_H
 #define SEARCH_H
 
+#include "eval.h"
 #include "position.h"
 #include "time.h"
 #include "tt.h"
@@ -82,9 +83,8 @@ private:
     bool ProbeHash(TEntry & hentry);
     bool isGameOver(Position & pos, string & result, string & comment, Move & bestMove, int & legalMoves);
     Move forceFetchPonder(Position & pos, const Move & bestMove);
-    void PrintPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, const string& sign);
+    void printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv);
 
-    void ProcessInput(const string& s);
     bool checkLimits();
     void releaseHelperThreads();
     void waitUntilCompletion();
@@ -114,6 +114,7 @@ private:
     Time m_time;
     std::unique_ptr<std::thread> m_principalThread;
     std::mutex m_readyMutex;
+    std::unique_ptr<Evaluator> m_evaluator;
 
 public:
     bool m_principalSearcher;

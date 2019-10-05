@@ -29,6 +29,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <map>
+#include <utility>
 
 const U8 HASH_ALPHA = 0;
 const U8 HASH_EXACT = 1;
@@ -67,6 +69,8 @@ Search::Search() :
     m_terminateSmp(false),
     m_lazyPonder(false)
 {
+    m_evaluator.reset(new Evaluator);
+
     for (int depth = 1; depth < 64; ++depth)
         for (int moves = 1; moves < 64; ++moves)
             m_logLMRTable[depth][moves] = 0.75 + log(depth) * log(moves) / 2.25;
@@ -135,10 +139,16 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
     auto inCheck = m_position.InCheck();
     auto rootNode = depth == 1;
 
+    /*TEntry hEntry;
+
+    if (ProbeHash(hEntry))
+        hashMove = hEntry.move();*/
+
     if (m_pv[0][0])
         hashMove = m_pv[0][0];
 
     MoveList& mvlist = m_lists[ply];
+
     if (inCheck)
         GenMovesInCheck(m_position, mvlist);
     else
@@ -261,7 +271,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         return -INFINITY_SCORE;
 
     if (ply > MAX_PLY - 2)
-        return Evaluator::evaluate(m_position);
+        return m_evaluator->evaluate(m_position);
 
     if (!isNull && m_position.Repetitions() >= 2)
         return DRAW_SCORE;
@@ -369,7 +379,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         }
     }
 
-    EVAL staticEval = m_evalStack[ply] = Evaluator::evaluate(m_position);
+    EVAL staticEval = m_evalStack[ply] = m_evaluator->evaluate(m_position);
 
     if (pruneMoves && !isCheckMateScore(beta)) {
 
@@ -634,7 +644,7 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
         return -INFINITY_SCORE;
 
     if (ply > MAX_PLY - 2)
-        return Evaluator::evaluate(m_position);
+        return m_evaluator->evaluate(m_position);
 
     m_selDepth = std::max(ply, m_selDepth);
 
@@ -670,7 +680,7 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
     }
     else
     {
-        bestScore = staticScore = ttHit ? hEntry.score() : Evaluator::evaluate(m_position);
+        bestScore = staticScore = ttHit ? hEntry.score() : m_evaluator->evaluate(m_position);
 
         if (ttHit)
         {
@@ -885,11 +895,8 @@ bool Search::isGameOver(Position & pos, string & result, string & comment, Move 
     return false;
 }
 
-void Search::PrintPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, const string& sign)
+void Search::printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv/* = 0*/)
 {
-    if (abs(score) >= INFINITY_SCORE || !pvSize)
-        return;
-
     U32 dt = GetProcTime() - m_t0;
 
     cout << "info depth " << iter << " seldepth " << selDepth;
@@ -901,12 +908,15 @@ void Search::PrintPV(const Position& pos, int iter, int selDepth, EVAL score, co
     cout << " nodes " << m_nodes;
     cout << " tbhits " << m_tbHits;
 
-    if (pvSize > 0)
-    {
-        cout << " pv";
+    cout << " pv";
+
+    if (pvSize > 0) {
         for (int i = 0; i < pvSize; ++i)
             cout << " " << MoveToStrLong(pv[i]);
     }
+    else
+        cout << " " << MoveToStrLong(mv);
+
     cout << endl;
 }
 
@@ -1248,7 +1258,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
             }
 
             if (m_principalSearcher)
-                PrintPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], "");
+                printPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], m_best);
 
             if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getSoftLimit())
             {
@@ -1269,7 +1279,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
             beta = INFINITY_SCORE;
 
             if (!(m_flags & MODE_SILENT) && m_principalSearcher)
-                PrintPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], "");
+                printPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], m_best);
             --m_depth;
 
             aspiration += aspiration / 4 + 5;
@@ -1294,7 +1304,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
             }
 
             if (!(m_flags & MODE_SILENT) && m_principalSearcher)
-                PrintPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], "");
+                printPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], m_best);
             --m_depth;
             aspiration += aspiration / 4 + 5;
         }
@@ -1341,8 +1351,41 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
 
     waitUntilCompletion();
 
-    if (m_principalSearcher)
-        printBestMove(this, m_position, m_best, ponder);
+    if (m_principalSearcher) {
+
+        int64_t minimumScore = m_bestSmpEval;
+
+        for (unsigned int i = 0; i < m_thc; ++i)
+            minimumScore = std::min(minimumScore, (int64_t)m_threadParams[i].m_bestSmpEval);
+
+        using threadPerformance = std::pair<int64_t, int>;
+        std::map<Move, threadPerformance> votes;
+
+        votes[m_best] = std::make_pair((m_bestSmpEval - minimumScore + 14) * int(m_depth), -1);
+
+        for (unsigned int i = 0; i < m_thc; ++i) {
+            votes[m_threadParams[i].m_best].first += (m_threadParams[i].m_bestSmpEval - minimumScore + 14) * int(m_threadParams[i].m_depth);
+            votes[m_threadParams[i].m_best].second = i;
+        }
+
+        Move bestVoted = m_best;
+        int thread = -1;
+
+        for (auto mv : votes) {
+            if (mv.second.first > minimumScore) {
+                bestVoted = mv.first;
+                minimumScore = mv.second.first;
+                thread = mv.second.second;
+            }
+        }
+
+        if (thread == -1)
+            printBestMove(this, m_position, bestVoted, ponder);
+        else {
+            printPV(m_position, m_threadParams[thread].m_depth, m_threadParams[thread].m_selDepth, m_threadParams[thread].m_bestSmpEval, m_threadParams[thread].m_pv[0], m_threadParams[thread].m_pvSize[0], bestVoted);
+            printBestMove(this, m_position, bestVoted, ponder);
+        }
+    }
 }
 
 void Search::setPonderHit()

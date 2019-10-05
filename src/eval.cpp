@@ -86,8 +86,6 @@ Pair knightsPair;
 Pair knightAndQueen;
 Pair bishopAndRook;
 
-/*static */U64 Evaluator::m_pieceAttacks[KB];
-
 /*static */EVAL Evaluator::evaluate(Position & pos)
 {
     U64 kingZone[2] = { BB_KING_ATTACKS[pos.King(WHITE)], BB_KING_ATTACKS[pos.King(BLACK)] };
