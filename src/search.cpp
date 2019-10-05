@@ -1351,41 +1351,8 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
 
     waitUntilCompletion();
 
-    if (m_principalSearcher) {
-
-        int64_t minimumScore = m_bestSmpEval;
-
-        for (unsigned int i = 0; i < m_thc; ++i)
-            minimumScore = std::min(minimumScore, (int64_t)m_threadParams[i].m_bestSmpEval);
-
-        using threadPerformance = std::pair<int64_t, int>;
-        std::map<Move, threadPerformance> votes;
-
-        votes[m_best] = std::make_pair((m_bestSmpEval - minimumScore + 14) * int(m_depth), -1);
-
-        for (unsigned int i = 0; i < m_thc; ++i) {
-            votes[m_threadParams[i].m_best].first += (m_threadParams[i].m_bestSmpEval - minimumScore + 14) * int(m_threadParams[i].m_depth);
-            votes[m_threadParams[i].m_best].second = i;
-        }
-
-        Move bestVoted = m_best;
-        int thread = -1;
-
-        for (auto mv : votes) {
-            if (mv.second.first > minimumScore) {
-                bestVoted = mv.first;
-                minimumScore = mv.second.first;
-                thread = mv.second.second;
-            }
-        }
-
-        if (thread == -1)
-            printBestMove(this, m_position, bestVoted, ponder);
-        else {
-            printPV(m_position, m_threadParams[thread].m_depth, m_threadParams[thread].m_selDepth, m_threadParams[thread].m_bestSmpEval, m_threadParams[thread].m_pv[0], m_threadParams[thread].m_pvSize[0], bestVoted);
-            printBestMove(this, m_position, bestVoted, ponder);
-        }
-    }
+    if (m_principalSearcher)
+        printBestMove(this, m_position, m_best, ponder);
 }
 
 void Search::setPonderHit()
