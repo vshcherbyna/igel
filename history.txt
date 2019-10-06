@@ -3,6 +3,12 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 2.0.0
+-------------
+05-Oct-2019
+
+- Fix evaluation bug in SMP mode that significantly affects performance (~300 elo)
+
 Igel 1.9.2
 -------------
 24-Sep-2019
