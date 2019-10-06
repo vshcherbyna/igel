@@ -57,7 +57,7 @@ void Tuner::Tune()
         auto rng = std::default_random_engine{};
         std::shuffle(std::begin(totalFens), std::end(totalFens), rng);
 
-        vector<int> x0 = W;
+        vector<int> x0 = evalWeights;
         setTuneStartTime();
 
         vector<int> params;
