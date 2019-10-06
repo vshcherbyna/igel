@@ -23,7 +23,7 @@
 
 #include "types.h"
 
-extern vector<int> W;
+extern vector<int> evalWeights;
 
 struct Line
 {

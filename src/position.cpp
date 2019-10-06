@@ -24,7 +24,7 @@
 
 #include <memory>
 
-extern Pair PSQ[14][64];
+extern Pair pieceSquareTables[14][64];
 
 const Move MOVE_O_O[2]   = { Move(E1, G1, KW), Move(E8, G8, KB) };
 const Move MOVE_O_O_O[2] = { Move(E1, C1, KW), Move(E8, C8, KB) };
@@ -369,8 +369,8 @@ void Position::MovePiece(PIECE p, FLD from, FLD to)
     m_pawnHash ^= s_pawnHash[from][p];
     m_pawnHash ^= s_pawnHash[to][p];
 
-    m_score += PSQ[p][to];
-    m_score -= PSQ[p][from];
+    m_score += pieceSquareTables[p][to];
+    m_score -= pieceSquareTables[p][from];
 }
 
 void Position::Print() const
@@ -412,7 +412,7 @@ void Position::Put(FLD f, PIECE p)
     m_matIndex[side] += s_matIndexDelta[p];
     ++m_count[p];
 
-    m_score += PSQ[p][f];
+    m_score += pieceSquareTables[p][f];
 }
 
 void Position::Remove(FLD f)
@@ -431,7 +431,7 @@ void Position::Remove(FLD f)
     m_matIndex[side] -= s_matIndexDelta[p];
     --m_count[p];
 
-    m_score -= PSQ[p][f];
+    m_score -= pieceSquareTables[p][f];
 }
 
 int Position::Repetitions() const

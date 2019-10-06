@@ -22,7 +22,7 @@
 #include "notation.h"
 #include "utils.h"
 
-vector<int> W;
+vector<int> evalWeights;
 int NUM_PARAMS = 0;
 
 Line lines[NUM_LINES] =

@@ -18,6 +18,9 @@
 *  along with Igel.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <ctime>
+#include <chrono> 
+
 #include "bitboards.h"
 #include "utils.h"
 
@@ -134,9 +137,5 @@ void Split(const string& s, vector<string>& tokens, const string& sep)
 
 string Timestamp()
 {
-    time_t t = time(0);   // get time now
-    struct tm* now = localtime(&t);
-    char buf[16];
-    sprintf(buf, "%02d:%02d:%02d", now->tm_hour, now->tm_min, now->tm_sec);
-    return string(buf);
+    return {};
 }

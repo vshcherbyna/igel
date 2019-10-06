@@ -35,4 +35,3 @@ else:
 #
 
 mate_in_n.fnc_mate_in_n(1)
-mate_in_n.fnc_mate_in_n(2)

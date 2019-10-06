@@ -22,7 +22,7 @@
 #include "eval_params.h"
 #include "utils.h"
 
-Pair PSQ[14][64];
+Pair pieceSquareTables[14][64];
 
 //
 //  Pawn evaluations
@@ -71,7 +71,7 @@ Pair rooksConnected;
 Pair kingPawnShield[10];
 Pair kingPawnStorm[10];
 Pair kingPasserDistance[10];
-Pair attackKing[8];
+Pair attackKingZone[8];
 Pair strongAttack;
 Pair centerAttack;
 Pair tempoAttack;
@@ -692,8 +692,8 @@ Pair bishopAndRook;
     if (attackers[BLACK] > 3)
         attackers[BLACK] = 3;
 
-    score += attackKing[attackers[WHITE]];
-    score -= attackKing[attackers[BLACK]];
+    score += attackKingZone[attackers[WHITE]];
+    score -= attackKingZone[attackers[BLACK]];
 
     if (pos.Side() == WHITE)
         score += tempoAttack;
@@ -772,37 +772,6 @@ int Evaluator::pawnStormPenalty(const PawnHashEntry * pEntry, int fileK, COLOR s
     return penalty;
 }
 
-int Q2(int tag, double x, double y)
-{
-    // A*x*x + B*x + C*y*y + D*y + E*x*y + F
-
-    int* ptr = &(W[lines[tag].start]);
-
-    int A = ptr[0];
-    int B = ptr[1];
-    int C = ptr[2];
-    int D = ptr[3];
-    int E = ptr[4];
-    int F = ptr[5];
-
-    double val = A * x * x + B * x + C * y * y + D * y + E * x * y + F;
-    return int(val);
-}
-
-int Q1(int tag, double x)
-{
-    // A*x*x + B*x + C
-
-    int* ptr = &(W[lines[tag].start]);
-
-    int A = ptr[0];
-    int B = ptr[1];
-    int C = ptr[2];
-
-    double val = A * x * x + B * x + C;
-    return int(val);
-}
-
 void Evaluator::showPsq(const char * stable, Pair* table, EVAL mid_w/* = 0*/, EVAL end_w/* = 0*/)
 {
     double sum_mid = 0, sum_end = 0;
@@ -839,19 +808,19 @@ void Evaluator::showPsq(const char * stable, Pair* table, EVAL mid_w/* = 0*/, EV
 
 int refParam(int tag, int f)
 {
-    int * ptr = &(W[lines[tag].start]);
+    int * ptr = &(evalWeights[lines[tag].start]);
     return ptr[f];
 }
 
 void Evaluator::initEval(const vector<int> & x)
 {
-    W = x;
+    evalWeights = x;
 
     for (FLD f = 0; f < 64; ++f) {
         if (Row(f) != 0 && Row(f) != 7)
         {
-            PSQ[PW][f].mid = VAL_P + refParam(Mid_Pawn, f);
-            PSQ[PW][f].end = VAL_P + refParam(End_Pawn, f);
+            pieceSquareTables[PW][f].mid = VAL_P + refParam(Mid_Pawn, f);
+            pieceSquareTables[PW][f].end = VAL_P + refParam(End_Pawn, f);
 
             passedPawn[f].mid = refParam(Mid_PawnPassed, f);
             passedPawn[f].end = refParam(End_PawnPassed, f);
@@ -882,39 +851,39 @@ void Evaluator::initEval(const vector<int> & x)
         }
         else
         {
-            PSQ[PW][f]              = VAL_P;
-            passedPawn[f]           = 0;
-            passedPawnBlocked[f]    = 0;
-            passedPawnFree[f]       = 0;
-            passedPawnConnected[f]  = 0;
-            pawnDoubled[f]          = 0;
-            pawnIsolated[f]         = 0;
-            pawnDoubledIsolated[f]  = 0;
-            pawnBlocked[f]          = 0;
-            pawnFence[f]            = 0;
+            pieceSquareTables[PW][f]    = VAL_P;
+            passedPawn[f]               = 0;
+            passedPawnBlocked[f]        = 0;
+            passedPawnFree[f]           = 0;
+            passedPawnConnected[f]      = 0;
+            pawnDoubled[f]              = 0;
+            pawnIsolated[f]             = 0;
+            pawnDoubledIsolated[f]      = 0;
+            pawnBlocked[f]              = 0;
+            pawnFence[f]                = 0;
         }
 
-        PSQ[NW][f].mid = VAL_N + refParam(Mid_Knight, f);
-        PSQ[NW][f].end = VAL_N + refParam(End_Knight, f);
+        pieceSquareTables[NW][f].mid = VAL_N + refParam(Mid_Knight, f);
+        pieceSquareTables[NW][f].end = VAL_N + refParam(End_Knight, f);
 
-        PSQ[BW][f].mid = VAL_B + refParam(Mid_Bishop, f);
-        PSQ[BW][f].end = VAL_B + refParam(End_Bishop, f);
+        pieceSquareTables[BW][f].mid = VAL_B + refParam(Mid_Bishop, f);
+        pieceSquareTables[BW][f].end = VAL_B + refParam(End_Bishop, f);
 
-        PSQ[RW][f].mid = VAL_R + refParam(Mid_Rook, f);
-        PSQ[RW][f].end = VAL_R + refParam(End_Rook, f);
+        pieceSquareTables[RW][f].mid = VAL_R + refParam(Mid_Rook, f);
+        pieceSquareTables[RW][f].end = VAL_R + refParam(End_Rook, f);
 
-        PSQ[QW][f].mid = VAL_Q + refParam(Mid_Queen, f);
-        PSQ[QW][f].end = VAL_Q + refParam(End_Queen, f);
+        pieceSquareTables[QW][f].mid = VAL_Q + refParam(Mid_Queen, f);
+        pieceSquareTables[QW][f].end = VAL_Q + refParam(End_Queen, f);
 
-        PSQ[KW][f].mid = VAL_K + refParam(Mid_King, f);
-        PSQ[KW][f].end = VAL_K + refParam(End_King, f);
+        pieceSquareTables[KW][f].mid = VAL_K + refParam(Mid_King, f);
+        pieceSquareTables[KW][f].end = VAL_K + refParam(End_King, f);
 
-        PSQ[PB][FLIP[BLACK][f]] = -PSQ[PW][f];
-        PSQ[NB][FLIP[BLACK][f]] = -PSQ[NW][f];
-        PSQ[BB][FLIP[BLACK][f]] = -PSQ[BW][f];
-        PSQ[RB][FLIP[BLACK][f]] = -PSQ[RW][f];
-        PSQ[QB][FLIP[BLACK][f]] = -PSQ[QW][f];
-        PSQ[KB][FLIP[BLACK][f]] = -PSQ[KW][f];
+        pieceSquareTables[PB][FLIP[BLACK][f]] = -pieceSquareTables[PW][f];
+        pieceSquareTables[NB][FLIP[BLACK][f]] = -pieceSquareTables[NW][f];
+        pieceSquareTables[BB][FLIP[BLACK][f]] = -pieceSquareTables[BW][f];
+        pieceSquareTables[RB][FLIP[BLACK][f]] = -pieceSquareTables[RW][f];
+        pieceSquareTables[QB][FLIP[BLACK][f]] = -pieceSquareTables[QW][f];
+        pieceSquareTables[KB][FLIP[BLACK][f]] = -pieceSquareTables[KW][f];
 
         knightStrong[f].mid = refParam(Mid_KnightStrong, f);
         knightStrong[f].end = refParam(End_KnightStrong, f);
@@ -1011,8 +980,8 @@ void Evaluator::initEval(const vector<int> & x)
     bishopAndRook.end = refParam(End_BishopAndRook, 0);
 
     for (int att = 0; att < 4; ++att) {
-        attackKing[att].mid = refParam(Mid_AttackKingZone, att);
-        attackKing[att].end = refParam(End_AttackKingZone, att);
+        attackKingZone[att].mid = refParam(Mid_AttackKingZone, att);
+        attackKingZone[att].end = refParam(End_AttackKingZone, att);
     }
 }
 
@@ -1021,8 +990,8 @@ void Evaluator::initEval()
     InitParamLines();
 
     //if (!ReadParamsFromFile(W, "igel.txt"))
-    SetDefaultValues(W);
-    initEval(W);
+    SetDefaultValues(evalWeights);
+    initEval(evalWeights);
     //WriteParamsToFile(W, "igel.txt");
 }
 
