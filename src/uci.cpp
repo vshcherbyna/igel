@@ -28,7 +28,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "2.0.0";
+const std::string VERSION = "2.0.1";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 131072;
@@ -79,6 +79,8 @@ int Uci::handleCommands()
             onIsready();
         else if (startsWith(cmd, "stop"))
             onStop();
+        else if (startsWith(cmd, "ponderhit"))
+            onPonderHit();
         else if (startsWith(cmd, "quit"))
             exit(0);
         else if (startsWith(cmd, "ucinewgame"))
@@ -125,8 +127,8 @@ void Uci::onUci()
         " min "         << 1        <<
         " max "         << MAX_PLY  << std::endl;
 
-    /*cout << "option name Ponder type check" <<
-        " default false" << endl;*/
+    cout << "option name Ponder type check" <<
+        " default false" << endl;
 
     std::cout << "uciok" << std::endl;
 }
@@ -157,7 +159,7 @@ void Uci::onGo(commandParams params)
     assert(params[0] == "go");
 
     TTable::instance().increaseAge();
-    m_searcher.startPrincipalSearch(time, false);
+    m_searcher.startPrincipalSearch(time, params[1] == "ponder");
 }
 
 void Uci::onStop()
@@ -168,7 +170,6 @@ void Uci::onStop()
 void Uci::onPonderHit()
 {
     m_searcher.setPonderHit();
-    onStop();
 }
 
 void Uci::onEval()
@@ -252,9 +253,9 @@ void Uci::onSetOption(commandParams params)
         tb_init(value.c_str());
     else if (name == "SyzygyProbeDepth")
         m_searcher.setSyzygyDepth(atoi(value.c_str()));
-    //else if (name == "Ponder") {
-    //    // nothing to do, we are stateless here
-    //}
+    else if (name == "Ponder") {
+        // nothing to do, we are stateless here
+    }
     else
         std::cout << "Unknown option " << name << std::endl;
 }
