@@ -67,7 +67,8 @@ Search::Search() :
     m_smpThreadExit(false),
     m_lazyPonder(false),
     m_terminateSmp(false),
-    m_waitStarted(false)
+    m_waitStarted(false),
+    m_level(DEFAULT_LEVEL)
 {
     m_evaluator.reset(new Evaluator);
 
@@ -262,7 +263,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     //   qsearch
     //
 
-    if (!inCheck && depth <= 0)
+    if (!inCheck && depth <= 0 && m_level > MEDIUM_LEVEL)
         return qSearch(alpha, beta, ply);
 
     auto rootNode = ply == 1;
@@ -454,7 +455,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     //   iid
     //
 
-    if (onPV && hashMove == 0 && depth > 4)
+    if (onPV && hashMove == 0 && depth > 4 && m_level == MAX_LEVEL)
     {
         abSearch(alpha, beta, depth - 4, ply, isNull, false);
         if (m_pvSize[ply] > 0)
@@ -1031,6 +1032,7 @@ void Search::startWorkerThreads(Time time)
         m_threadParams[i].m_tbHits = 0;
         m_threadParams[i].setPosition(m_position);
         m_threadParams[i].setTime(time);
+        m_threadParams[i].setLevel(m_level);
         m_threadParams[i].m_t0 = m_t0;
         m_threadParams[i].m_flags = m_flags;
         m_threadParams[i].m_bestSmpEval = -INFINITY_SCORE;
@@ -1193,8 +1195,9 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
     bool lazySmpWork = false;
     EVAL aspiration = 15;
     EVAL score = alpha;
+    auto maxDepth = m_level == MAX_LEVEL ? MAX_PLY : ((MAX_PLY * m_level) / MAX_LEVEL);
 
-    for (m_depth = depth; m_depth < MAX_PLY; ++m_depth)
+    for (m_depth = depth; m_depth < maxDepth; ++m_depth)
     {
         //
         //  Start worker threads if Threads option is configured
@@ -1370,6 +1373,11 @@ void Search::setPonderHit()
 void Search::setSyzygyDepth(int depth)
 {
     m_syzygyDepth = depth;
+}
+
+void Search::setLevel(int level)
+{
+    m_level = level;
 }
 
 void Search::setThreadCount(unsigned int threads)

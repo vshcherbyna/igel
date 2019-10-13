@@ -32,6 +32,11 @@
 #include <condition_variable>
 #include <functional>
 
+const int MIN_LEVEL = 0;
+const int MAX_LEVEL = 20;
+const int DEFAULT_LEVEL = MAX_LEVEL;
+const int MEDIUM_LEVEL = MAX_LEVEL / 2;
+
 const int MAX_PLY = 128;
 
 const U8 TERMINATED_BY_USER		= 0x01;
@@ -69,6 +74,7 @@ public:
     void startPrincipalSearch(Time time, bool ponder);
     void stopPrincipalSearch();
     void isReady();
+    void setLevel(int level);
 
 private:
     void startWorkerThreads(Time time);
@@ -148,6 +154,7 @@ private:
     static constexpr int m_fpHistoryLimit[]  = { 12000, 6000    };
     bool m_terminateSmp;
     bool m_waitStarted;
+    int m_level;
 };
 
 #endif

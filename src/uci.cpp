@@ -28,7 +28,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "2.0.1";
+const std::string VERSION = "2.1.0";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 131072;
@@ -129,6 +129,11 @@ void Uci::onUci()
 
     cout << "option name Ponder type check" <<
         " default false" << endl;
+
+    std::cout << "option name Level type spin" <<
+        " default " << DEFAULT_LEVEL <<
+        " min "		<< MIN_LEVEL	<<
+        " max "		<< MAX_LEVEL << std::endl;
 
     std::cout << "uciok" << std::endl;
 }
@@ -248,6 +253,13 @@ void Uci::onSetOption(commandParams params)
         if (threads > MAX_THREADS || threads < MIN_THREADS)
             std::cout << "Unable set threads value. Make sure number is correct" << std::endl;
         m_searcher.setThreadCount(threads - 1);
+    }
+    else if (name == "Level") {
+        auto level = atoi(value.c_str());
+
+        if (level > MAX_LEVEL || MIN_LEVEL < 0)
+            std::cout << "Unable set level value. Make sure number is correct" << std::endl;
+        m_searcher.setLevel(level);
     }
     else if (name == "SyzygyPath")
         tb_init(value.c_str());
