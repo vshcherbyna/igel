@@ -35,7 +35,7 @@ const int MAX_HASH_SIZE = 131072;
 const int DEFAULT_HASH_SIZE = 128;
 
 const int MIN_THREADS = 1;
-const int MAX_THREADS = 128;
+const int MAX_THREADS = 256;
 const int DEFAULT_THREADS = 1;
 
 // Check windows
