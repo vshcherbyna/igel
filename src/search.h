@@ -32,11 +32,16 @@
 #include <condition_variable>
 #include <functional>
 
+const int MIN_LEVEL = 0;
+const int MAX_LEVEL = 20;
+const int DEFAULT_LEVEL = MAX_LEVEL;
+const int MEDIUM_LEVEL = MAX_LEVEL / 2;
+
 const int MAX_PLY = 128;
 
-const U8 TERMINATED_BY_USER  = 0x01;
-const U8 TERMINATED_BY_LIMIT = 0x02;
-const U8 SEARCH_TERMINATED = TERMINATED_BY_USER | TERMINATED_BY_LIMIT;
+const U8 TERMINATED_BY_USER		= 0x01;
+const U8 TERMINATED_BY_LIMIT	= 0x02;
+const U8 SEARCH_TERMINATED		= TERMINATED_BY_USER | TERMINATED_BY_LIMIT;
 
 const U8 MODE_PLAY    = 0x04;
 const U8 MODE_ANALYZE = 0x08;
@@ -69,6 +74,7 @@ public:
     void startPrincipalSearch(Time time, bool ponder);
     void stopPrincipalSearch();
     void isReady();
+    void setLevel(int level);
 
 private:
     void startWorkerThreads(Time time);
@@ -111,14 +117,13 @@ private:
     int m_followTable[2][14][64][14][64];
     Move m_counterTable[2][14][64];
     int m_logLMRTable[64][64];
-    Time m_time;
+    Time m_time, m_ponderTime;
     std::unique_ptr<std::thread> m_principalThread;
     std::mutex m_readyMutex;
     std::unique_ptr<Evaluator> m_evaluator;
 
 public:
     bool m_principalSearcher;
-    bool m_ponderHit;
     Position m_position;
 
 private:
@@ -135,7 +140,6 @@ private:
     EVAL m_bestSmpEval;
     Move m_best;
     volatile bool m_smpThreadExit;
-    bool m_terminateSmp;
     bool m_lazyPonder;
     static constexpr int m_lmpDepth = 8;
     static constexpr int m_lmpPruningTable[2][9] =
@@ -148,6 +152,9 @@ private:
     static constexpr int m_fmpDepth[]        = { 3, 2           };
     static constexpr int m_fmpHistoryLimit[] = { -2000, -4000   };
     static constexpr int m_fpHistoryLimit[]  = { 12000, 6000    };
+    bool m_terminateSmp;
+    bool m_waitStarted;
+    int m_level;
 };
 
 #endif

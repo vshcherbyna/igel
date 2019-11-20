@@ -57,7 +57,6 @@ Search::Search() :
     m_selDepth(0),
     m_iterPVSize(0),
     m_principalSearcher(false),
-    m_ponderHit(false),
     m_thc(0),
     m_threads(nullptr),
     m_threadParams(nullptr),
@@ -66,8 +65,10 @@ Search::Search() :
     m_lazyBeta(INFINITY_SCORE),
     m_bestSmpEval(0),
     m_smpThreadExit(false),
+    m_lazyPonder(false),
     m_terminateSmp(false),
-    m_lazyPonder(false)
+    m_waitStarted(false),
+    m_level(DEFAULT_LEVEL)
 {
     m_evaluator.reset(new Evaluator);
 
@@ -262,7 +263,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     //   qsearch
     //
 
-    if (!inCheck && depth <= 0)
+    if (!inCheck && depth <= 0 && m_level > MEDIUM_LEVEL)
         return qSearch(alpha, beta, ply);
 
     auto rootNode = ply == 1;
@@ -454,7 +455,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     //   iid
     //
 
-    if (onPV && hashMove == 0 && depth > 4)
+    if (onPV && hashMove == 0 && depth > 4 && m_level == MAX_LEVEL)
     {
         abSearch(alpha, beta, depth - 4, ply, isNull, false);
         if (m_pvSize[ply] > 0)
@@ -897,6 +898,9 @@ bool Search::isGameOver(Position & pos, string & result, string & comment, Move 
 
 void Search::printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv/* = 0*/)
 {
+    if (abs(score) >= INFINITY_SCORE)
+        return;
+
     U32 dt = GetProcTime() - m_t0;
 
     cout << "info depth " << iter << " seldepth " << selDepth;
@@ -1028,6 +1032,7 @@ void Search::startWorkerThreads(Time time)
         m_threadParams[i].m_tbHits = 0;
         m_threadParams[i].setPosition(m_position);
         m_threadParams[i].setTime(time);
+        m_threadParams[i].setLevel(m_level);
         m_threadParams[i].m_t0 = m_t0;
         m_threadParams[i].m_flags = m_flags;
         m_threadParams[i].m_bestSmpEval = -INFINITY_SCORE;
@@ -1062,10 +1067,14 @@ void Search::stopWorkerThreads()
 
 void Search::waitUntilCompletion()
 {
+    m_waitStarted = true;
+
     if (m_principalSearcher && (m_flags & MODE_ANALYZE)) {
         while ((m_flags & SEARCH_TERMINATED) == 0)
             std::this_thread::sleep_for(chrono::duration<double, milli>(1)); // we must wait explicitely for stop command
     }
+
+    m_waitStarted = false;
 }
 
 void Search::isReady()
@@ -1104,12 +1113,13 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
 
     m_t0 = GetProcTime();
     m_time = time;
+    m_ponderTime = time;
     m_iterPVSize = 0;
     m_nodes = 0;
     m_selDepth = 0;
     m_tbHits = 0;
     m_limitCheck = 1023;
-    m_ponderHit = false;
+    m_waitStarted = false;
 
     if (m_principalSearcher) {
         if (ponderSearch)
@@ -1128,13 +1138,15 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
     auto printBestMove = [](Search * pthis, Position & pos, Move m, Move p) {
 
         if (m)
-            cout << "bestmove " << MoveToStrLong(m) << endl;
+            cout << "bestmove " << MoveToStrLong(m);
 
-        /*if (!p)
+        if (!p)
             p = pthis->forceFetchPonder(pos, m);
 
         if (p)
-            cout << " ponder " << MoveToStrLong(p);*/
+            cout << " ponder " << MoveToStrLong(p);
+
+        cout << endl;
     };
 
     if (m_principalSearcher) {
@@ -1183,8 +1195,9 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
     bool lazySmpWork = false;
     EVAL aspiration = 15;
     EVAL score = alpha;
+    auto maxDepth = m_level == MAX_LEVEL ? MAX_PLY : ((MAX_PLY * m_level) / MAX_LEVEL);
 
-    for (m_depth = depth; m_depth < MAX_PLY; ++m_depth)
+    for (m_depth = depth; m_depth < maxDepth; ++m_depth)
     {
         //
         //  Start worker threads if Threads option is configured
@@ -1206,14 +1219,6 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
         //
         //  Validate if we received a ponderhit
         //
-
-        if (ponderSearch && m_ponderHit) {
-            m_time = time;
-            m_flags = (m_time.getTimeMode() == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
-            ponderSearch = false;
-            m_ponderHit = false;
-            m_t0 = GetProcTime();
-        }
 
         if (m_flags & SEARCH_TERMINATED)
             break;
@@ -1357,12 +1362,22 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
 
 void Search::setPonderHit()
 {
-    m_ponderHit = true;
+    m_t0    = GetProcTime();
+    m_time  = m_ponderTime;
+    m_flags = (m_time.getTimeMode() == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
+
+    if (m_waitStarted)
+        stopPrincipalSearch();
 }
 
 void Search::setSyzygyDepth(int depth)
 {
     m_syzygyDepth = depth;
+}
+
+void Search::setLevel(int level)
+{
+    m_level = level;
 }
 
 void Search::setThreadCount(unsigned int threads)
