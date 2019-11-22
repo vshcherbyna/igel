@@ -31,6 +31,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <functional>
+#include <atomic>
 
 const int MIN_LEVEL = 0;
 const int MAX_LEVEL = 20;
@@ -89,15 +90,15 @@ private:
     bool ProbeHash(TEntry & hentry);
     bool isGameOver(Position & pos, string & result, string & comment, Move & bestMove, int & legalMoves);
     Move forceFetchPonder(Position & pos, const Move & bestMove);
-    void printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv);
+    void printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, uint64_t nodes, uint64_t hits, Move mv);
 
     bool checkLimits();
     void releaseHelperThreads();
     void waitUntilCompletion();
 
 private:
-    NODES m_nodes;
-    NODES m_tbHits;
+    std::atomic<uint64_t> m_nodes;
+    std::atomic<uint64_t> m_tbHits;
     NODES m_limitCheck;
     U32 m_t0;
     volatile U8 m_flags;

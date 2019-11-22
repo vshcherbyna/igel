@@ -93,7 +93,8 @@ bool Search::checkLimits()
     }
 
     if (m_time.getTimeMode() == Time::TimeControl::NodesLimit) {
-        if (m_nodes >= m_time.getNodesLimit())
+        uint64_t nodes = m_nodes.load(std::memory_order_relaxed);
+        if (nodes >= m_time.getNodesLimit())
             m_flags |= TERMINATED_BY_LIMIT;
 
         return (m_flags & SEARCH_TERMINATED);
@@ -190,7 +191,7 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
                 History::fetchHistory(this, mv, ply, history);
             }
 
-            ++m_nodes;
+            m_nodes.fetch_add(1, std::memory_order_relaxed);
             ++legalMoves;
             m_moveStack[ply] = mv;
             m_pieceStack[ply] = mv.Piece();
@@ -351,7 +352,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                 m_position.Side() == WHITE);
 
             if (probe != TB_RESULT_FAILED) {
-                m_tbHits++;
+                m_tbHits.fetch_add(1, std::memory_order_relaxed);
                 switch (probe)
                 {
                 case TB_WIN:
@@ -547,7 +548,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
         if (m_position.MakeMove(mv))
         {
-            ++m_nodes;
+            m_nodes.fetch_add(1, std::memory_order_relaxed);
             ++legalMoves;
 
             if (quietMove) {
@@ -717,7 +718,7 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
             continue;
 
         if (m_position.MakeMove(mv)) {
-            ++m_nodes;
+            m_nodes.fetch_add(1, std::memory_order_relaxed);
             ++legalMoves;
 
             m_moveStack[ply] = mv;
@@ -896,7 +897,7 @@ bool Search::isGameOver(Position & pos, string & result, string & comment, Move 
     return false;
 }
 
-void Search::printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv/* = 0*/)
+void Search::printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, uint64_t nodes, uint64_t hits, Move mv)
 {
     if (abs(score) >= INFINITY_SCORE)
         return;
@@ -909,8 +910,8 @@ void Search::printPV(const Position& pos, int iter, int selDepth, EVAL score, co
     else
         cout << " score cp " << score;
     cout << " time " << dt;
-    cout << " nodes " << m_nodes;
-    cout << " tbhits " << m_tbHits;
+    cout << " nodes " << nodes;
+    cout << " tbhits " << hits;
 
     cout << " pv";
 
@@ -1228,13 +1229,15 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
         //
         //  Update node statistic from all workers
         //
+        uint64_t sumNodes = 0;
+        uint64_t sumHits = 0;
 
         if (m_principalSearcher) {
+            sumNodes += m_nodes.load(std::memory_order_relaxed);
+            sumHits  += m_tbHits.load(std::memory_order_relaxed);
             for (unsigned int i = 0; i < m_thc; ++i) {
-                m_nodes += m_threadParams[i].m_nodes;
-                m_tbHits += m_threadParams[i].m_tbHits;
-                m_threadParams[i].m_nodes = 0;
-                m_threadParams[i].m_tbHits = 0;
+                sumNodes += m_threadParams[i].m_nodes.load(std::memory_order_relaxed);
+                sumHits  += m_threadParams[i].m_tbHits.load(std::memory_order_relaxed);
             }
         }
 
@@ -1263,7 +1266,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
             }
 
             if (m_principalSearcher)
-                printPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], m_best);
+                printPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], sumNodes, sumHits, m_best);
 
             if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getSoftLimit())
             {
@@ -1284,7 +1287,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
             beta = INFINITY_SCORE;
 
             if (!(m_flags & MODE_SILENT) && m_principalSearcher)
-                printPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], m_best);
+                printPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], sumNodes, sumHits, m_best);
             --m_depth;
 
             aspiration += aspiration / 4 + 5;
@@ -1309,7 +1312,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
             }
 
             if (!(m_flags & MODE_SILENT) && m_principalSearcher)
-                printPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], m_best);
+                printPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], sumNodes, sumHits, m_best);
             --m_depth;
             aspiration += aspiration / 4 + 5;
         }
@@ -1321,7 +1324,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
         dt = GetProcTime() - m_t0;
 
         if (m_principalSearcher && (dt > 5000))
-            cout << "info depth " << m_depth << " time " << dt << " nodes " << m_nodes << " nps " << 1000 * m_nodes / dt << endl;
+            cout << "info depth " << m_depth << " time " << dt << " nodes " << sumNodes << " nps " << 1000 * sumNodes / dt << endl;
 
         if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getSoftLimit())
         {
