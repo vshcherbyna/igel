@@ -38,9 +38,13 @@ U64 g_rand64 = 42;
 
 U32 GetProcTime()
 {
-    struct timespec time;
-    clock_gettime(CLOCK_MONOTONIC, &time);
-    return (U32)((uint64_t)time.tv_sec * 1000 + time.tv_nsec / 1000000);
+    struct timeval tv = { 0 };
+    gettimeofday(&tv, nullptr);
+
+    double secsInMilli = ((double)tv.tv_sec) * 1000;
+    double usecsInMilli = tv.tv_usec / 1000;
+
+    return static_cast<U32>(secsInMilli + usecsInMilli);
 }
 
 #else
