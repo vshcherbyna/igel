@@ -246,6 +246,7 @@ void Uci::onSetOption(commandParams params)
             std::cout << "Fatal error: unable to allocate memory for transposition table" << std::endl;
             exit(1);
         }
+        onUciNewGame();
     }
     else if (name == "Threads") {
         auto threads = atoi(value.c_str());
