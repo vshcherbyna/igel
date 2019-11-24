@@ -53,6 +53,7 @@ Search::Search() :
     m_t0(0),
     m_flags(0),
     m_depth(0),
+    m_completedDepth(0),
     m_syzygyDepth(0),
     m_selDepth(0),
     m_iterPVSize(0),
@@ -63,7 +64,7 @@ Search::Search() :
     m_lazyDepth(0),
     m_lazyAlpha(-INFINITY_SCORE),
     m_lazyBeta(INFINITY_SCORE),
-    m_bestSmpEval(0),
+    m_score(-INFINITY_SCORE),
     m_smpThreadExit(false),
     m_lazyPonder(false),
     m_terminateSmp(false),
@@ -1035,7 +1036,7 @@ void Search::startWorkerThreads(Time time)
         m_threadParams[i].setLevel(m_level);
         m_threadParams[i].m_t0 = m_t0;
         m_threadParams[i].m_flags = m_flags;
-        m_threadParams[i].m_bestSmpEval = -INFINITY_SCORE;
+        m_threadParams[i].m_score = -INFINITY_SCORE;
         m_threadParams[i].m_smpThreadExit = false;
 
         m_threadParams[i].m_lazyAlpha = -INFINITY_SCORE;
@@ -1194,8 +1195,9 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
     bool smpStarted = false;
     bool lazySmpWork = false;
     EVAL aspiration = 15;
-    EVAL score = alpha;
+    m_score = alpha;
     auto maxDepth = m_level == MAX_LEVEL ? MAX_PLY : ((MAX_PLY * m_level) / MAX_LEVEL);
+    m_completedDepth = 0;
 
     for (m_depth = depth; m_depth < maxDepth; ++m_depth)
     {
@@ -1214,7 +1216,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
         //  Make a search
         //
 
-        score = searchRoot(alpha, beta, m_depth);
+        m_score = searchRoot(alpha, beta, m_depth);
 
         //
         //  Validate if we received a ponderhit
@@ -1242,11 +1244,11 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
         //  We found so far a better move
         //
 
-        if (score > alpha && score < beta)
+        if (m_score > alpha && m_score < beta)
         {
             aspiration = 15;
-            alpha = score - aspiration;
-            beta = score + aspiration;
+            alpha = m_score - aspiration;
+            beta = m_score + aspiration;
 
             memcpy(m_iterPV, m_pv[0], m_pvSize[0] * sizeof(Move));
             m_iterPVSize = m_pvSize[0];
@@ -1254,7 +1256,6 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
             if (m_iterPVSize && m_pv[0][0])
             {
                 m_best = m_pv[0][0];
-                m_bestSmpEval = score;
 
                 if (m_iterPVSize > 1 && m_pv[0][1])
                     ponder = m_pv[0][1];
@@ -1263,7 +1264,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
             }
 
             if (m_principalSearcher)
-                printPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], m_best);
+                printPV(m_position, m_depth, m_selDepth, m_score, m_pv[0], m_pvSize[0], m_best);
 
             if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getSoftLimit())
             {
@@ -1278,18 +1279,18 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
                 break;
             }
         }
-        else if (score <= alpha)
+        else if (m_score <= alpha)
         {
             alpha = -INFINITY_SCORE;
             beta = INFINITY_SCORE;
 
             if (!(m_flags & MODE_SILENT) && m_principalSearcher)
-                printPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], m_best);
+                printPV(m_position, m_depth, m_selDepth, m_score, m_pv[0], m_pvSize[0], m_best);
             --m_depth;
 
             aspiration += aspiration / 4 + 5;
         }
-        else if (score >= beta)
+        else if (m_score >= beta)
         {
             alpha = -INFINITY_SCORE;
             beta = INFINITY_SCORE;
@@ -1300,7 +1301,6 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
             if (m_iterPVSize && m_pv[0][0])
             {
                 m_best = m_pv[0][0];
-                m_bestSmpEval = score;
 
                 if (m_iterPVSize > 1 && m_pv[0][1])
                     ponder = m_pv[0][1];
@@ -1309,7 +1309,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
             }
 
             if (!(m_flags & MODE_SILENT) && m_principalSearcher)
-                printPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], m_best);
+                printPV(m_position, m_depth, m_selDepth, m_score, m_pv[0], m_pvSize[0], m_best);
             --m_depth;
             aspiration += aspiration / 4 + 5;
         }
@@ -1341,6 +1341,8 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
             m_flags |= TERMINATED_BY_LIMIT;
             break;
         }
+
+        m_completedDepth = m_depth;
     }
 
     //
@@ -1356,8 +1358,29 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
 
     waitUntilCompletion();
 
-    if (m_principalSearcher)
+    if (m_principalSearcher) {
+
+        std::map<Move, int64_t> votes;
+        auto minScore = m_score;
+
+        for (unsigned int i = 0; i < m_thc; ++i)
+            minScore = std::min(minScore, m_threadParams[i].m_score);
+
+        int64_t bestScore = (m_score - minScore + 14) * m_completedDepth;
+        votes[m_best] = bestScore;
+
+        for (unsigned int i = 0; i < m_thc; ++i)
+            votes[m_threadParams[i].m_best] += (m_threadParams[i].m_score - minScore + 14) * m_threadParams[i].m_completedDepth;
+
+        for (const auto & v : votes) {
+            if (v.second > bestScore) {
+                bestScore = v.second;
+                m_best = v.first;
+            }
+        }
+
         printBestMove(this, m_position, m_best, ponder);
+    }
 }
 
 void Search::setPonderHit()
