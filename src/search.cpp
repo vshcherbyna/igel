@@ -1060,9 +1060,8 @@ void Search::stopWorkerThreads()
     indicateWorkersStop();
 
     for (unsigned int i = 0; i < m_thc; ++i) {
-        while (m_threadParams[i].m_lazyDepth) {
-            std::this_thread::sleep_for(chrono::duration<double, milli>(1));
-        }
+        while (m_threadParams[i].m_lazyDepth)
+            ;
     }
 }
 
@@ -1072,7 +1071,7 @@ void Search::waitUntilCompletion()
 
     if (m_principalSearcher && (m_flags & MODE_ANALYZE)) {
         while ((m_flags & SEARCH_TERMINATED) == 0)
-            std::this_thread::sleep_for(chrono::duration<double, milli>(1)); // we must wait explicitely for stop command
+            ; // we must wait explicitely for stop command
     }
 
     m_waitStarted = false;
@@ -1235,8 +1234,8 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
             for (unsigned int i = 0; i < m_thc; ++i) {
                 m_nodes += m_threadParams[i].m_nodes;
                 m_tbHits += m_threadParams[i].m_tbHits;
-                m_threadParams[i].m_nodes = 0;
-                m_threadParams[i].m_tbHits = 0;
+                /*m_threadParams[i].m_nodes = 0;
+                m_threadParams[i].m_tbHits = 0;*/
             }
         }
 
