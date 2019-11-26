@@ -1364,7 +1364,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
 
     if (m_principalSearcher) {
 
-        std::map<Move, int64_t> votes;
+        /*std::map<Move, int64_t> votes;
         auto minScore = m_score;
 
         for (unsigned int i = 0; i < m_thc; ++i)
@@ -1382,6 +1382,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
                 m_best = v.first;
             }
         }
+        */
 
         printBestMove(this, m_position, m_best, ponder);
     }
