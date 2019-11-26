@@ -163,13 +163,6 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
     //  Different move ordering for lazy smp threads
     //
 
-    if (!m_principalSearcher && depth == 1 && mvSize >= 2) {
-        int j = 0;
-        for (size_t i = mvSize - 1; i > 0; --i) {
-            mvlist.Swap(i, j++);
-        }
-    }
-
     std::vector<Move> quietMoves;
 
     for (size_t i = 0; i < mvSize; ++i) {
@@ -1206,7 +1199,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
         //  Start worker threads if Threads option is configured
         //
 
-        lazySmpWork = (m_thc) && (!smpStarted) && (m_depth > 13);
+        lazySmpWork = (m_thc) && (!smpStarted) && (m_depth > 1);
 
         if (lazySmpWork) {
             smpStarted = true;
