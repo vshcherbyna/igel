@@ -163,6 +163,13 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
     //  Different move ordering for lazy smp threads
     //
 
+    if (!m_principalSearcher && depth == 1 && mvSize >= 2) {
+        int j = 0;
+        for (size_t i = mvSize - 1; i > 0; --i) {
+            mvlist.Swap(i, j++);
+        }
+    }
+
     std::vector<Move> quietMoves;
 
     for (size_t i = 0; i < mvSize; ++i) {
@@ -1355,30 +1362,8 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
 
     waitUntilCompletion();
 
-    if (m_principalSearcher) {
-
-        /*std::map<Move, int64_t> votes;
-        auto minScore = m_score;
-
-        for (unsigned int i = 0; i < m_thc; ++i)
-            minScore = std::min(minScore, m_threadParams[i].m_score);
-
-        int64_t bestScore = (m_score - minScore + 14) * m_completedDepth;
-        votes[m_best] = bestScore;
-
-        for (unsigned int i = 0; i < m_thc; ++i)
-            votes[m_threadParams[i].m_best] += (m_threadParams[i].m_score - minScore + 14) * m_threadParams[i].m_completedDepth;
-
-        for (const auto & v : votes) {
-            if (v.second > bestScore) {
-                bestScore = v.second;
-                m_best = v.first;
-            }
-        }
-        */
-
+    if (m_principalSearcher)
         printBestMove(this, m_position, m_best, ponder);
-    }
 }
 
 void Search::setPonderHit()
