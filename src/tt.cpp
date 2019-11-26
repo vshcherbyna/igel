@@ -92,6 +92,7 @@ bool TTable::setHashSize(double mb)
     m_hashSize = int(1024 * 1024 * mb / sizeof(TEntry));
     m_hash = reinterpret_cast<TEntry*>(malloc(sizeof(TEntry) * m_hashSize));
 
+    clearHash();
     assert(m_hash);
     return m_hash != nullptr;
 }

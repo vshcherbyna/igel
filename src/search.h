@@ -89,7 +89,7 @@ private:
     bool ProbeHash(TEntry & hentry);
     bool isGameOver(Position & pos, string & result, string & comment, Move & bestMove, int & legalMoves);
     Move forceFetchPonder(Position & pos, const Move & bestMove);
-    void printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv);
+    void printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv, uint64_t sumNodes, uint64_t sumHits);
 
     bool checkLimits();
     void releaseHelperThreads();
