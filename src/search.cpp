@@ -1206,7 +1206,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
         //  Start worker threads if Threads option is configured
         //
 
-        lazySmpWork = (m_thc) && (!smpStarted) && (m_depth > 1);
+        lazySmpWork = (m_thc) && (!smpStarted);
 
         if (lazySmpWork) {
             smpStarted = true;
