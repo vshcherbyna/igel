@@ -1031,7 +1031,7 @@ void Search::startWorkerThreads(Time time)
         m_threadParams[i].m_nodes = 0;
         m_threadParams[i].m_selDepth = 0;
         m_threadParams[i].m_tbHits = 0;
-        m_threadParams[i].setPosition(m_position);
+        m_threadParams[i].m_position.SetFEN(m_position.FEN());
         m_threadParams[i].setTime(time);
         m_threadParams[i].setLevel(m_level);
         m_threadParams[i].m_t0 = m_t0;
