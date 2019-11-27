@@ -89,7 +89,7 @@ private:
     bool ProbeHash(TEntry & hentry);
     bool isGameOver(Position & pos, string & result, string & comment, Move & bestMove, int & legalMoves);
     Move forceFetchPonder(Position & pos, const Move & bestMove);
-    void printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv);
+    void printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv, uint64_t sumNodes, uint64_t sumHits);
 
     bool checkLimits();
     void releaseHelperThreads();
@@ -102,6 +102,7 @@ private:
     U32 m_t0;
     volatile U8 m_flags;
     int m_depth;
+    int m_completedDepth;
     int m_syzygyDepth;
     int m_selDepth;
     int m_iterPVSize;
@@ -137,7 +138,7 @@ private:
     volatile int m_lazyDepth;
     int m_lazyAlpha;
     int m_lazyBeta;
-    EVAL m_bestSmpEval;
+    EVAL m_score;
     Move m_best;
     volatile bool m_smpThreadExit;
     bool m_lazyPonder;
