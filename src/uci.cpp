@@ -20,7 +20,7 @@
 #include "uci.h"
 #include "time.h"
 #include "notation.h"
-#include "tune.h"
+#include "texel.h"
 #include "eval.h"
 
 #include "fathom/tbprobe.h"
