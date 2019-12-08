@@ -992,7 +992,7 @@ void Evaluator::initEval()
     //if (!ReadParamsFromFile(evalWeights, "igel.txt"))
     SetDefaultValues(evalWeights);
     initEval(evalWeights);
-    //WriteParamsToFile(W, "igel.txt");
+    //WriteParamsToFile(evalWeights, "igel.txt");
 }
 
 void PawnHashEntry::Read(const Position& pos)
