@@ -99,27 +99,44 @@ std::vector<TexelParam> Texel::readParams()
     return params;
 }
 
+std::string paramNumberToName(int n)
+{
+    for (int i = 0; i < NUM_LINES; ++i) {
+        if (n >= lines[i].start && n < lines[i].start + lines[i].len) {
+            stringstream ss;
+            ss << lines[i].name << "[" << n - lines[i].start + 1 << "]";
+            return ss.str();
+        }
+    }
+
+    return "unknown";
+}
+
 void Texel::Tune()
 {
-    evalWeights.resize(0);
-    evalWeights.resize(NUM_PARAMS);
+    //evalWeights.resize(0);
+    //evalWeights.resize(NUM_PARAMS);
 
     auto x0 = evalWeights;
     auto params = readParams();
     auto epoch = 0;
 
+    Evaluator::initEval(x0);
+    double K = computeOptimalK(params);
+
     // texel tuning: https://www.chessprogramming.org/Texel%27s_Tuning_Method
+    while (true) {
+        cout << "epoch " << ++epoch << endl;
+        for (size_t i = 0; i < NUM_LINES; ++i) {
+            while (true) {
+                std::shuffle(std::begin(params), std::end(params), std::default_random_engine{});
+                auto optimized = localOptimize(K, x0, params, epoch, lines[i].start, lines[i].len);
 
-    while (++epoch)
-    {
-        cout << "Epoch " << epoch << " total time: "<< (GetProcTime() - m_t0) / 1000 << " seconds" << std::endl;
+                if (optimized.empty())
+                    break;
 
-        std::shuffle(std::begin(params), std::end(params), std::default_random_engine{});
-        x0 = localOptimize(x0, params, epoch);
-
-        if (x0.empty()) {
-            cout << "Finished tuning after " << epoch << " epochs and " << (GetProcTime() - m_t0) / 1000 << " seconds" << endl;
-            break;
+                x0 = optimized;
+            }
         }
 
         std::ifstream  src("igel.txt");
@@ -128,7 +145,7 @@ void Texel::Tune()
     }
 }
 
-void texelInfo(double y0Start, double y0, int t, int p, int epoch)
+void texelInfo(double y0Start, double y0, int t, int p, int epoch, int value)
 {
     int hh = t / 3600;
     int mm = (t - 3600 * hh) / 60;
@@ -139,11 +156,7 @@ void texelInfo(double y0Start, double y0, int t, int p, int epoch)
     cout << setw(2) << setfill('0') << mm << ":";
     cout << setw(2) << setfill('0') << ss << " ";
 
-    cout << left << "      " <<
-        setw(8) << y0 << " " <<
-        100 * (y0 - y0Start) / y0Start << " % " << "[" << epoch << "] " << p <<
-        "          \r";
-
+    cout << left << "      " << setw(8) << y0 << " " << 100 * (y0 - y0Start) / y0Start << " % " << "[" << epoch << "] " << paramNumberToName(p) << " = " << value << "          \r";
     cout << setfill(' ');
 }
 
@@ -216,17 +229,16 @@ double Texel::computeOptimalK(std::vector<TexelParam>& fens) {
     return start;
 }
 
-vector<int> Texel::localOptimize(const vector<int> & initialGuess, std::vector<TexelParam>& fens, size_t epoch)
+vector<int> Texel::localOptimize(double K, const vector<int> & initialGuess, std::vector<TexelParam>& fens, size_t epoch, size_t start, size_t len)
 {
     auto bestParValues = initialGuess;
     Evaluator::initEval(initialGuess);
-    double K = computeOptimalK(fens);
     double bestE = completeEvaluationError(fens, K);
     auto initialError = bestE;
     auto iterationTime = GetProcTime();
     auto improved = false;
 
-    for (size_t pi = 8; pi < initialGuess.size(); ++pi) {
+    for (size_t pi = start; pi < (start + len); ++pi) {
         vector<int> newParValues = bestParValues;
         newParValues[pi] += 1;
         Evaluator::initEval(newParValues);
@@ -235,7 +247,7 @@ vector<int> Texel::localOptimize(const vector<int> & initialGuess, std::vector<T
             improved = true;
             bestE = newE;
             bestParValues = newParValues;
-            texelInfo(initialError, bestE, (GetProcTime() - iterationTime) / 1000, pi, epoch);
+            texelInfo(initialError, bestE, (GetProcTime() - iterationTime) / 1000, pi, epoch, newParValues[pi]);
             WriteParamsToFile(bestParValues, "igel.txt");
         }
         else {
@@ -246,13 +258,12 @@ vector<int> Texel::localOptimize(const vector<int> & initialGuess, std::vector<T
                 improved = true;
                 bestE = newE;
                 bestParValues = newParValues;
-                texelInfo(initialError, bestE, (GetProcTime() - iterationTime) / 1000, pi, epoch);
+                texelInfo(initialError, bestE, (GetProcTime() - iterationTime) / 1000, pi, epoch, newParValues[pi]);
                 WriteParamsToFile(bestParValues, "igel.txt");
             }
         }
     }
 
-    std::cout << std::endl;
     return improved ? bestParValues : vector<int>{};
 }
 
