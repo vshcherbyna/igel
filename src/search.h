@@ -133,7 +133,6 @@ private:
     unsigned int m_thc;
     std::unique_ptr<std::thread[]> m_threads;
     std::unique_ptr<Search[]> m_threadParams;
-    std::mutex m_lazyMutex;
     std::condition_variable m_lazycv;
     volatile int m_lazyDepth;
     int m_lazyAlpha;

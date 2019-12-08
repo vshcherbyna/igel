@@ -1026,7 +1026,7 @@ void Search::startWorkerThreads(Time time)
 {
     for (unsigned int i = 0; i < m_thc; ++i)
     {
-        m_threadParams[i].m_lazyMutex.lock();
+        m_threadParams[i].m_readyMutex.lock();
 
         m_threadParams[i].m_nodes = 0;
         m_threadParams[i].m_selDepth = 0;
@@ -1042,11 +1042,10 @@ void Search::startWorkerThreads(Time time)
         m_threadParams[i].m_lazyAlpha = -INFINITY_SCORE;
         m_threadParams[i].m_lazyBeta = INFINITY_SCORE;
         m_threadParams[i].m_lazyDepth = 1;
-        m_threadParams[i].m_lazyMutex.unlock();
-    }
+        m_threadParams[i].m_readyMutex.unlock();
 
-    for (unsigned int i = 0; i < m_thc; ++i)
-         m_threadParams[i].m_lazycv.notify_one();
+        m_threadParams[i].m_lazycv.notify_one();
+    }
 }
 
 void Search::indicateWorkersStop()
@@ -1096,23 +1095,21 @@ void Search::startPrincipalSearch(Time time, bool ponder)
 {
     m_principalSearcher = true;
 
-    if (!m_principalThread)
-        m_principalThread.reset(new std::thread(&Search::lazySmpSearcher, this));
-
-    m_lazyMutex.lock();
+    m_readyMutex.lock();
     setTime(time);
     m_lazyAlpha = -INFINITY_SCORE;
     m_lazyBeta = INFINITY_SCORE;
     m_lazyDepth = 1;
     m_lazyPonder = ponder;
-    m_lazyMutex.unlock();
+    m_readyMutex.unlock();
     m_lazycv.notify_one();
+
+    if (!m_principalThread)
+        m_principalThread.reset(new std::thread(&Search::lazySmpSearcher, this));
 }
 
 void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponderSearch)
 {
-    std::unique_lock<std::mutex> lk(m_readyMutex);
-
     m_t0 = GetProcTime();
     m_time = time;
     m_ponderTime = time;
@@ -1409,7 +1406,7 @@ void Search::lazySmpSearcher()
         bool ponder;
 
         {
-            std::unique_lock<std::mutex> lk(m_lazyMutex);
+            std::unique_lock<std::mutex> lk(m_readyMutex);
             m_lazycv.wait(lk, std::bind(&Search::getIsLazySmpWork, this));
 
             if (m_terminateSmp)
@@ -1419,10 +1416,10 @@ void Search::lazySmpSearcher()
             beta = m_lazyBeta;
             m_depth = m_lazyDepth;
             ponder = m_lazyPonder;
-        }
 
-        startSearch(m_time, m_depth, alpha, beta, ponder);
-        resetLazySmpWork();
+            startSearch(m_time, m_depth, alpha, beta, ponder);
+            resetLazySmpWork();
+        }
     }
 }
 
@@ -1433,7 +1430,7 @@ void Search::releaseHelperThreads()
         if (m_threads[i].joinable()) {
             m_threadParams[i].m_terminateSmp = true;
             {
-                std::unique_lock<std::mutex> lk(m_threadParams[i].m_lazyMutex);
+                std::unique_lock<std::mutex> lk(m_threadParams[i].m_readyMutex);
                 m_threadParams[i].m_lazyDepth = 1;
             }
             m_threadParams[i].m_lazycv.notify_one();
