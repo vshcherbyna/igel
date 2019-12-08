@@ -28,6 +28,7 @@
 #include <vector>
 #include <thread>
 #include <future>
+#include <functional>
 
 void onTune();
 double sigmoid(double K, double S);
