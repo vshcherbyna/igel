@@ -42,7 +42,7 @@ bool TTable::record(Move mv, EVAL score, U8 depth, int ply, U8 type, U64 hash0)
     assert(score <= INFINITY_SCORE);
     assert(score >= -INFINITY_SCORE);
 
-    int index = hash0 % m_hashSize;
+    size_t index = hash0 % m_hashSize;
     TEntry & entry = m_hash[index];
 
     if (depth >= entry.depth() || m_hashAge != entry.age())
@@ -66,7 +66,7 @@ TEntry * TTable::retrieve(U64 hash)
     assert(m_hash);
     assert(m_hashSize);
 
-    int index = hash % m_hashSize;
+    size_t index = hash % m_hashSize;
     TEntry * pEntry = m_hash + index;
 
     return pEntry;
@@ -89,7 +89,7 @@ bool TTable::setHashSize(double mb)
     if (m_hash)
         free(m_hash);
 
-    m_hashSize = int(1024 * 1024 * mb / sizeof(TEntry));
+    m_hashSize = size_t(1024 * 1024 * mb / sizeof(TEntry));
     m_hash = reinterpret_cast<TEntry*>(malloc(sizeof(TEntry) * m_hashSize));
 
     clearHash();
