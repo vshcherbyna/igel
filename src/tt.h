@@ -91,7 +91,7 @@ public:
 
 private:
     TEntry * m_hash;
-    int m_hashSize;
+    size_t m_hashSize;
     unsigned int m_hashAge;
 };
 
