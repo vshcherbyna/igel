@@ -32,7 +32,9 @@ before_install: |
 script:
       - pyenv versions
       - if [ "$TRAVIS_OS_NAME" == "linux" ]; then pyenv global 3.7 ; fi
-      - cmake .
+      - cmake -D_BTYPE=POPCNT .
+      - make -j2
+      - cmake -D_MAKE_UNIT_TEST=UNIT_TEST -D_BTYPE=POPCNT .
       - make -j2
       - cd tests
       - pip install --upgrade pip
