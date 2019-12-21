@@ -106,6 +106,7 @@ private:
     int m_syzygyDepth;
     int m_selDepth;
     int m_iterPVSize;
+    int m_index;
     MoveList m_lists[MAX_PLY];
     Move m_pv[MAX_PLY][MAX_PLY];
     int m_pvSize[MAX_PLY];
@@ -152,6 +153,9 @@ private:
     static constexpr int m_fmpDepth[]        = { 3, 2           };
     static constexpr int m_fmpHistoryLimit[] = { -2000, -4000   };
     static constexpr int m_fpHistoryLimit[]  = { 12000, 6000    };
+    static constexpr int m_skipSize[]        = { 1, 1, 1, 2, 2, 2, 1, 3, 2, 2, 1, 3, 3, 2, 2, 1 };
+    static constexpr int m_skipDepths[]      = { 1, 2, 2, 4, 4, 3, 2, 5, 4, 3, 2, 6, 5, 4, 3, 2 };
+    static constexpr int m_SMPCycles         = 16;
     bool m_terminateSmp;
     bool m_waitStarted;
     int m_level;

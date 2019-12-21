@@ -43,6 +43,9 @@ const U8 HASH_BETA = 2;
 /*static */constexpr int Search::m_fmpDepth[2];
 /*static */constexpr int Search::m_fmpHistoryLimit[2];
 /*static */constexpr int Search::m_fpHistoryLimit[2];
+/*static */constexpr int Search::m_skipSize[16];
+/*static */constexpr int Search::m_skipDepths[16];
+/*static */constexpr int Search::m_SMPCycles;
 
 extern FILE * g_log;
 
@@ -57,6 +60,7 @@ Search::Search() :
     m_syzygyDepth(0),
     m_selDepth(0),
     m_iterPVSize(0),
+    m_index(0),
     m_principalSearcher(false),
     m_thc(0),
     m_threads(nullptr),
@@ -72,6 +76,7 @@ Search::Search() :
     m_level(DEFAULT_LEVEL)
 {
     m_evaluator.reset(new Evaluator);
+    memset(&m_logLMRTable, 0, sizeof(m_logLMRTable));
 
     for (int depth = 1; depth < 64; ++depth)
         for (int moves = 1; moves < 64; ++moves)
@@ -776,6 +781,7 @@ void Search::clearStacks()
     memset(m_followTable, 0, sizeof(m_followTable));
     memset(m_counterTable, 0, sizeof(m_counterTable));
     memset(m_evalStack, 0, sizeof(m_evalStack));
+    memset(m_pvSize, 0, sizeof(m_pvSize));
 
     for (unsigned int i = 0; i < m_thc; ++i) {
         memset(m_threadParams[i].m_moveStack, 0, sizeof(m_moveStack));
@@ -783,6 +789,7 @@ void Search::clearStacks()
         memset(m_threadParams[i].m_followTable, 0, sizeof(m_followTable));
         memset(m_threadParams[i].m_counterTable, 0, sizeof(m_counterTable));
         memset(m_threadParams[i].m_evalStack, 0, sizeof(m_evalStack));
+        memset(m_threadParams[i].m_pvSize, 0, sizeof(m_threadParams[i].m_pvSize));
     }
 }
 
@@ -1024,8 +1031,7 @@ Move Search::tableBaseRootSearch()
 
 void Search::startWorkerThreads(Time time)
 {
-    for (unsigned int i = 0; i < m_thc; ++i)
-    {
+    for (unsigned int i = 0; i < m_thc; ++i) {
         m_threadParams[i].m_readyMutex.lock();
 
         m_threadParams[i].m_nodes = 0;
@@ -1042,6 +1048,7 @@ void Search::startWorkerThreads(Time time)
         m_threadParams[i].m_lazyAlpha = -INFINITY_SCORE;
         m_threadParams[i].m_lazyBeta = INFINITY_SCORE;
         m_threadParams[i].m_lazyDepth = 1;
+        m_threadParams[i].m_index = i + 1;
         m_threadParams[i].m_readyMutex.unlock();
 
         m_threadParams[i].m_lazycv.notify_one();
@@ -1190,25 +1197,25 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
     //  Perform search for a best move
     //
 
-    bool smpStarted = false;
-    bool lazySmpWork = false;
     EVAL aspiration = 15;
     m_score = alpha;
     auto maxDepth = m_level == MAX_LEVEL ? MAX_PLY : ((MAX_PLY * m_level) / MAX_LEVEL);
     m_completedDepth = 0;
 
+    //
+    //  Start worker threads if Threads option is configured
+    //
+
+    if (m_thc)
+        startWorkerThreads(time);
+
+    const int cycle = m_index % m_SMPCycles;
+
     for (m_depth = depth; m_depth < maxDepth; ++m_depth)
     {
-        //
-        //  Start worker threads if Threads option is configured
-        //
-
-        lazySmpWork = (m_thc) && (!smpStarted) && (m_depth > 1);
-
-        if (lazySmpWork) {
-            smpStarted = true;
-            startWorkerThreads(time);
-        }
+        // occasionally skip depths by smp threads (laser & ethereal method)
+        if (!m_principalSearcher && (m_index + cycle) % m_skipDepths[cycle] == 0)
+            m_depth += m_skipSize[cycle];
 
         //
         //  Make a search
@@ -1223,7 +1230,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
         if (m_flags & SEARCH_TERMINATED)
             break;
 
-        U32 dt = GetProcTime() - m_t0;
+        auto dt = GetProcTime() - m_t0;
 
         //
         //  Update node statistic from all workers
@@ -1267,8 +1274,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
             if (m_principalSearcher)
                 printPV(m_position, m_depth, m_selDepth, m_score, m_pv[0], m_pvSize[0], m_best, sumNodes, sumHits);
 
-            if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getSoftLimit())
-            {
+            if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getSoftLimit()) {
                 m_flags |= TERMINATED_BY_LIMIT;
 
                 if (g_log) {
@@ -1299,8 +1305,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
             memcpy(m_iterPV, m_pv[0], m_pvSize[0] * sizeof(Move));
             m_iterPVSize = m_pvSize[0];
 
-            if (m_iterPVSize && m_pv[0][0])
-            {
+            if (m_iterPVSize && m_pv[0][0]) {
                 m_best = m_pv[0][0];
 
                 if (m_iterPVSize > 1 && m_pv[0][1])
@@ -1311,6 +1316,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
 
             if (!(m_flags & MODE_SILENT) && m_principalSearcher)
                 printPV(m_position, m_depth, m_selDepth, m_score, m_pv[0], m_pvSize[0], m_best, sumNodes, sumHits);
+
             --m_depth;
             aspiration += aspiration / 4 + 5;
         }
@@ -1324,8 +1330,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
         if (m_principalSearcher && (dt > 5000))
             cout << "info depth " << m_depth << " time " << dt << " nodes " << sumNodes << " nps " << 1000 * sumNodes / dt << endl;
 
-        if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getSoftLimit())
-        {
+        if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getSoftLimit()) {
             m_flags |= TERMINATED_BY_LIMIT;
 
             if (g_log) {
@@ -1337,8 +1342,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
             break;
         }
 
-        if (m_time.getTimeMode() == Time::TimeControl::DepthLimit && m_depth >= static_cast<int>(m_time.getDepthLimit()))
-        {
+        if (m_time.getTimeMode() == Time::TimeControl::DepthLimit && m_depth >= static_cast<int>(m_time.getDepthLimit())) {
             m_flags |= TERMINATED_BY_LIMIT;
             break;
         }
@@ -1350,7 +1354,7 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
     //  Stop worker threads if necessary
     //
 
-    if (smpStarted)
+    if (m_thc)
         stopWorkerThreads();
 
     //
