@@ -28,14 +28,14 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "2.1.2 next5";
+const std::string VERSION = "2.1.2 next6";
 
 const int MIN_HASH_SIZE = 1;
-const int MAX_HASH_SIZE = 131072;
+const int MAX_HASH_SIZE = 1048576;
 const int DEFAULT_HASH_SIZE = 128;
 
 const int MIN_THREADS = 1;
-const int MAX_THREADS = 256;
+const int MAX_THREADS = 1024;
 const int DEFAULT_THREADS = 1;
 
 // Check windows
