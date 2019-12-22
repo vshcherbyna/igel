@@ -27,16 +27,16 @@ namespace unit
 
 TEST(TranspositionTableSizeTest, Negative)
 {
-    EXPECT_EQ(false, TTable::instance().setHashSize(0));
-    EXPECT_EQ(false, TTable::instance().clearHash());
+    EXPECT_EQ(false, TTable::instance().setHashSize(0, 1));
+    EXPECT_EQ(false, TTable::instance().clearHash(1));
 }
 
 TEST(TranspositionTableSizeTest, Positive)
 {
     for (auto i = 1; i <= 128; ++i)
-        EXPECT_EQ(true, TTable::instance().setHashSize(i));
+        EXPECT_EQ(true, TTable::instance().setHashSize(i, 1));
 
-    EXPECT_EQ(true, TTable::instance().clearHash());
+    EXPECT_EQ(true, TTable::instance().clearHash(1));
 }
 
 TEST(TranspositionTableEntryTest, Positive)
@@ -47,8 +47,8 @@ TEST(TranspositionTableEntryTest, Positive)
 
     for (auto i = 1; i <= 2; ++i)
     {
-        EXPECT_EQ(true, TTable::instance().setHashSize(i));
-        EXPECT_EQ(true, TTable::instance().clearHash());
+        EXPECT_EQ(true, TTable::instance().setHashSize(i, 1));
+        EXPECT_EQ(true, TTable::instance().clearHash(1));
 
         auto j = 1;
 

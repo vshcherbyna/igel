@@ -82,17 +82,17 @@ public:
     static TTable & instance();
 
 public:
-    bool setHashSize(double mb);
-    bool clearHash();
+    bool setHashSize(double mb, unsigned int threads);
+    bool clearHash(unsigned int threads);
     bool record(Move mv, EVAL score, U8 depth, int ply, U8 type, U64 hash0);
     TEntry * retrieve(U64 hash);
     bool increaseAge();
     void clearAge();
 
 private:
-    TEntry * m_hash;
-    size_t m_hashSize;
-    unsigned int m_hashAge;
+    mutable TEntry * m_hash;
+    mutable size_t m_hashSize;
+    mutable unsigned int m_hashAge;
 };
 
 #endif
