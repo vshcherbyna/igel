@@ -1410,6 +1410,11 @@ void Search::setThreadCount(unsigned int threads)
         m_threads[i] = std::thread(&Search::lazySmpSearcher, &m_threadParams[i]);
 }
 
+unsigned int Search::getThreadsCount()
+{
+    return m_thc + 1;
+}
+
 void Search::lazySmpSearcher()
 {
     while (!m_terminateSmp)

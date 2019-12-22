@@ -69,6 +69,7 @@ public:
     void setPosition(Position & pos);
     void setTime(Time time) {m_time = time;}
     void setThreadCount(unsigned int threads);
+    unsigned int getThreadsCount();
     void setSyzygyDepth(int depth);
     void setPonderHit();
     void startPrincipalSearch(Time time, bool ponder);
