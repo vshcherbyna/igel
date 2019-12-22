@@ -512,7 +512,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         History::HistoryHeuristics history{};
         History::fetchHistory(this, mv, ply, history);
 
-        if (quietMove && bestMove) {
+        if (quietMove && legalMoves >= 1) {
 
             if (futilityMargin <= alpha
                 && depth <= 8
@@ -529,7 +529,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                 continue;
         }
 
-        if (depth <= 8) {
+        if (depth <= 8 && legalMoves >= 1) {
             if (MoveEval::SEE(this, mv) < seeMargin[quietMove])
                 continue;
         }
