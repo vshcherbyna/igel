@@ -20,7 +20,7 @@
 #include "uci.h"
 #include "time.h"
 #include "notation.h"
-#include "tune.h"
+#include "texel.h"
 #include "eval.h"
 
 #include "fathom/tbprobe.h"
@@ -28,14 +28,14 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "2.1.0";
+const std::string VERSION = "2.2.0";
 
 const int MIN_HASH_SIZE = 1;
-const int MAX_HASH_SIZE = 131072;
+const int MAX_HASH_SIZE = 1048576;
 const int DEFAULT_HASH_SIZE = 128;
 
 const int MIN_THREADS = 1;
-const int MAX_THREADS = 256;
+const int MAX_THREADS = 1024;
 const int DEFAULT_THREADS = 1;
 
 // Check windows
@@ -60,7 +60,7 @@ int Uci::handleCommands()
 {
     std::cout << "Igel " << VERSION << " by V. Medvedev, V. Shcherbyna" << std::endl;
 
-    if (!TTable::instance().setHashSize(DEFAULT_HASH_SIZE)) {
+    if (!TTable::instance().setHashSize(DEFAULT_HASH_SIZE, DEFAULT_THREADS)) {
         cout << "Fatal error: unable to allocate memory for transposition table" << endl;
         return 1;
     }
@@ -142,7 +142,7 @@ void Uci::onUciNewGame()
 {
     m_searcher.m_position.SetInitial();
 
-    TTable::instance().clearHash();
+    TTable::instance().clearHash(m_searcher.getThreadsCount());
     TTable::instance().clearAge();
 
     m_searcher.clearHistory();
@@ -242,7 +242,7 @@ void Uci::onSetOption(commandParams params)
     auto value  = params[4];
 
     if (name == "Hash") {
-        if (!TTable::instance().setHashSize(atoi(value.c_str()))) {
+        if (!TTable::instance().setHashSize(atoi(value.c_str()), m_searcher.getThreadsCount())) {
             std::cout << "Fatal error: unable to allocate memory for transposition table" << std::endl;
             exit(1);
         }
@@ -281,7 +281,7 @@ void Uci::onNewGame()
 {
     m_searcher.m_position.SetInitial();
 
-    TTable::instance().clearHash();
+    TTable::instance().clearHash(m_searcher.getThreadsCount());
     TTable::instance().clearAge();
 
     m_searcher.clearHistory();

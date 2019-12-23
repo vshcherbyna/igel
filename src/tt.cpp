@@ -21,6 +21,8 @@
 
 #include "tt.h"
 
+#include <algorithm>
+#include <thread>
 
 TTable::TTable() : m_hash(nullptr), m_hashSize(0), m_hashAge(0)
 {
@@ -42,7 +44,7 @@ bool TTable::record(Move mv, EVAL score, U8 depth, int ply, U8 type, U64 hash0)
     assert(score <= INFINITY_SCORE);
     assert(score >= -INFINITY_SCORE);
 
-    int index = hash0 % m_hashSize;
+    size_t index = hash0 % m_hashSize;
     TEntry & entry = m_hash[index];
 
     if (depth >= entry.depth() || m_hashAge != entry.age())
@@ -66,22 +68,63 @@ TEntry * TTable::retrieve(U64 hash)
     assert(m_hash);
     assert(m_hashSize);
 
-    int index = hash % m_hashSize;
+    size_t index = hash % m_hashSize;
     TEntry * pEntry = m_hash + index;
 
     return pEntry;
 }
 
-bool TTable::clearHash()
+bool TTable::clearHash(unsigned int threads)
 {
     if (!m_hash)
         return false;
 
-    memset(reinterpret_cast<void*>(m_hash), 0, m_hashSize * sizeof(TEntry));
+    //
+    //  no optimisations required when dealing with a single thread
+    //
+
+    if (threads == 1) {
+        memset(reinterpret_cast<void*>(m_hash), 0, m_hashSize * sizeof(TEntry));
+        return true;
+    }
+
+    size_t size = m_hashSize * sizeof(TEntry);
+    void * tt   = m_hash;
+
+    //
+    //  parallelize the memset across worker threads to speed up init time when using large hash (128 Gb+)
+    //
+
+    std::vector<std::thread> workers;
+
+    for (unsigned int i = 0; i < threads; i++) {
+        workers.push_back(std::thread([tt, size, i, threads]()
+            {
+                size_t range = size / threads;
+                void* ptr = (unsigned char*)tt + (i * range);
+                memset(ptr, 0, range);
+            }));
+    }
+
+    //
+    //  number of threads may be a non-even number, so we need to clean also remainder
+    //
+
+    if (threads > 1) {
+        size_t remainder = size % threads;
+        unsigned char* p = (unsigned char*)tt;
+        memset(p + (size - remainder), 0, remainder);
+    }
+
+    std::for_each(workers.begin(), workers.end(), [](std::thread& t)
+        {
+            t.join();
+        });
+
     return true;
 }
 
-bool TTable::setHashSize(double mb)
+bool TTable::setHashSize(double mb, unsigned int threads)
 {
     if (!mb)
         return false;
@@ -89,9 +132,10 @@ bool TTable::setHashSize(double mb)
     if (m_hash)
         free(m_hash);
 
-    m_hashSize = int(1024 * 1024 * mb / sizeof(TEntry));
+    m_hashSize = static_cast<size_t>(static_cast<size_t>(1024 * 1024) * mb / sizeof(TEntry));
     m_hash = reinterpret_cast<TEntry*>(malloc(sizeof(TEntry) * m_hashSize));
 
+    clearHash(threads);
     assert(m_hash);
     return m_hash != nullptr;
 }

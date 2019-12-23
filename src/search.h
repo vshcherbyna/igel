@@ -69,6 +69,7 @@ public:
     void setPosition(Position & pos);
     void setTime(Time time) {m_time = time;}
     void setThreadCount(unsigned int threads);
+    unsigned int getThreadsCount();
     void setSyzygyDepth(int depth);
     void setPonderHit();
     void startPrincipalSearch(Time time, bool ponder);
@@ -89,7 +90,7 @@ private:
     bool ProbeHash(TEntry & hentry);
     bool isGameOver(Position & pos, string & result, string & comment, Move & bestMove, int & legalMoves);
     Move forceFetchPonder(Position & pos, const Move & bestMove);
-    void printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv);
+    void printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv, uint64_t sumNodes, uint64_t sumHits, uint64_t nps);
 
     bool checkLimits();
     void releaseHelperThreads();
@@ -102,9 +103,11 @@ private:
     U32 m_t0;
     volatile U8 m_flags;
     int m_depth;
+    int m_completedDepth;
     int m_syzygyDepth;
     int m_selDepth;
     int m_iterPVSize;
+    int m_index;
     MoveList m_lists[MAX_PLY];
     Move m_pv[MAX_PLY][MAX_PLY];
     int m_pvSize[MAX_PLY];
@@ -132,12 +135,11 @@ private:
     unsigned int m_thc;
     std::unique_ptr<std::thread[]> m_threads;
     std::unique_ptr<Search[]> m_threadParams;
-    std::mutex m_lazyMutex;
     std::condition_variable m_lazycv;
     volatile int m_lazyDepth;
     int m_lazyAlpha;
     int m_lazyBeta;
-    EVAL m_bestSmpEval;
+    EVAL m_score;
     Move m_best;
     volatile bool m_smpThreadExit;
     bool m_lazyPonder;
@@ -152,6 +154,9 @@ private:
     static constexpr int m_fmpDepth[]        = { 3, 2           };
     static constexpr int m_fmpHistoryLimit[] = { -2000, -4000   };
     static constexpr int m_fpHistoryLimit[]  = { 12000, 6000    };
+    static constexpr int m_skipSize[]        = { 1, 1, 1, 2, 2, 2, 1, 3, 2, 2, 1, 3, 3, 2, 2, 1 };
+    static constexpr int m_skipDepths[]      = { 1, 2, 2, 4, 4, 3, 2, 5, 4, 3, 2, 6, 5, 4, 3, 2 };
+    static constexpr int m_SMPCycles         = 16;
     bool m_terminateSmp;
     bool m_waitStarted;
     int m_level;
