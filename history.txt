@@ -3,6 +3,31 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 2.2.0
+-------------
+23-Dec-2019
+
+- Fix futility pruning and use it only after at least one legal move has been played
+- Fix 32bit overflow in syzygy probing code that caused bugs when probing 7 piece positions
+- Fix syncronisation issue that caused "connection stalled" in Linux OS
+- Fix overflow bug that prevented using transposition table bigger than 32 GB
+- Improve performance in SMP mode and avoid copying the pawn hash table for each worker
+- Improve performance in SMP mode when clearing large hash size (more than 64 Gb)
+- Improve performance in SMP mode and solve cache coherency issues when calculating node/tbhits count
+- Improve performance of tuner and perform multithreaded texel tuning
+- Impove performance and use hardware instruction to count leading zeroes (lsb/poplsb)
+- Improve performance in SMP mode and start worker threads before the main thread
+- Improve performance in SMP mode and skip random depths by worker threads (Laser/Ethereal method)
+- Improve performance in Linux OS and use -flto compiler option (around 10% of increase of NPS)
+
+Igel 2.1.0
+-------------
+20-Nov-2019
+
+- Implement ponder option
+- Implement level uci option: where 1 to 10 is a level suitable for amateurs, level 11 to 19 suitable for professional players and level 20 is suitable for chess engines
+- Re-tuning evaluation using licess-quite set and texel tunning
+
 Igel 2.0.0
 -------------
 05-Oct-2019
