@@ -262,6 +262,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 {
     m_pvSize[ply] = 0;
     m_selDepth = std::max(ply, m_selDepth);
+    ++m_nodes;
 
     bool inCheck = m_position.InCheck();
 
@@ -553,7 +554,6 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
         if (m_position.MakeMove(mv))
         {
-            ++m_nodes;
             ++legalMoves;
 
             if (quietMove) {
@@ -646,6 +646,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
 {
     m_pvSize[ply] = 0;
+    ++m_nodes;
 
     if (checkLimits())
         return -INFINITY_SCORE;
@@ -723,7 +724,6 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
             continue;
 
         if (m_position.MakeMove(mv)) {
-            ++m_nodes;
             ++legalMoves;
 
             m_moveStack[ply] = mv;
