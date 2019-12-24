@@ -59,6 +59,7 @@ extern U64 BB_STRONG_FIELD_MASK[64][2];
 extern U64 BB_PAWN_SQUARE[64][2];
 extern U64 BB_PAWN_CONNECTED[64];
 
+#if defined (_BTYPE)
 inline FLD LSB(U64 b)
 {
     assert(b != 0);
@@ -71,6 +72,30 @@ inline FLD LSB(U64 b)
     return static_cast<FLD>(__builtin_ctzl(b) ^ 63);
 #endif
 }
+#else
+inline FLD LSB(U64 b)
+{
+    assert(b != 0);
+
+    static const U32 mult = 0x78291acf;
+    static const FLD table[64] =
+    {
+         0, 33, 60, 31,  4, 49, 52, 30,
+         3, 39, 13, 54,  8, 44, 42, 29,
+         2, 34, 61, 10, 12, 40, 22, 45,
+         7, 35, 62, 20, 17, 36, 63, 28,
+         1, 32,  5, 59, 58, 14,  9, 57,
+        48, 11, 51, 23, 56, 21, 18, 47,
+        38,  6, 15, 50, 53, 24, 55, 19,
+        43, 16, 25, 41, 46, 26, 27, 37
+    };
+
+    U64 x = b ^ (b - 1);
+    U32 y = U32(x) ^ U32(x >> 32);
+    int index = (y * mult) >> (32 - 6);
+    return table[index];
+}
+#endif
 
 inline FLD PopLSB(U64& b)
 {
