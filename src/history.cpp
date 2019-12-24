@@ -22,6 +22,10 @@
 
 #include <algorithm>
 
+/*static */constexpr int History::s_historyMax;
+/*static */constexpr int History::s_historyMultiplier;
+/*static */constexpr int History::s_historyDivisor;
+
 /*static */void History::updateHistory(Search * pSearch, std::vector<Move> quetMoves, int ply, int bonus)
 {
     assert(ply < MAX_PLY);
