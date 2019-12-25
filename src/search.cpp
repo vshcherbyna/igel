@@ -214,12 +214,12 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
 
             EVAL e;
             if (legalMoves == 1)
-                e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, true);
+                e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, true, true);
             else
             {
-                e = -abSearch(-alpha - 1, -alpha, newDepth, ply + 1, false, true);
+                e = -abSearch(-alpha - 1, -alpha, newDepth, ply + 1, false, true, true);
                 if (e > alpha && e < beta)
-                    e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, true);
+                    e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, true, true);
             }
 
             m_position.UnmakeMove();
@@ -258,13 +258,13 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
     return alpha;
 }
 
-EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves/*, Move skipMove = 0*/)
+EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves, bool rootNode/*, Move skipMove = 0*/)
 {
     m_pvSize[ply] = 0;
     m_selDepth = std::max(ply, m_selDepth);
     ++m_nodes;
 
-    bool inCheck = m_position.InCheck();
+    auto inCheck = m_position.InCheck();
 
     //
     //   qsearch
@@ -273,15 +273,13 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     if (!inCheck && depth <= 0 && m_level > MEDIUM_LEVEL)
         return qSearch(alpha, beta, ply);
 
-    auto rootNode = ply == 1;
-
     if (!rootNode && checkLimits())
         return -INFINITY_SCORE;
 
     if (ply > MAX_PLY - 2)
         return m_evaluator->evaluate(m_position);
 
-    if (!isNull && m_position.Repetitions() >= 2)
+    if (!rootNode && !isNull && m_position.Repetitions() >= 2)
         return DRAW_SCORE;
 
     if (!rootNode) {
@@ -328,7 +326,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     //  tablebase probe
     //
 
-    if (TB_LARGEST && depth >= 2 && !m_position.Fifty() && !(m_position.CanCastle(m_position.Side(), KINGSIDE) || m_position.CanCastle(m_position.Side(), QUEENSIDE))) {
+    if (!rootNode && TB_LARGEST && depth >= 2 && !m_position.Fifty() && !(m_position.CanCastle(m_position.Side(), KINGSIDE) || m_position.CanCastle(m_position.Side(), QUEENSIDE))) {
         auto pieces = countBits(m_position.BitsAll());
 
         if ((pieces < TB_LARGEST) || (pieces == TB_LARGEST && depth >= m_syzygyDepth)) {
@@ -389,20 +387,20 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
     EVAL staticEval = m_evalStack[ply] = m_evaluator->evaluate(m_position);
 
-    if (pruneMoves && !isCheckMateScore(beta)) {
+    if (pruneMoves && !isCheckMateScore(beta) && !inCheck) {
 
         //
         //   razoring
         //
 
-        if (!onPV && !inCheck && depth <= 1 && staticEval + 325 < alpha)
+        if (!onPV && depth <= 1 && staticEval + 325 < alpha)
             return qSearch(alpha, beta, ply);
 
         //
         //  static null move pruning
         //
 
-        if (!onPV && !inCheck && depth <= 4 && (abs(beta - 1) > -INFINITY_SCORE + 100) && staticEval - 85 * depth > beta)
+        if (!onPV && depth <= 4 && (abs(beta - 1) > -INFINITY_SCORE + 100) && staticEval - 85 * depth > beta)
             return staticEval;
 
         //
@@ -413,19 +411,19 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
         static const EVAL MARGIN[4] = { 0, 50, 350, 550 };
 
-        if (nonPawnMaterial && !onPV && !inCheck && depth >= 1 && depth <= 3) {
+        if (nonPawnMaterial && !onPV && depth >= 1 && depth <= 3) {
             if (staticEval <= alpha - MARGIN[depth])
                 return qSearch(alpha, beta, ply);
             if (staticEval >= beta + MARGIN[depth])
                 return beta;
         }
 
-        if (!isNull && !onPV && !inCheck && depth >= 2 && nonPawnMaterial && staticEval >= beta && !ttHit) {
+        if (!isNull && !onPV && depth >= 2 && nonPawnMaterial && staticEval >= beta && !ttHit) {
             int R = 4 + depth / 6 + min(3, (staticEval - beta) / 200);
 
             m_position.MakeNullMove();
             m_moveStack[ply] = 0;
-            EVAL nullScore = -abSearch(-beta, -beta + 1, depth - R, ply + 1, true, false);
+            EVAL nullScore = -abSearch(-beta, -beta + 1, depth - R, ply + 1, true, false, false);
             m_position.UnmakeNullMove();
 
             if (nullScore >= beta)
@@ -448,7 +446,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                     continue;
 
                 if (m_position.MakeMove(captureMoves[i].m_mv)) {
-                    auto score = -abSearch(-betaCut, -betaCut + 1, depth - 4, ply + 1, isNull, true);
+                    auto score = -abSearch(-betaCut, -betaCut + 1, depth - 4, ply + 1, isNull, true, false);
                     m_position.UnmakeMove();
 
                     if (score >= betaCut)
@@ -464,7 +462,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
     if (onPV && hashMove == 0 && depth > 4 && m_level == MAX_LEVEL)
     {
-        abSearch(alpha, beta, depth - 4, ply, isNull, false);
+        abSearch(alpha, beta, depth - 4, ply, isNull, false, false);
         if (m_pvSize[ply] > 0)
             hashMove = m_pv[ply][0];
     }
@@ -483,7 +481,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
     auto mvSize = mvlist.Size();
     std::vector<Move> quietMoves;
-    auto improving = ply >= 2 && staticEval > m_evalStack[ply - 2];
+    auto improving = !inCheck && ply >= 2 && staticEval > m_evalStack[ply - 2];
     m_killerMoves[ply + 1][0] = m_killerMoves[ply + 1][1] = 0;
     auto quietsTried = 0;
     auto skipQuiets = false;
@@ -501,6 +499,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
         Move mv = MoveEval::getNextBest(mvlist, i);
         auto quietMove = !MoveEval::isTacticalMove(mv);
+        History::HistoryHeuristics history{};
 
         if (quietMove)
         {
@@ -508,31 +507,32 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
             if (skipQuiets)
                 continue;
+
+            History::fetchHistory(this, mv, ply, history);
         }
 
-        History::HistoryHeuristics history{};
-        History::fetchHistory(this, mv, ply, history);
+        if (!rootNode && legalMoves >= 1) {
 
-        if (quietMove && legalMoves >= 1) {
+            if (quietMove) {
+                if (futilityMargin <= alpha
+                    && depth <= 8
+                    && history.history + history.cmhistory + history.fmhistory < m_fpHistoryLimit[improving])
+                    skipQuiets = true;
 
-            if (futilityMargin <= alpha
-                && depth <= 8
-                && history.history + history.cmhistory + history.fmhistory < m_fpHistoryLimit[improving])
-                skipQuiets = true;
+                if (depth <= m_lmpDepth && quietsTried >= m_lmpPruningTable[improving][depth])
+                    skipQuiets = true;
 
-            if (depth <= m_lmpDepth && quietsTried >= m_lmpPruningTable[improving][depth])
-                skipQuiets = true;
+                if (depth <= m_cmpDepth[improving] && history.cmhistory < m_cmpHistoryLimit[improving])
+                    continue;
 
-            if (depth <= m_cmpDepth[improving] && history.cmhistory < m_cmpHistoryLimit[improving])
-                continue;
+                if (depth <= m_fmpDepth[improving] && history.fmhistory < m_fmpHistoryLimit[improving])
+                    continue;
+            }
 
-            if (depth <= m_fmpDepth[improving] && history.fmhistory < m_fmpHistoryLimit[improving])
-                continue;
-        }
-
-        if (depth <= 8 && legalMoves >= 1) {
-            if (MoveEval::SEE(this, mv) < seeMargin[quietMove])
-                continue;
+            if (depth <= 8) {
+                if (MoveEval::SEE(this, mv) < seeMargin[quietMove])
+                    continue;
+            }
         }
 
         int newDepth = depth - 1;
@@ -572,7 +572,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
             EVAL e;
             if (legalMoves == 1)
-                e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, true);
+                e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, true, false);
             else
             {
                 //
@@ -581,7 +581,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
                 int reduction = 0;
 
-                if (!rootNode && quietMove && !extended && !inCheck && !m_position.InCheck() && !MoveEval::isSpecialMove(mv, this)) {
+                if (quietMove && !extended && !inCheck && !m_position.InCheck() && !MoveEval::isSpecialMove(mv, this)) {
                     reduction = m_logLMRTable[std::min(depth, 63)][std::min(legalMoves, 63)];
 
                     reduction -= mv == m_killerMoves[ply][0]
@@ -593,12 +593,12 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                         reduction = 0;
                 }
 
-                e = -abSearch(-alpha - 1, -alpha, newDepth - reduction, ply + 1, false, true);
+                e = -abSearch(-alpha - 1, -alpha, newDepth - reduction, ply + 1, false, true, false);
 
                 if (e > alpha && reduction > 0)
-                    e = -abSearch(-alpha - 1, -alpha, newDepth, ply + 1, false, true);
+                    e = -abSearch(-alpha - 1, -alpha, newDepth, ply + 1, false, true, false);
                 if (e > alpha && e < beta)
-                    e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, true);
+                    e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, true, false);
             }
             m_position.UnmakeMove();
 
