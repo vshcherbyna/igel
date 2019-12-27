@@ -3,6 +3,18 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 2.3.0
+-------------
+27-Dec-2019
+
+- Rename uci option 'Level' into 'Skill Level'
+- Do not apply razoring when in check
+- Do not apply 'improving' factor when in check
+- Do not prune quiets at root
+- Fetch history only when a quiet move is detected
+- Improve branching factor and apply LMR more aggressively
+- Fix compilaton issue with clang compiler
+
 Igel 2.2.0
 -------------
 23-Dec-2019

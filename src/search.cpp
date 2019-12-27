@@ -262,7 +262,6 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 {
     m_pvSize[ply] = 0;
     m_selDepth = std::max(ply, m_selDepth);
-    ++m_nodes;
 
     auto inCheck = m_position.InCheck();
 
@@ -272,6 +271,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
     if (!inCheck && depth <= 0 && m_level > MEDIUM_LEVEL)
         return qSearch(alpha, beta, ply);
+
+    ++m_nodes;
 
     if (!rootNode && checkLimits())
         return -INFINITY_SCORE;
