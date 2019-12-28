@@ -3,9 +3,9 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
-Igel 2.3.0
+Igel 2.2.1
 -------------
-27-Dec-2019
+29-Dec-2019
 
 - Rename uci option 'Level' into 'Skill Level'
 - Do not apply razoring when in check
