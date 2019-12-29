@@ -28,7 +28,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "2.2.0";
+const std::string VERSION = "2.2.1";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 1048576;
@@ -130,7 +130,7 @@ void Uci::onUci()
     cout << "option name Ponder type check" <<
         " default false" << endl;
 
-    std::cout << "option name Level type spin" <<
+    std::cout << "option name Skill Level type spin" <<
         " default " << DEFAULT_LEVEL <<
         " min "		<< MIN_LEVEL	<<
         " max "		<< MAX_LEVEL << std::endl;
