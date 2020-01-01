@@ -254,7 +254,7 @@ void Uci::onSetOption(commandParams params)
             std::cout << "Unable set threads value. Make sure number is correct" << std::endl;
         m_searcher.setThreadCount(threads - 1);
     }
-    else if (name == "Level") {
+    else if (name == "Skill Level") {
         auto level = atoi(value.c_str());
 
         if (level > MAX_LEVEL || MIN_LEVEL < 0)
