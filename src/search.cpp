@@ -589,7 +589,9 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
                     reduction -= std::max(-2, std::min(2, (history.history + history.cmhistory + history.fmhistory) / 5000));
 
-                    if (reduction < 0)
+                    if (reduction >= newDepth)
+                        reduction = newDepth - 1;
+                    else if (reduction < 0)
                         reduction = 0;
                 }
 
