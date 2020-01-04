@@ -656,12 +656,12 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
 
     Move hashMove{};
     TEntry hEntry;
+    EVAL ttScore = -CHECKMATE_SCORE + ply;
     auto ttHit = false;
-    EVAL ttScore;
 
     if (ProbeHash(hEntry)) {
         ttScore = hEntry.score();
-        ttHit = hEntry.type() == HASH_EXACT;
+        ttHit = true;
         if (ttScore > CHECKMATE_SCORE - 50 && ttScore <= CHECKMATE_SCORE)
             ttScore -= ply;
         if (ttScore < -CHECKMATE_SCORE + 50 && ttScore >= -CHECKMATE_SCORE)
@@ -688,8 +688,7 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
     {
         bestScore = m_evaluator->evaluate(m_position);
 
-        if (ttHit)
-        {
+        if (ttHit) {
             if ((hEntry.type() == HASH_BETA && ttScore > bestScore) ||
                 (hEntry.type() == HASH_ALPHA && ttScore < bestScore) ||
                 (hEntry.type() == HASH_EXACT))
@@ -713,7 +712,7 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
 
     int legalMoves = 0;
     auto mvSize = mvlist.Size();
-    Move bestMove = ttHit ? hEntry.move() : Move{};
+    Move bestMove = hashMove;
 
     for (size_t i = 0; i < mvSize; ++i) {
         Move mv = MoveEval::getNextBest(mvlist, i);
