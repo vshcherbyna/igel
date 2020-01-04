@@ -274,16 +274,13 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
     ++m_nodes;
 
-    if (!rootNode && checkLimits())
-        return -INFINITY_SCORE;
-
-    if (ply > MAX_PLY - 2)
-        return m_evaluator->evaluate(m_position);
-
-    if (!rootNode && !isNull && m_position.Repetitions() >= 2)
-        return DRAW_SCORE;
-
     if (!rootNode) {
+
+        if (checkLimits())
+            return -INFINITY_SCORE;
+
+        if ((ply > MAX_PLY - 2) || m_position.Repetitions() >= 2)
+            return ((ply > MAX_PLY - 2) && !inCheck) ? m_evaluator->evaluate(m_position) : DRAW_SCORE;
 
         //
         // mate distance pruning
@@ -648,15 +645,14 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
 {
     m_pvSize[ply] = 0;
+    m_selDepth = std::max(ply, m_selDepth);
     ++m_nodes;
 
     if (checkLimits())
         return -INFINITY_SCORE;
 
-    if (ply > MAX_PLY - 2)
-        return m_evaluator->evaluate(m_position);
-
-    m_selDepth = std::max(ply, m_selDepth);
+    if ((ply > MAX_PLY - 2) || m_position.Repetitions() >= 2)
+        return ((ply > MAX_PLY - 2) && !m_position.InCheck()) ? m_evaluator->evaluate(m_position) : DRAW_SCORE;
 
     Move hashMove{};
     TEntry hEntry;
@@ -671,31 +667,31 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
         if (ttScore < -CHECKMATE_SCORE + 50 && ttScore >= -CHECKMATE_SCORE)
             ttScore += ply;
 
-        if (hEntry.type() == HASH_EXACT
+        auto onPV = (beta - alpha) > 1;
+
+        if (!onPV && (hEntry.type() == HASH_EXACT
             || (hEntry.type() == HASH_BETA && ttScore >= beta)
-            || (hEntry.type() == HASH_ALPHA && ttScore <= alpha))
+            || (hEntry.type() == HASH_ALPHA && ttScore <= alpha)))
             return ttScore;
 
         hashMove = hEntry.move();
     }
 
-    bool inCheck = m_position.InCheck();
-
-    EVAL    bestScore,
-            staticScore;
+    auto inCheck = m_position.InCheck();
+    EVAL bestScore;
 
     if (inCheck)
     {
-        bestScore = staticScore = -CHECKMATE_SCORE + ply;
+        bestScore = -CHECKMATE_SCORE + ply;
     }
     else
     {
-        bestScore = staticScore = ttHit ? hEntry.score() : m_evaluator->evaluate(m_position);
+        bestScore = m_evaluator->evaluate(m_position);
 
         if (ttHit)
         {
-            if ((hEntry.type() == HASH_BETA && ttScore > staticScore) ||
-                (hEntry.type() == HASH_ALPHA && ttScore < staticScore) ||
+            if ((hEntry.type() == HASH_BETA && ttScore > bestScore) ||
+                (hEntry.type() == HASH_ALPHA && ttScore < bestScore) ||
                 (hEntry.type() == HASH_EXACT))
                 bestScore = ttScore;
         }
@@ -757,6 +753,7 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
     if (!legalMoves && inCheck)
         bestScore = -CHECKMATE_SCORE + ply;
 
+    assert((m_position.Fifty() >= 100) == false); // in qs promotions and captures discard the rule
     return bestScore;
 }
 
