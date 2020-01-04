@@ -240,7 +240,7 @@ EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
 
             if (alpha >= beta) {
                 type = HASH_BETA;
-                if (!mv.Captured() && !mv.Promotion())
+                if (!MoveEval::isTacticalMove(mv))
                     History::setKillerMove(this, mv, ply);
                 break;
             }
@@ -622,7 +622,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             if (alpha >= beta)
             {
                 type = HASH_BETA;
-                if (!mv.Captured())
+                if (!MoveEval::isTacticalMove(mv))
                     History::setKillerMove(this, mv, ply);
                 break;
             }
