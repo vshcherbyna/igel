@@ -389,7 +389,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     else
         staticEval = m_evaluator->evaluate(m_position);
 
-    m_evalStack[ply] = m_evaluator->evaluate(m_position);
+    m_evalStack[ply] = staticEval;
 
     if (pruneMoves && !isCheckMateScore(beta) && !inCheck) {
 
