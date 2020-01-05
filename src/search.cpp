@@ -263,13 +263,11 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     m_pvSize[ply] = 0;
     m_selDepth = std::max(ply, m_selDepth);
 
-    auto inCheck = m_position.InCheck();
-
     //
     //   qsearch
     //
 
-    if (!inCheck && depth <= 0 && m_level > MEDIUM_LEVEL)
+    if (depth <= 0 && m_level > MEDIUM_LEVEL)
         return qSearch(alpha, beta, ply);
 
     ++m_nodes;
@@ -280,7 +278,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             return -INFINITY_SCORE;
 
         if ((ply > MAX_PLY - 2) || m_position.Repetitions() >= 2)
-            return ((ply > MAX_PLY - 2) && !inCheck) ? m_evaluator->evaluate(m_position) : DRAW_SCORE;
+            return ((ply > MAX_PLY - 2) && !m_position.InCheck()) ? m_evaluator->evaluate(m_position) : DRAW_SCORE;
 
         //
         // mate distance pruning
@@ -383,7 +381,15 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         }
     }
 
-    EVAL staticEval = m_evalStack[ply] = m_evaluator->evaluate(m_position);
+    EVAL staticEval;
+    auto inCheck = m_position.InCheck();
+
+    if (inCheck)
+        staticEval = -CHECKMATE_SCORE + ply;
+    else
+        staticEval = m_evaluator->evaluate(m_position);
+
+    m_evalStack[ply] = m_evaluator->evaluate(m_position);
 
     if (pruneMoves && !isCheckMateScore(beta) && !inCheck) {
 
@@ -466,7 +472,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     }
 
     int legalMoves = 0;
-    Move bestMove = 0;
+    Move bestMove = hashMove;
+    EVAL bestScore = -CHECKMATE_SCORE + ply;
     U8 type = HASH_ALPHA;
 
     MoveList& mvlist = m_lists[ply];
@@ -604,42 +611,44 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             if (m_flags & SEARCH_TERMINATED)
                 return -INFINITY_SCORE;
 
-            if (e > alpha)
-            {
-                alpha = e;
-                bestMove = mv;
-                type = HASH_EXACT;
+            if (e > bestScore) {
+                bestScore = e;
+                if (e > alpha) {
+                    alpha = e;
+                    bestMove = mv;
+                    type = HASH_EXACT;
 
-                m_pv[ply][0] = mv;
-                memcpy(m_pv[ply] + 1, m_pv[ply + 1], m_pvSize[ply + 1] * sizeof(Move));
-                m_pvSize[ply] = 1 + m_pvSize[ply + 1];
-                History::updateHistory(this, quietMoves, ply, depth * depth);
-            }
+                    m_pv[ply][0] = mv;
+                    memcpy(m_pv[ply] + 1, m_pv[ply + 1], m_pvSize[ply + 1] * sizeof(Move));
+                    m_pvSize[ply] = 1 + m_pvSize[ply + 1];
 
-            if (alpha >= beta)
-            {
-                type = HASH_BETA;
-                if (!MoveEval::isTacticalMove(mv))
-                    History::setKillerMove(this, mv, ply);
-                break;
+                    if (alpha >= beta) {
+                        type = HASH_BETA;
+                        if (!MoveEval::isTacticalMove(mv)) {
+                            History::updateHistory(this, quietMoves, ply, depth * depth);
+                            History::setKillerMove(this, mv, ply);
+                        }
+                        break;
+                    }
+                }
             }
         }
     }
 
     if (legalMoves == 0) {
         if (inCheck)
-            alpha = -CHECKMATE_SCORE + ply;
+            bestScore = -CHECKMATE_SCORE + ply;
         else
-            alpha = DRAW_SCORE;
+            bestScore = DRAW_SCORE;
     }
     else
     {
         if (m_position.Fifty() >= 100)
-            alpha = DRAW_SCORE;
+            bestScore = DRAW_SCORE;
     }
 
-    TTable::instance().record(bestMove, alpha, depth, ply, type, m_position.Hash());
-    return alpha;
+    TTable::instance().record(bestMove, bestScore, depth, ply, type, m_position.Hash());
+    return bestScore;
 }
 
 EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
@@ -1226,7 +1235,8 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
         //  Make a search
         //
 
-        m_score = searchRoot(alpha, beta, m_depth);
+        //m_score = searchRoot(alpha, beta, m_depth);
+        m_score = abSearch(alpha, beta, m_depth, 0, false, false, true);
 
         //
         //  Validate if we received a ponderhit

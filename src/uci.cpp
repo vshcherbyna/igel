@@ -28,7 +28,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "2.3.1-a2";
+const std::string VERSION = "2.3.1-a3";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 1048576;
