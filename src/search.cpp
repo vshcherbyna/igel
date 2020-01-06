@@ -133,131 +133,6 @@ void Search::setPosition(Position & pos)
     m_position = pos;
 }
 
-EVAL Search::searchRoot(EVAL alpha, EVAL beta, int depth)
-{
-    int ply = 0;
-    m_pvSize[ply] = 0;
-    assert(depth > 0);
-    Move hashMove = 0;
-
-    int legalMoves = 0;
-    Move bestMove = 0;
-    U8 type = HASH_ALPHA;
-    auto inCheck = m_position.InCheck();
-    auto rootNode = depth == 1;
-
-    /*TEntry hEntry;
-
-    if (ProbeHash(hEntry))
-        hashMove = hEntry.move();*/
-
-    if (m_pv[0][0])
-        hashMove = m_pv[0][0];
-
-    MoveList& mvlist = m_lists[ply];
-
-    if (inCheck)
-        GenMovesInCheck(m_position, mvlist);
-    else
-        GenAllMoves(m_position, mvlist);
-
-    MoveEval::sortMoves(this, mvlist, hashMove, ply);
-    auto mvSize = mvlist.Size();
-
-    //
-    //  Different move ordering for lazy smp threads
-    //
-
-    if (!m_principalSearcher && depth == 1 && mvSize >= 2) {
-        int j = 0;
-        for (size_t i = mvSize - 1; i > 0; --i) {
-            mvlist.Swap(i, j++);
-        }
-    }
-
-    std::vector<Move> quietMoves;
-
-    for (size_t i = 0; i < mvSize; ++i) {
-
-        if (!rootNode && checkLimits())
-            return -INFINITY_SCORE;
-
-        auto onPV = (beta - alpha) > 1;
-        //m_time.adjust(onPV, depth, alpha);
-
-        auto mv = MoveEval::getNextBest(mvlist, i);
-        auto lastMove = m_position.LastMove();
-
-        if (m_position.MakeMove(mv)) {
-            History::HistoryHeuristics history{};
-
-            if (!MoveEval::isTacticalMove(mv)) {
-                quietMoves.emplace_back(mv);
-                History::fetchHistory(this, mv, ply, history);
-            }
-
-            ++m_nodes;
-            ++legalMoves;
-            m_moveStack[ply] = mv;
-            m_pieceStack[ply] = mv.Piece();
-
-            if ((m_principalSearcher) && ((GetProcTime() - m_t0) > 2000))
-                cout << "info depth " << depth << " currmove " << MoveToStrLong(mv) << " currmovenumber " << legalMoves << endl;
-
-            int newDepth = depth - 1;
-
-            //
-            //   EXTENSIONS
-            //
-
-            newDepth += extensionRequired(mv, lastMove, inCheck, ply, onPV, quietMoves.size(), history.cmhistory, history.fmhistory);
-
-            EVAL e;
-            if (legalMoves == 1)
-                e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, true, true);
-            else
-            {
-                e = -abSearch(-alpha - 1, -alpha, newDepth, ply + 1, false, true, true);
-                if (e > alpha && e < beta)
-                    e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, true, true);
-            }
-
-            m_position.UnmakeMove();
-
-            if (m_flags & SEARCH_TERMINATED)
-                return -INFINITY_SCORE;
-
-            if (e > alpha) {
-                alpha = e;
-                bestMove = mv;
-                type = HASH_EXACT;
-
-                m_pv[ply][0] = mv;
-                memcpy(m_pv[ply] + 1, m_pv[ply + 1], m_pvSize[ply + 1] * sizeof(Move));
-                m_pvSize[ply] = 1 + m_pvSize[ply + 1];
-                History::updateHistory(this, quietMoves, ply, depth * depth);
-            }
-
-            if (alpha >= beta) {
-                type = HASH_BETA;
-                if (!MoveEval::isTacticalMove(mv))
-                    History::setKillerMove(this, mv, ply);
-                break;
-            }
-        }
-    }
-
-    if (legalMoves == 0) {
-        if (inCheck)
-            alpha = -CHECKMATE_SCORE + ply;
-        else
-            alpha = DRAW_SCORE;
-    }
-
-    TTable::instance().record(bestMove, alpha, depth, ply, type, m_position.Hash());
-    return alpha;
-}
-
 EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves, bool rootNode/*, Move skipMove = 0*/)
 {
     m_pvSize[ply] = 0;
@@ -1235,7 +1110,6 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
         //  Make a search
         //
 
-        //m_score = searchRoot(alpha, beta, m_depth);
         m_score = abSearch(alpha, beta, m_depth, 0, false, false, true);
 
         //
@@ -1342,9 +1216,6 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
         if (dt > 1000)
             nps = 1000 * sumNodes / dt;
 
-        if (m_principalSearcher && nps)
-            cout << "info depth " << m_depth << " time " << dt << " nodes " << sumNodes << " nps " << nps << endl;
-
         if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getSoftLimit()) {
             m_flags |= TERMINATED_BY_LIMIT;
 
@@ -1378,10 +1249,8 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
 
     waitUntilCompletion();
 
-    if (m_principalSearcher) {
-        printPV(m_position, m_depth, m_selDepth, m_score, m_pv[0], m_pvSize[0], m_best, sumNodes, sumHits, nps);
+    if (m_principalSearcher)
         printBestMove(this, m_position, m_best, ponder);
-    }
 }
 
 void Search::setPonderHit()

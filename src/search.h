@@ -83,7 +83,6 @@ private:
     void lazySmpSearcher();
     void indicateWorkersStop();
     Move tableBaseRootSearch();
-    EVAL searchRoot(EVAL alpha, EVAL beta, int depth);
     EVAL abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves, bool rootNode/*, Move skipMove = 0*/);
     EVAL qSearch(EVAL alpha, EVAL beta, int ply);
     int extensionRequired(Move mv, Move lastMove, bool inCheck, int ply, bool onPV, size_t quietMoves, int cmhistory, int fmhistory);
