@@ -76,6 +76,9 @@ public:
     void stopPrincipalSearch();
     void isReady();
     void setLevel(int level);
+    bool setFEN(const std::string& fen);
+    bool setInitialPosition();
+    bool makeMove(Move mv);
 
 private:
     void startWorkerThreads(Time time);
