@@ -28,7 +28,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "2.3.1-a3";
+const std::string VERSION = "2.3.1-b1";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 1048576;
@@ -204,10 +204,10 @@ void Uci::onPosition(commandParams params)
                 fen += " ";
             fen += params[i];
         }
-        m_searcher.m_position.SetFEN(fen);
+        m_searcher.setFEN(fen);
     }
     else if (params[1] == "startpos") {
-        m_searcher.m_position.SetInitial();
+        m_searcher.setInitialPosition();
         for (size_t i = 2; i < params.size(); ++i) {
             if (params[i] == "moves")
             {
@@ -220,7 +220,7 @@ void Uci::onPosition(commandParams params)
     if (movesTag) {
         for (size_t i = movesTag + 1; i < params.size(); ++i) {
             Move mv = StrToMove(params[i], m_searcher.m_position);
-            m_searcher.m_position.MakeMove(mv);
+            m_searcher.makeMove(mv);
         }
     }
 }

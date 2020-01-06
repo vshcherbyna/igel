@@ -923,7 +923,6 @@ void Search::startWorkerThreads(Time time)
         m_threadParams[i].m_nodes = 0;
         m_threadParams[i].m_selDepth = 0;
         m_threadParams[i].m_tbHits = 0;
-        m_threadParams[i].m_position.SetFEN(m_position.FEN());
         m_threadParams[i].setTime(time);
         m_threadParams[i].setLevel(m_level);
         m_threadParams[i].m_t0 = m_t0;
@@ -1332,4 +1331,30 @@ void Search::releaseHelperThreads()
             m_threads[i].join();
         }
     }
+}
+
+bool Search::setFEN(const std::string& fen)
+{
+    for (unsigned int i = 0; i < m_thc; ++i)
+        m_threadParams[i].m_position.SetFEN(fen);
+
+    return m_position.SetFEN(fen);
+}
+
+bool Search::setInitialPosition()
+{
+    for (unsigned int i = 0; i < m_thc; ++i)
+        m_threadParams[i].m_position.SetInitial();
+
+    m_position.SetInitial();
+
+    return true;
+}
+
+bool Search::makeMove(Move mv)
+{
+    for (unsigned int i = 0; i < m_thc; ++i)
+        m_threadParams[i].m_position.MakeMove(mv);
+
+    return m_position.MakeMove(mv);
 }
