@@ -50,6 +50,8 @@ const U8 MODE_SILENT  = 0x10;
 #define isCheckMateScore(score)        ((score) <= -CHECKMATE_SCORE + 50|| \
                                         (score) >=  CHECKMATE_SCORE - 50)
 
+#define MATED_IN_MAX (MAX_PLY - CHECKMATE_SCORE)
+
 class Search
 {
     friend class History;
