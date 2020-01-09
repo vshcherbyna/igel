@@ -365,15 +365,6 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     m_killerMoves[ply + 1][0] = m_killerMoves[ply + 1][1] = 0;
     auto quietsTried = 0;
     auto skipQuiets = false;
-    int seeMargin[2];
-
-    static const int SEEQuietMargin = -80;
-    static const int SEENoisyMargin = -18;
-
-    seeMargin[0] = SEENoisyMargin * depth * depth;
-    seeMargin[1] = SEEQuietMargin * depth;
-
-    auto futilityMargin = staticEval + 90 * depth;
 
     for (size_t i = 0; i < mvSize; ++i) {
 
@@ -381,19 +372,16 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         auto quietMove = !MoveEval::isTacticalMove(mv);
         History::HistoryHeuristics history{};
 
-        if (quietMove)
-        {
-            ++quietsTried;
-
-            if (skipQuiets)
-                continue;
-
-            History::fetchHistory(this, mv, ply, history);
-        }
-
-        if (!rootNode && legalMoves >= 1) {
+        if (!rootNode && bestScore > MATED_IN_MAX) {
 
             if (quietMove) {
+                if (skipQuiets)
+                    continue;
+
+                History::fetchHistory(this, mv, ply, history);
+
+                auto futilityMargin = staticEval + 90 * depth;
+
                 if (futilityMargin <= alpha
                     && depth <= 8
                     && history.history + history.cmhistory + history.fmhistory < m_fpHistoryLimit[improving])
@@ -409,7 +397,16 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                     continue;
             }
 
-            if (depth <= 8) {
+            if (depth <= 8 && !inCheck) {
+
+                int seeMargin[2];
+
+                static const int SEEQuietMargin = -80;
+                static const int SEENoisyMargin = -18;
+
+                seeMargin[0] = SEENoisyMargin * depth * depth;
+                seeMargin[1] = SEEQuietMargin * depth;
+
                 if (MoveEval::SEE(this, mv) < seeMargin[quietMove])
                     continue;
             }
@@ -437,6 +434,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             ++legalMoves;
 
             if (quietMove) {
+                ++quietsTried;
                 quietMoves.emplace_back(mv);
             }
 
