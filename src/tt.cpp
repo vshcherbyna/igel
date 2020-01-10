@@ -36,13 +36,8 @@ TTable & TTable::instance()
 
 bool TTable::record(Move mv, EVAL score, U8 depth, int ply, U8 type, U64 hash0)
 {
-    if (abs(score) >= INFINITY_SCORE)
-        return false;
-
     assert(m_hash);
     assert(m_hashSize);
-    assert(score <= INFINITY_SCORE);
-    assert(score >= -INFINITY_SCORE);
 
     size_t index = hash0 % m_hashSize;
     TEntry & entry = m_hash[index];
