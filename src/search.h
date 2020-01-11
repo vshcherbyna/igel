@@ -64,7 +64,7 @@ public:
     Search& operator=(const Search&) = delete;
 
 public:
-    void startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponder);
+    void startSearch(Time time, int depth, bool ponder);
     void clearHistory();
     void clearKillers();
     void clearStacks();
@@ -140,8 +140,6 @@ private:
     std::unique_ptr<Search[]> m_threadParams;
     std::condition_variable m_lazycv;
     volatile int m_lazyDepth;
-    int m_lazyAlpha;
-    int m_lazyBeta;
     Move m_best;
     volatile bool m_smpThreadExit;
     bool m_lazyPonder;

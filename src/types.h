@@ -129,7 +129,6 @@ enum
     DIR_DR = 7
 };
 
-const EVAL INFINITY_SCORE   = 50000;
 const EVAL CHECKMATE_SCORE  = 32767;
 const EVAL TBBASE_SCORE     = 22767;
 const EVAL DRAW_SCORE       = 0;
