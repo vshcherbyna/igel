@@ -168,9 +168,6 @@ bool Time::evaluate()
 
 bool Time::adjust(bool onPv, int depth, EVAL score)
 {
-    if (abs(score) >= INFINITY_SCORE)
-        return false;
-
     //
     //  Do not bother with shallow depth
     //
@@ -223,7 +220,7 @@ bool Time::adjust(bool onPv, int depth, EVAL score)
 void Time::resetAdjustment()
 {
     m_onPv  = false;
-    m_prevScore = -INFINITY_SCORE;
+    m_prevScore = DRAW_SCORE;
 }
 
 U32 Time::getSoftLimit()

@@ -56,7 +56,6 @@ Search::Search() :
     m_t0(0),
     m_flags(0),
     m_depth(0),
-    m_completedDepth(0),
     m_syzygyDepth(0),
     m_selDepth(0),
     m_iterPVSize(0),
@@ -68,7 +67,6 @@ Search::Search() :
     m_lazyDepth(0),
     m_lazyAlpha(-INFINITY_SCORE),
     m_lazyBeta(INFINITY_SCORE),
-    m_score(-INFINITY_SCORE),
     m_smpThreadExit(false),
     m_lazyPonder(false),
     m_terminateSmp(false),
@@ -150,7 +148,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     if (!rootNode) {
 
         if (checkLimits())
-            return -INFINITY_SCORE;
+            return DRAW_SCORE;
 
         if ((ply > MAX_PLY - 2) || m_position.Repetitions() >= 2)
             return ((ply > MAX_PLY - 2) && !m_position.InCheck()) ? m_evaluator->evaluate(m_position) : DRAW_SCORE;
@@ -279,7 +277,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //  static null move pruning
         //
 
-        if (!onPV && depth <= 4 && (abs(beta - 1) > -INFINITY_SCORE + 100) && staticEval - 85 * depth > beta)
+        if (!onPV && depth <= 4 && staticEval - 85 * depth > beta)
             return staticEval;
 
         //
@@ -482,7 +480,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             m_position.UnmakeMove();
 
             if (m_flags & SEARCH_TERMINATED)
-                return -INFINITY_SCORE;
+                return DRAW_SCORE;
 
             if (e > bestScore) {
                 bestScore = e;
@@ -531,7 +529,7 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
     ++m_nodes;
 
     if (checkLimits())
-        return -INFINITY_SCORE;
+        return DRAW_SCORE;
 
     if ((ply > MAX_PLY - 2) || m_position.Repetitions() >= 2)
         return ((ply > MAX_PLY - 2) && !m_position.InCheck()) ? m_evaluator->evaluate(m_position) : DRAW_SCORE;
@@ -791,12 +789,11 @@ void Search::printPV(const Position& pos, int iter, int selDepth, EVAL score, co
 
     cout << "info depth " << iter << " seldepth " << selDepth;
 
-    if (!(abs(score) >= INFINITY_SCORE)) {
-        if (abs(score) >= (CHECKMATE_SCORE - MAX_PLY))
-            cout << " score mate" << ((score >= 0) ? " " : " -") << ((CHECKMATE_SCORE - abs(score)) / 2) + 1;
-        else
-            cout << " score cp " << score;
-    }
+    if (abs(score) >= (CHECKMATE_SCORE - MAX_PLY))
+        cout << " score mate" << ((score >= 0) ? " " : " -") << ((CHECKMATE_SCORE - abs(score)) / 2) + 1;
+    else
+        cout << " score cp " << score;
+
     cout << " time " << dt;
     cout << " nodes " << sumNodes;
     cout << " tbhits " << sumHits;
@@ -925,11 +922,10 @@ void Search::startWorkerThreads(Time time)
         m_threadParams[i].setLevel(m_level);
         m_threadParams[i].m_t0 = m_t0;
         m_threadParams[i].m_flags = m_flags;
-        m_threadParams[i].m_score = -INFINITY_SCORE;
         m_threadParams[i].m_smpThreadExit = false;
 
-        m_threadParams[i].m_lazyAlpha = -INFINITY_SCORE;
-        m_threadParams[i].m_lazyBeta = INFINITY_SCORE;
+        m_threadParams[i].m_lazyAlpha = DRAW_SCORE;
+        m_threadParams[i].m_lazyBeta = DRAW_SCORE;
         m_threadParams[i].m_lazyDepth = 1;
         m_threadParams[i].m_index = i + 1;
         m_threadParams[i].m_readyMutex.unlock();
@@ -987,8 +983,8 @@ void Search::startPrincipalSearch(Time time, bool ponder)
 
     m_readyMutex.lock();
     setTime(time);
-    m_lazyAlpha = -INFINITY_SCORE;
-    m_lazyBeta = INFINITY_SCORE;
+    m_lazyAlpha = DRAW_SCORE;
+    m_lazyBeta = DRAW_SCORE;
     m_lazyDepth = 1;
     m_lazyPonder = ponder;
     m_readyMutex.unlock();
@@ -1080,10 +1076,8 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
     //  Perform search for a best move
     //
 
-    EVAL aspiration = 15;
-    m_score = alpha;
+    EVAL score = DRAW_SCORE;
     auto maxDepth = m_level == MAX_LEVEL ? MAX_PLY : ((MAX_PLY * m_level) / MAX_LEVEL);
-    m_completedDepth = 0;
 
     //
     //  Start worker threads if Threads option is configured
@@ -1099,7 +1093,10 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
 
     for (m_depth = depth; m_depth < maxDepth; ++m_depth)
     {
-        // occasionally skip depths by smp threads (laser & ethereal method)
+        //
+        // Occasionally skip depths by smp threads (laser & ethereal method)
+        //
+
         if (!m_principalSearcher && (m_index + cycle) % m_skipDepths[cycle] == 0)
             m_depth += m_skipSize[cycle];
 
@@ -1107,16 +1104,43 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
         //  Make a search
         //
 
-        m_score = abSearch(alpha, beta, m_depth, 0, false, false, true);
+        EVAL aspiration = m_depth >= 4 ? 6 : CHECKMATE_SCORE;
 
-        //
-        //  Validate if we received a ponderhit
-        //
+        alpha = std::max(score - aspiration, -CHECKMATE_SCORE);
+        beta  = std::min(score + aspiration, CHECKMATE_SCORE);
+
+        while (aspiration <= CHECKMATE_SCORE) {
+            score = abSearch(alpha, beta, m_depth, 0, false, false, true);
+
+            memcpy(m_iterPV, m_pv[0], m_pvSize[0] * sizeof(Move));
+            m_iterPVSize = m_pvSize[0];
+
+            if (m_iterPVSize && m_pv[0][0]) {
+                m_best = m_pv[0][0];
+
+                if (m_iterPVSize > 1 && m_pv[0][1])
+                    ponder = m_pv[0][1];
+                else
+                    ponder = 0;
+            }
+
+            if (m_flags & SEARCH_TERMINATED)
+                break;
+
+            aspiration += 2 + aspiration / 2;
+            if (score <= alpha)
+            {
+                beta = (alpha + beta) / 2;
+                alpha = std::max(score - aspiration, -CHECKMATE_SCORE);
+            }
+            else if (score >= beta)
+                beta = std::min(score + aspiration, CHECKMATE_SCORE);
+            else
+                break;
+        }
 
         if (m_flags & SEARCH_TERMINATED)
             break;
-
-        auto dt = GetProcTime() - m_t0;
 
         //
         //  Update node statistic from all workers
@@ -1131,84 +1155,14 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
             }
         }
 
-        //
-        //  We found so far a better move
-        //
-
-        if (m_score > alpha && m_score < beta)
-        {
-            aspiration = 15;
-            alpha = m_score - aspiration;
-            beta = m_score + aspiration;
-
-            memcpy(m_iterPV, m_pv[0], m_pvSize[0] * sizeof(Move));
-            m_iterPVSize = m_pvSize[0];
-
-            if (m_iterPVSize && m_pv[0][0])
-            {
-                m_best = m_pv[0][0];
-
-                if (m_iterPVSize > 1 && m_pv[0][1])
-                    ponder = m_pv[0][1];
-                else
-                    ponder = 0;
-            }
-
-            if (m_principalSearcher)
-                printPV(m_position, m_depth, m_selDepth, m_score, m_pv[0], m_pvSize[0], m_best, sumNodes, sumHits, nps);
-
-            if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getSoftLimit()) {
-                m_flags |= TERMINATED_BY_LIMIT;
-
-                if (g_log) {
-                    stringstream ss;
-                    ss << "Search stopped by stSoft, dt = " << dt;
-                    Log(ss.str());
-                }
-
-                break;
-            }
-        }
-        else if (m_score <= alpha)
-        {
-            alpha = -INFINITY_SCORE;
-            beta = INFINITY_SCORE;
-
-            if (!(m_flags & MODE_SILENT) && m_principalSearcher)
-                printPV(m_position, m_depth, m_selDepth, m_score, m_pv[0], m_pvSize[0], m_best, sumNodes, sumHits, nps);
-            --m_depth;
-
-            aspiration += aspiration / 4 + 5;
-        }
-        else if (m_score >= beta)
-        {
-            alpha = -INFINITY_SCORE;
-            beta = INFINITY_SCORE;
-
-            memcpy(m_iterPV, m_pv[0], m_pvSize[0] * sizeof(Move));
-            m_iterPVSize = m_pvSize[0];
-
-            if (m_iterPVSize && m_pv[0][0]) {
-                m_best = m_pv[0][0];
-
-                if (m_iterPVSize > 1 && m_pv[0][1])
-                    ponder = m_pv[0][1];
-                else
-                    ponder = 0;
-            }
-
-            if (!(m_flags & MODE_SILENT) && m_principalSearcher)
-                printPV(m_position, m_depth, m_selDepth, m_score, m_pv[0], m_pvSize[0], m_best, sumNodes, sumHits, nps);
-
-            --m_depth;
-            aspiration += aspiration / 4 + 5;
-        }
+        if (m_principalSearcher)
+            printPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], m_best, sumNodes, sumHits, nps);
 
         //
         //  Check time limits
         //
 
-        dt = GetProcTime() - m_t0;
+        auto dt = GetProcTime() - m_t0;
 
         if (dt > 1000)
             nps = 1000 * sumNodes / dt;
@@ -1229,8 +1183,6 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
             m_flags |= TERMINATED_BY_LIMIT;
             break;
         }
-
-        m_completedDepth = m_depth;
     }
 
     //

@@ -107,7 +107,6 @@ private:
     U32 m_t0;
     volatile U8 m_flags;
     int m_depth;
-    int m_completedDepth;
     int m_syzygyDepth;
     int m_selDepth;
     int m_iterPVSize;
@@ -143,7 +142,6 @@ private:
     volatile int m_lazyDepth;
     int m_lazyAlpha;
     int m_lazyBeta;
-    EVAL m_score;
     Move m_best;
     volatile bool m_smpThreadExit;
     bool m_lazyPonder;
