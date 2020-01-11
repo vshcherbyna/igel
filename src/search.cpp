@@ -611,7 +611,7 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
             m_position.UnmakeMove();
 
             if (m_flags & SEARCH_TERMINATED)
-                return -INFINITY_SCORE;
+                return DRAW_SCORE;
 
             if (e > bestScore) {
                 bestScore = e;
@@ -1104,13 +1104,16 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
         //  Make a search
         //
 
-        EVAL aspiration = m_depth >= 4 ? 6 : CHECKMATE_SCORE;
+        EVAL aspiration = m_depth >= 4 ? 5 : CHECKMATE_SCORE;
 
         alpha = std::max(score - aspiration, -CHECKMATE_SCORE);
         beta  = std::min(score + aspiration, CHECKMATE_SCORE);
 
         while (aspiration <= CHECKMATE_SCORE) {
             score = abSearch(alpha, beta, m_depth, 0, false, false, true);
+
+            if (m_flags & SEARCH_TERMINATED)
+                break;
 
             memcpy(m_iterPV, m_pv[0], m_pvSize[0] * sizeof(Move));
             m_iterPVSize = m_pvSize[0];
@@ -1123,9 +1126,6 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
                 else
                     ponder = 0;
             }
-
-            if (m_flags & SEARCH_TERMINATED)
-                break;
 
             aspiration += 2 + aspiration / 2;
             if (score <= alpha)

@@ -160,8 +160,8 @@ bool Time::evaluate()
     //  Normal time control
     //
 
-    m_hardLimit = (m_remainingTime / 4) + (m_increment / 2) + getEnemyLowTimeBonus();
-    m_softLimit = m_hardLimit / 12;
+    m_hardLimit = (m_remainingTime / 10) + (m_increment / 2) + getEnemyLowTimeBonus();
+    m_softLimit = m_hardLimit / 4;
 
     return true;
 }
