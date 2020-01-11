@@ -65,8 +65,6 @@ Search::Search() :
     m_threads(nullptr),
     m_threadParams(nullptr),
     m_lazyDepth(0),
-    m_lazyAlpha(-INFINITY_SCORE),
-    m_lazyBeta(INFINITY_SCORE),
     m_smpThreadExit(false),
     m_lazyPonder(false),
     m_terminateSmp(false),
@@ -611,7 +609,7 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
             m_position.UnmakeMove();
 
             if (m_flags & SEARCH_TERMINATED)
-                return -INFINITY_SCORE;
+                return DRAW_SCORE;
 
             if (e > bestScore) {
                 bestScore = e;
@@ -924,8 +922,6 @@ void Search::startWorkerThreads(Time time)
         m_threadParams[i].m_flags = m_flags;
         m_threadParams[i].m_smpThreadExit = false;
 
-        m_threadParams[i].m_lazyAlpha = DRAW_SCORE;
-        m_threadParams[i].m_lazyBeta = DRAW_SCORE;
         m_threadParams[i].m_lazyDepth = 1;
         m_threadParams[i].m_index = i + 1;
         m_threadParams[i].m_readyMutex.unlock();
@@ -983,8 +979,6 @@ void Search::startPrincipalSearch(Time time, bool ponder)
 
     m_readyMutex.lock();
     setTime(time);
-    m_lazyAlpha = DRAW_SCORE;
-    m_lazyBeta = DRAW_SCORE;
     m_lazyDepth = 1;
     m_lazyPonder = ponder;
     m_readyMutex.unlock();
@@ -994,7 +988,7 @@ void Search::startPrincipalSearch(Time time, bool ponder)
         m_principalThread.reset(new std::thread(&Search::lazySmpSearcher, this));
 }
 
-void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponderSearch)
+void Search::startSearch(Time time, int depth, bool ponderSearch)
 {
     m_t0 = GetProcTime();
     m_time = time;
@@ -1104,13 +1098,16 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
         //  Make a search
         //
 
-        EVAL aspiration = m_depth >= 4 ? 6 : CHECKMATE_SCORE;
+        EVAL aspiration = m_depth >= 4 ? 5 : CHECKMATE_SCORE;
 
-        alpha = std::max(score - aspiration, -CHECKMATE_SCORE);
-        beta  = std::min(score + aspiration, CHECKMATE_SCORE);
+        EVAL alpha = std::max(score - aspiration, -CHECKMATE_SCORE);
+        EVAL beta  = std::min(score + aspiration, CHECKMATE_SCORE);
 
         while (aspiration <= CHECKMATE_SCORE) {
             score = abSearch(alpha, beta, m_depth, 0, false, false, true);
+
+            if (m_flags & SEARCH_TERMINATED)
+                break;
 
             memcpy(m_iterPV, m_pv[0], m_pvSize[0] * sizeof(Move));
             m_iterPVSize = m_pvSize[0];
@@ -1123,9 +1120,6 @@ void Search::startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponde
                 else
                     ponder = 0;
             }
-
-            if (m_flags & SEARCH_TERMINATED)
-                break;
 
             aspiration += 2 + aspiration / 2;
             if (score <= alpha)
@@ -1246,7 +1240,6 @@ void Search::lazySmpSearcher()
 {
     while (!m_terminateSmp)
     {
-        int alpha, beta;
         bool ponder;
 
         {
@@ -1256,12 +1249,10 @@ void Search::lazySmpSearcher()
             if (m_terminateSmp)
                 return;
 
-            alpha = m_lazyAlpha;
-            beta = m_lazyBeta;
             m_depth = m_lazyDepth;
             ponder = m_lazyPonder;
 
-            startSearch(m_time, m_depth, alpha, beta, ponder);
+            startSearch(m_time, m_depth, ponder);
             resetLazySmpWork();
         }
     }
