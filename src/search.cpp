@@ -354,8 +354,19 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         GenAllMoves(m_position, mvlist);
 
     MoveEval::sortMoves(this, mvlist, hashMove, ply);
-
     auto mvSize = mvlist.Size();
+
+    //
+    //  Different move ordering for lazy smp threads
+    //
+
+    if (!m_principalSearcher && depth == 1 && mvSize >= 2) {
+        int j = 0;
+        for (size_t i = mvSize - 1; i > 0; --i) {
+            mvlist.Swap(i, j++);
+        }
+    }
+
     std::vector<Move> quietMoves;
     auto improving = !inCheck && ply >= 2 && staticEval > m_evalStack[ply - 2];
     m_killerMoves[ply + 1][0] = m_killerMoves[ply + 1][1] = 0;
