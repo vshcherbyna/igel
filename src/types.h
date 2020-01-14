@@ -2,7 +2,7 @@
 *  Igel - a UCI chess playing engine derived from GreKo 2018.01
 *
 *  Copyright (C) 2002-2018 Vladimir Medvedev <vrm@bk.ru> (GreKo author)
-*  Copyright (C) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+*  Copyright (C) 2018-2020 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 *
 *  Igel is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -129,10 +129,9 @@ enum
     DIR_DR = 7
 };
 
-const EVAL INFINITY_SCORE  = 50000;
-const EVAL CHECKMATE_SCORE = 32767;
-const EVAL TBBASE_SCORE    = 22767;
-const EVAL DRAW_SCORE = 0;
+const EVAL CHECKMATE_SCORE  = 32767;
+const EVAL TBBASE_SCORE     = 22767;
+const EVAL DRAW_SCORE       = 0;
 
 struct Pair
 {

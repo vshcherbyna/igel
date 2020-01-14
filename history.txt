@@ -1,7 +1,33 @@
 Igel chess engine
 
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
-(c) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+(c) 2018-2020 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+
+Igel 2.3.1
+-------------
+14-Jan-2020
+
+- Re-write the root search routine
+- Re-write aspiration loop with a smaller aspiration window
+- Do not cutoff qsearch on pv moves in qsearch
+- Handle repetitions at the qsearch entance
+- More strict pruning conditions for quiet moves
+- Proper way to pass position to child threads in SMP mode to handle repetitions
+- Unified condition to killer moves as non-tactical moves
+- Perft tests for six different positions
+
+Igel 2.3.0
+-------------
+01-Jan-2020
+
+- Fix issue when reductions in LMR could lead to directly qsearch
+- Rename uci option 'Level' into 'Skill Level'
+- Do not apply razoring when in check
+- Do not apply 'improving' factor when in check
+- Do not prune quiets at root
+- Fetch history only when a quiet move is detected
+- Improve branching factor and apply LMR more aggressively
+- Fix compilaton issue with clang/gcc9 compiler
 
 Igel 2.2.1
 -------------

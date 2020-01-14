@@ -1,7 +1,7 @@
 /*
 *  Igel - a UCI chess playing engine derived from GreKo 2018.01
 *
-*  Copyright (C) 2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+*  Copyright (C) 2019-2020 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 *
 *  Igel is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "2.3.0";
+const std::string VERSION = "2.3.1";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 1048576;
@@ -204,10 +204,10 @@ void Uci::onPosition(commandParams params)
                 fen += " ";
             fen += params[i];
         }
-        m_searcher.m_position.SetFEN(fen);
+        m_searcher.setFEN(fen);
     }
     else if (params[1] == "startpos") {
-        m_searcher.m_position.SetInitial();
+        m_searcher.setInitialPosition();
         for (size_t i = 2; i < params.size(); ++i) {
             if (params[i] == "moves")
             {
@@ -220,7 +220,7 @@ void Uci::onPosition(commandParams params)
     if (movesTag) {
         for (size_t i = movesTag + 1; i < params.size(); ++i) {
             Move mv = StrToMove(params[i], m_searcher.m_position);
-            m_searcher.m_position.MakeMove(mv);
+            m_searcher.makeMove(mv);
         }
     }
 }

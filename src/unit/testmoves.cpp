@@ -34,6 +34,11 @@ NODES Perft(Position & pos, int depth)
     NODES total = 0;
     MoveList mvlist;
 
+    if (pos.InCheck())
+        GenMovesInCheck(pos, mvlist);
+    else
+        GenAllMoves(pos, mvlist);
+
     GenAllMoves(pos, mvlist);
 
     auto mvSize = mvlist.Size();
@@ -51,7 +56,7 @@ NODES Perft(Position & pos, int depth)
     return total;
 }
 
-TEST(MoveGen, Positive)
+TEST(MoveGenPos_1, Positive)
 {
     std::unique_ptr<Position> pos(new Position);
 
@@ -65,6 +70,87 @@ TEST(MoveGen, Positive)
     EXPECT_EQ(197281, Perft(*pos.get(), 4));
     EXPECT_EQ(4865609, Perft(*pos.get(), 5));
     EXPECT_EQ(119060324, Perft(*pos.get(), 6));
+    //EXPECT_EQ(3195901860, Perft(*pos.get(), 7));
+}
+
+TEST(MoveGenPos_2, Positive)
+{
+    std::unique_ptr<Position> pos(new Position);
+
+    EXPECT_EQ(true, pos->SetFEN("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -"));
+
+    // taken from https://chessprogramming.wikispaces.com/Perft%20Results
+    EXPECT_EQ(1, Perft(*pos.get(), 0));
+    EXPECT_EQ(48, Perft(*pos.get(), 1));
+    EXPECT_EQ(2039, Perft(*pos.get(), 2));
+    EXPECT_EQ(97862, Perft(*pos.get(), 3));
+    EXPECT_EQ(4085603, Perft(*pos.get(), 4));
+    EXPECT_EQ(193690690, Perft(*pos.get(), 5));
+    //EXPECT_EQ(8031647685, Perft(*pos.get(), 6));
+}
+
+TEST(MoveGenPos_3, Positive)
+{
+    std::unique_ptr<Position> pos(new Position);
+
+    EXPECT_EQ(true, pos->SetFEN("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - -"));
+
+    // taken from https://chessprogramming.wikispaces.com/Perft%20Results
+    EXPECT_EQ(1, Perft(*pos.get(), 0));
+    EXPECT_EQ(14, Perft(*pos.get(), 1));
+    EXPECT_EQ(191, Perft(*pos.get(), 2));
+    EXPECT_EQ(2812, Perft(*pos.get(), 3));
+    EXPECT_EQ(43238, Perft(*pos.get(), 4));
+    EXPECT_EQ(674624, Perft(*pos.get(), 5));
+    EXPECT_EQ(11030083, Perft(*pos.get(), 6));
+    EXPECT_EQ(178633661, Perft(*pos.get(), 7));
+}
+
+TEST(MoveGenPos_4, Positive)
+{
+    std::unique_ptr<Position> pos(new Position);
+
+    EXPECT_EQ(true, pos->SetFEN("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1"));
+
+    // taken from https://chessprogramming.wikispaces.com/Perft%20Results
+    EXPECT_EQ(1, Perft(*pos.get(), 0));
+    EXPECT_EQ(6, Perft(*pos.get(), 1));
+    EXPECT_EQ(264, Perft(*pos.get(), 2));
+    EXPECT_EQ(9467, Perft(*pos.get(), 3));
+    EXPECT_EQ(422333, Perft(*pos.get(), 4));
+    EXPECT_EQ(15833292, Perft(*pos.get(), 5));
+    //EXPECT_EQ(706045033, Perft(*pos.get(), 6));
+}
+
+TEST(MoveGenPos_5, Positive)
+{
+    std::unique_ptr<Position> pos(new Position);
+
+    EXPECT_EQ(true, pos->SetFEN("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8"));
+
+    // taken from https://chessprogramming.wikispaces.com/Perft%20Results
+    EXPECT_EQ(1, Perft(*pos.get(), 0));
+    EXPECT_EQ(44, Perft(*pos.get(), 1));
+    EXPECT_EQ(1486, Perft(*pos.get(), 2));
+    EXPECT_EQ(62379, Perft(*pos.get(), 3));
+    EXPECT_EQ(2103487, Perft(*pos.get(), 4));
+    EXPECT_EQ(89941194, Perft(*pos.get(), 5));
+}
+
+TEST(MoveGenPos_6, Positive)
+{
+    std::unique_ptr<Position> pos(new Position);
+
+    EXPECT_EQ(true, pos->SetFEN("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10"));
+
+    // taken from https://chessprogramming.wikispaces.com/Perft%20Results
+    EXPECT_EQ(1, Perft(*pos.get(), 0));
+    EXPECT_EQ(46, Perft(*pos.get(), 1));
+    EXPECT_EQ(2079, Perft(*pos.get(), 2));
+    EXPECT_EQ(89890, Perft(*pos.get(), 3));
+    EXPECT_EQ(3894594, Perft(*pos.get(), 4));
+    EXPECT_EQ(164075551, Perft(*pos.get(), 5));
+    //EXPECT_EQ(6923051137, Perft(*pos.get(), 6));
 }
 
 TEST(Move, Positive)

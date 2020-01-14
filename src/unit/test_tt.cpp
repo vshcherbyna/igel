@@ -83,7 +83,7 @@ TEST(TranspositionTableEntryScoreTest, Positive)
 
     EXPECT_EQ(0, te.score());
 
-    for (auto i = -INFINITY_SCORE; i <= INFINITY_SCORE; ++i)
+    for (auto i = -CHECKMATE_SCORE + 128; i <= CHECKMATE_SCORE + 128; ++i)
     {
         te.store(0, i, 0, 0, 0, 0);
         EXPECT_EQ(i, te.score());
@@ -195,26 +195,26 @@ TEST(TranspositionTableEntryCompositeTest, Positive)
     EXPECT_EQ(1, te.depth());
     EXPECT_EQ(1, te.score());
 
-    te.store(16777215, INFINITY_SCORE, 1, 1, 1, 1);
+    te.store(16777215, CHECKMATE_SCORE, 1, 1, 1, 1);
     EXPECT_EQ(1, te.age());
     EXPECT_EQ(1, te.type());
     EXPECT_EQ(16777215, te.move());
     EXPECT_EQ(1, te.depth());
-    EXPECT_EQ(INFINITY_SCORE, te.score());
+    EXPECT_EQ(CHECKMATE_SCORE, te.score());
 
-    te.store(16777215, -INFINITY_SCORE, 1, 1, 1, 1);
+    te.store(16777215, -CHECKMATE_SCORE, 1, 1, 1, 1);
     EXPECT_EQ(1, te.age());
     EXPECT_EQ(1, te.type());
     EXPECT_EQ(16777215, te.move());
     EXPECT_EQ(1, te.depth());
-    EXPECT_EQ(-INFINITY_SCORE, te.score());
+    EXPECT_EQ(-CHECKMATE_SCORE, te.score());
 
     // move range
     for (auto i = 0; i <= 16777215; ++i)
     {
-        te.store(i, INFINITY_SCORE, 1, 1, 1, 1);
+        te.store(i, CHECKMATE_SCORE, 1, 1, 1, 1);
         EXPECT_EQ(i, te.move());
-        EXPECT_EQ(INFINITY_SCORE, te.score());
+        EXPECT_EQ(CHECKMATE_SCORE, te.score());
         EXPECT_EQ(1, te.depth());
         EXPECT_EQ(1, te.age());
         EXPECT_EQ(1, te.type());
@@ -223,16 +223,16 @@ TEST(TranspositionTableEntryCompositeTest, Positive)
     // depth range
     for (auto i = 0; i < 255; ++i)
     {
-        te.store(16777215, -INFINITY_SCORE, i, 1, 1, 1);
+        te.store(16777215, -CHECKMATE_SCORE, i, 1, 1, 1);
         EXPECT_EQ(i, te.depth());
         EXPECT_EQ(1, te.age());
         EXPECT_EQ(1, te.type());
         EXPECT_EQ(16777215, te.move());
-        EXPECT_EQ(-INFINITY_SCORE, te.score());
+        EXPECT_EQ(-CHECKMATE_SCORE, te.score());
     }
 
     // score range
-    for (auto i = -INFINITY_SCORE; i <= INFINITY_SCORE; ++i)
+    for (auto i = -CHECKMATE_SCORE + 128; i <= CHECKMATE_SCORE + 128; ++i)
     {
         te.store(16777215, i, 1, 1, 1, 1);
         EXPECT_EQ(i, te.score());

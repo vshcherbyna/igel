@@ -1,7 +1,7 @@
 /*
 *  Igel - a UCI chess playing engine derived from GreKo 2018.01
 *
-*  Copyright (C) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+*  Copyright (C) 2018-2020 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 *
 *  Igel is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -160,17 +160,14 @@ bool Time::evaluate()
     //  Normal time control
     //
 
-    m_hardLimit = (m_remainingTime / 4) + (m_increment / 2) + getEnemyLowTimeBonus();
-    m_softLimit = m_hardLimit / 12;
+    m_hardLimit = (m_remainingTime / 10) + (m_increment / 2) + getEnemyLowTimeBonus();
+    m_softLimit = m_hardLimit / 4;
 
     return true;
 }
 
 bool Time::adjust(bool onPv, int depth, EVAL score)
 {
-    if (abs(score) >= INFINITY_SCORE)
-        return false;
-
     //
     //  Do not bother with shallow depth
     //
@@ -223,7 +220,7 @@ bool Time::adjust(bool onPv, int depth, EVAL score)
 void Time::resetAdjustment()
 {
     m_onPv  = false;
-    m_prevScore = -INFINITY_SCORE;
+    m_prevScore = DRAW_SCORE;
 }
 
 U32 Time::getSoftLimit()

@@ -2,7 +2,7 @@
 *  Igel - a UCI chess playing engine derived from GreKo 2018.01
 *
 *  Copyright (C) 2002-2018 Vladimir Medvedev <vrm@bk.ru> (GreKo author)
-*  Copyright (C) 2018-2019 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+*  Copyright (C) 2018-2020 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 *
 *  Igel is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -50,6 +50,8 @@ const U8 MODE_SILENT  = 0x10;
 #define isCheckMateScore(score)        ((score) <= -CHECKMATE_SCORE + 50|| \
                                         (score) >=  CHECKMATE_SCORE - 50)
 
+#define MATED_IN_MAX (MAX_PLY - CHECKMATE_SCORE)
+
 class Search
 {
     friend class History;
@@ -62,7 +64,7 @@ public:
     Search& operator=(const Search&) = delete;
 
 public:
-    void startSearch(Time time, int depth, EVAL alpha, EVAL beta, bool ponder);
+    void startSearch(Time time, int depth, bool ponder);
     void clearHistory();
     void clearKillers();
     void clearStacks();
@@ -76,6 +78,9 @@ public:
     void stopPrincipalSearch();
     void isReady();
     void setLevel(int level);
+    bool setFEN(const std::string& fen);
+    bool setInitialPosition();
+    bool makeMove(Move mv);
 
 private:
     void startWorkerThreads(Time time);
@@ -83,7 +88,6 @@ private:
     void lazySmpSearcher();
     void indicateWorkersStop();
     Move tableBaseRootSearch();
-    EVAL searchRoot(EVAL alpha, EVAL beta, int depth);
     EVAL abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves, bool rootNode/*, Move skipMove = 0*/);
     EVAL qSearch(EVAL alpha, EVAL beta, int ply);
     int extensionRequired(Move mv, Move lastMove, bool inCheck, int ply, bool onPV, size_t quietMoves, int cmhistory, int fmhistory);
@@ -103,7 +107,6 @@ private:
     U32 m_t0;
     volatile U8 m_flags;
     int m_depth;
-    int m_completedDepth;
     int m_syzygyDepth;
     int m_selDepth;
     int m_iterPVSize;
@@ -137,9 +140,6 @@ private:
     std::unique_ptr<Search[]> m_threadParams;
     std::condition_variable m_lazycv;
     volatile int m_lazyDepth;
-    int m_lazyAlpha;
-    int m_lazyBeta;
-    EVAL m_score;
     Move m_best;
     volatile bool m_smpThreadExit;
     bool m_lazyPonder;
