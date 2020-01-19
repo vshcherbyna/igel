@@ -129,6 +129,19 @@ void Search::setPosition(Position & pos)
     m_position = pos;
 }
 
+bool Search::isDraw()
+{
+    if ((m_position.Repetitions() >= 2) || (m_position.Fifty() >= 100))
+        return true;
+
+    if (!m_position.Count(PW) && !m_position.Count(PB)) {
+        if (m_position.MatIndex(WHITE) < 5 && m_position.MatIndex(BLACK) < 5)
+            return true;
+    }
+
+    return false;
+}
+
 EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves, bool rootNode/*, Move skipMove = 0*/)
 {
     m_pvSize[ply] = 0;
@@ -148,7 +161,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         if (checkLimits())
             return DRAW_SCORE;
 
-        if ((ply > MAX_PLY - 2) || m_position.Repetitions() >= 2)
+        if ((ply > MAX_PLY - 2) || isDraw())
             return ((ply > MAX_PLY - 2) && !m_position.InCheck()) ? m_evaluator->evaluate(m_position) : DRAW_SCORE;
 
         //
@@ -521,12 +534,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         else
             bestScore = DRAW_SCORE;
     }
-    else
-    {
-        if (m_position.Fifty() >= 100)
-            bestScore = DRAW_SCORE;
-    }
 
+    assert((m_position.Fifty() >= 100) == false); // we must cut off at the begining of a node search for draws
     TTable::instance().record(bestMove, bestScore, depth, ply, type, m_position.Hash());
     return bestScore;
 }
@@ -540,7 +549,7 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
     if (checkLimits())
         return DRAW_SCORE;
 
-    if ((ply > MAX_PLY - 2) || m_position.Repetitions() >= 2)
+    if ((ply > MAX_PLY - 2) || isDraw())
         return ((ply > MAX_PLY - 2) && !m_position.InCheck()) ? m_evaluator->evaluate(m_position) : DRAW_SCORE;
 
     Move hashMove{};
@@ -1047,10 +1056,11 @@ void Search::startSearch(Time time, int depth, bool ponderSearch)
 
         string result, comment;
         int legalMoves = 0;
-        if (isGameOver(m_position, result, comment, m_best, legalMoves)) {
+        Move onlyMove {};
+        if (isGameOver(m_position, result, comment, onlyMove, legalMoves)) {
             waitUntilCompletion();
             cout << result << " " << comment << endl << endl;
-            printBestMove(this, m_position, m_best, ponder);
+            printBestMove(this, m_position, onlyMove, ponder);
             return;
         }
 
@@ -1060,7 +1070,7 @@ void Search::startSearch(Time time, int depth, bool ponderSearch)
 
         if (legalMoves == 1) {
             waitUntilCompletion();
-            printBestMove(this, m_position, m_best, ponder);
+            printBestMove(this, m_position, onlyMove, ponder);
             return;
         }
 
@@ -1095,6 +1105,7 @@ void Search::startSearch(Time time, int depth, bool ponderSearch)
     uint64_t sumNodes = 0;
     uint64_t sumHits = 0;
     uint64_t nps = 0;
+    Move best {};
 
     for (m_depth = depth; m_depth < maxDepth; ++m_depth)
     {
@@ -1124,7 +1135,7 @@ void Search::startSearch(Time time, int depth, bool ponderSearch)
             m_iterPVSize = m_pvSize[0];
 
             if (m_iterPVSize && m_pv[0][0]) {
-                m_best = m_pv[0][0];
+                best = m_pv[0][0];
 
                 if (m_iterPVSize > 1 && m_pv[0][1])
                     ponder = m_pv[0][1];
@@ -1161,7 +1172,7 @@ void Search::startSearch(Time time, int depth, bool ponderSearch)
         }
 
         if (m_principalSearcher)
-            printPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], m_best, sumNodes, sumHits, nps);
+            printPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], best, sumNodes, sumHits, nps);
 
         //
         //  Check time limits
@@ -1204,7 +1215,7 @@ void Search::startSearch(Time time, int depth, bool ponderSearch)
     waitUntilCompletion();
 
     if (m_principalSearcher)
-        printBestMove(this, m_position, m_best, ponder);
+        printBestMove(this, m_position, best, ponder);
 }
 
 void Search::setPonderHit()

@@ -95,6 +95,7 @@ private:
     bool isGameOver(Position & pos, string & result, string & comment, Move & bestMove, int & legalMoves);
     Move forceFetchPonder(Position & pos, const Move & bestMove);
     void printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv, uint64_t sumNodes, uint64_t sumHits, uint64_t nps);
+    bool isDraw();
 
     bool checkLimits();
     void releaseHelperThreads();
@@ -140,7 +141,6 @@ private:
     std::unique_ptr<Search[]> m_threadParams;
     std::condition_variable m_lazycv;
     volatile int m_lazyDepth;
-    Move m_best;
     volatile bool m_smpThreadExit;
     bool m_lazyPonder;
     static constexpr int m_lmpDepth = 8;
