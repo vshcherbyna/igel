@@ -142,7 +142,7 @@ bool Search::isDraw()
     return false;
 }
 
-EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves, bool rootNode/*, Move skipMove = 0*/)
+EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves, bool rootNode, Move skipMove/*= 0*/)
 {
     m_pvSize[ply] = 0;
     m_selDepth = std::max(ply, m_selDepth);
@@ -184,7 +184,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     auto onPV  = (beta - alpha > 1);
     auto ttHit = false;
 
-    if (ProbeHash(hEntry)) {
+    if (!skipMove && ProbeHash(hEntry)) {
         ttHit = hEntry.type() == HASH_EXACT;
         if (hEntry.depth() >= depth && (depth == 0 || !onPV)) {
             EVAL score = hEntry.score();
@@ -389,6 +389,10 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     for (size_t i = 0; i < mvSize; ++i) {
 
         Move mv = MoveEval::getNextBest(mvlist, i);
+
+        if (mv == skipMove)
+            continue;
+
         auto quietMove = !MoveEval::isTacticalMove(mv);
         History::HistoryHeuristics history{};
 
@@ -434,18 +438,17 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
         int newDepth = depth - 1;
 
-        /*
         //
         //  singular extensions
         //
 
-        if (depth >= 8 && !skipMove && hashMove == mv && !rootNode && bestMove && hEntry.type() == HASH_BETA && hEntry.depth() >= depth - 3) {
+        if (depth >= 8 && !skipMove && hashMove == mv && !rootNode && !isCheckMateScore(hEntry.score()) && hEntry.type() == HASH_BETA && hEntry.depth() >= depth - 3) {
             auto betaCut = hEntry.score() - depth;
-            auto score = abSearch(betaCut - 1, betaCut, depth / 2, ply + 1, true, mv);
+            auto score = abSearch(betaCut - 1, betaCut, depth / 2, ply + 1, false, false, false, mv);
+
             if (score < betaCut)
-                newDepth++;
+                ++newDepth;
         }
-        */
 
         auto lastMove = m_position.LastMove();
 
@@ -529,14 +532,17 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     }
 
     if (legalMoves == 0) {
-        if (inCheck)
+        if (inCheck || skipMove)
             bestScore = -CHECKMATE_SCORE + ply;
         else
             bestScore = DRAW_SCORE;
     }
 
     assert((m_position.Fifty() >= 100) == false); // we must cut off at the begining of a node search for draws
-    TTable::instance().record(bestMove, bestScore, depth, ply, type, m_position.Hash());
+
+    if (!skipMove)
+        TTable::instance().record(bestMove, bestScore, depth, ply, type, m_position.Hash());
+
     return bestScore;
 }
 
