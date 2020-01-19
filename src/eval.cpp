@@ -278,6 +278,7 @@ Pair bishopAndRook;
         score -= countBits(pos.Bits(PB) & mask) * pawnOnBiColor;
     }
 
+    assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
     return score;
 }
 
@@ -302,6 +303,7 @@ Pair bishopAndRook;
     y2 = y & BB_CENTER[BLACK];
     score -= countBits(y2) * centerAttack;
 
+    assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
     return score;
 }
 
@@ -357,6 +359,7 @@ Pair bishopAndRook;
         }
     }
 
+    assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
     return score;
 }
 
@@ -416,6 +419,7 @@ Pair bishopAndRook;
         score -= countBits(y2) * centerAttack;
     }
 
+    assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
     return score;
 }
 
@@ -475,6 +479,7 @@ Pair bishopAndRook;
         score -= countBits(y2) * centerAttack;
     }
 
+    assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
     return score;
 }
 
@@ -560,6 +565,7 @@ Pair bishopAndRook;
         }
     }
 
+    assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
     return score;
 }
 
@@ -623,6 +629,7 @@ Pair bishopAndRook;
         }
     }
 
+    assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
     return score;
 }
 
@@ -645,6 +652,7 @@ Pair bishopAndRook;
     storm = pawnStormPenalty(ps, fileK, BLACK);
     score -= kingPawnStorm[storm];
 
+    assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
     return score;
 }
 
@@ -679,6 +687,7 @@ Pair bishopAndRook;
     if (pos.Count(BB) && pos.Count(RB))
         score -= bishopAndRook;
 
+    assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
     return score;
 }
 
@@ -700,6 +709,7 @@ Pair bishopAndRook;
     else
         score -= tempoAttack;
 
+    assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
     return score;
 }
 

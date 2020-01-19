@@ -129,6 +129,7 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
         }
     }
 
+    assert(from < 64);
     occ ^= BB_SINGLE[from];
     EVAL score = -SEE_Exchange(pSearch, to, side ^ 1, -(currScore + target), newTarget, occ);
     return (score > currScore) ? score : currScore;
