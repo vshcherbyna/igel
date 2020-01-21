@@ -1045,11 +1045,11 @@ void Search::startSearch(Time time, int depth, bool ponderSearch)
         if (m)
             cout << "bestmove " << MoveToStrLong(m);
 
-        if (!p)
+        /*if (!p)
             p = pthis->forceFetchPonder(pos, m);
 
         if (p)
-            cout << " ponder " << MoveToStrLong(p);
+            cout << " ponder " << MoveToStrLong(p);*/
 
         cout << endl;
     };
