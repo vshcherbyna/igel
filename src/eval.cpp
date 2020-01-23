@@ -999,8 +999,8 @@ void Evaluator::initEval()
 {
     InitParamLines();
 
-    //if (!ReadParamsFromFile(evalWeights, "igel.txt"))
-    SetDefaultValues(evalWeights);
+    if (!ReadParamsFromFile(evalWeights, "igel.txt"))
+        SetDefaultValues(evalWeights);
     initEval(evalWeights);
     //WriteParamsToFile(evalWeights, "igel.txt");
 }

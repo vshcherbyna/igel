@@ -114,8 +114,8 @@ std::string paramNumberToName(int n)
 
 void Texel::Tune()
 {
-    evalWeights.resize(0);
-    evalWeights.resize(NUM_PARAMS);
+    //evalWeights.resize(0);
+    //evalWeights.resize(NUM_PARAMS);
 
     auto x0 = evalWeights;
     auto params = readParams();
