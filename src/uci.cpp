@@ -28,7 +28,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "2.3.2-a1";
+const std::string VERSION = "2.3.2-a1+fr";
 
 const int MIN_HASH_SIZE = 1;
 const int MAX_HASH_SIZE = 1048576;
@@ -179,7 +179,10 @@ void Uci::onPonderHit()
 
 void Uci::onEval()
 {
-    //std::cout << "eval: " << m_evaluate(m_searcher.m_position) << std::endl;
+    //std::unique_ptr<Position> pos(new Position);
+    std::unique_ptr<Evaluator> evaluator(new Evaluator);
+
+    std::cout << "eval: " << evaluator->evaluate(m_searcher.m_position) << std::endl;
 }
 
 void Uci::onPosition(commandParams params)
