@@ -28,15 +28,11 @@ Pair pieceSquareTables[14][64];
 //  Pawn evaluations
 //
 
-Pair passedPawn[64];
-Pair passedPawnBlocked[64];
-Pair passedPawnFree[64];
+Pair passedPawn[7];
 Pair passedPawnConnected[64];
-Pair pawnDoubled[64];
-Pair pawnIsolated[64];
-Pair pawnDoubledIsolated[64];
-Pair pawnBlocked[64];
-Pair pawnFence[64];
+Pair pawnDoubled;
+Pair pawnIsolated;
+Pair pawnBlocked;
 Pair pawnOnBiColor;
 
 //
@@ -71,7 +67,7 @@ Pair rooksConnected;
 Pair kingPawnShield[10];
 Pair kingPawnStorm[10];
 Pair kingPasserDistance[10];
-Pair attackKingZone[8];
+Pair attackKingZone[6];
 Pair strongAttack;
 Pair centerAttack;
 Pair tempoAttack;
@@ -80,11 +76,7 @@ Pair tempoAttack;
 //  Piece combinations evaluations
 //
 
-Pair rooksPair;
 Pair bishopsPair;
-Pair knightsPair;
-Pair knightAndQueen;
-Pair bishopAndRook;
 
 /*static */EVAL Evaluator::evaluate(Position & pos)
 {
@@ -112,6 +104,12 @@ Pair bishopAndRook;
     int end = 64 - mid;
 
     EVAL eval = (score.mid * mid + score.end * end) / 64;
+
+    if (eval > 0 && pos.MatIndex(WHITE) < 5 && !pos.Count(PW))
+        eval = 0;
+
+    if (eval < 0 && pos.MatIndex(BLACK) < 5 && !pos.Count(PB))
+        eval = 0;
 
     if (pos.Side() == BLACK)
         eval = -eval;
@@ -141,24 +139,11 @@ Pair bishopAndRook;
     while (x)
     {
         f = PopLSB(x);
-
-        score += passedPawn[f];
-
-        auto freeFile = [](FLD field, U64 occ, Position& pos) -> bool
-        {
-            int rank = Row(field);
-            int end_of_file = field - (8 * rank);
-            return ((BB_BETWEEN[field][end_of_file] & occ) == 0 && pos[end_of_file] == NOPIECE);
-        };
-
-        // check if it is a blocked or a free pass pawn
-        if (pos[f - 8] != NOPIECE)
-            score += passedPawnBlocked[f];
-        else if ((BB_DIR[f][DIR_U] & occ) == 0)
-            score += passedPawnFree[f];
+        unsigned int rank = 8 - (Row(f) + 1);
+        score += passedPawn[rank];
 
         // check if it is a connected pass pawn
-        if ((BB_PAWN_CONNECTED[f] & ps.m_passedPawns[WHITE]) && freeFile(f, occ, pos))
+        if ((BB_PAWN_CONNECTED[f] & ps.m_passedPawns[WHITE]))
             score += passedPawnConnected[f];
 
         score += kingPasserDistance[distance(f - 8, pos.King(BLACK))];
@@ -172,23 +157,11 @@ Pair bishopAndRook;
     while (x)
     {
         f = PopLSB(x);
-        score -= passedPawn[FLIP[BLACK][f]];
-
-        auto freeFile = [](FLD field, U64 occ, Position& pos) -> bool
-        {
-            int rank = Row(field);
-            int end_of_file = field + ((7 - rank) * 8);
-            return ((BB_BETWEEN[field][end_of_file] & occ) == 0 && pos[end_of_file] == NOPIECE);
-        };
-
-        // check if it is a blocked or a free pass pawn
-        if (pos[f + 8] != NOPIECE)
-            score -= passedPawnBlocked[FLIP[BLACK][f]];
-        else if ((BB_DIR[f][DIR_D] & occ) == 0)
-            score -= passedPawnFree[FLIP[BLACK][f]];
+        unsigned int rank = Row(f);
+        score -= passedPawn[rank];
 
         // check if it is a connected pass pawn
-        if ((BB_PAWN_CONNECTED[f] & ps.m_passedPawns[BLACK]) && freeFile(f, occ, pos))
+        if ((BB_PAWN_CONNECTED[f] & ps.m_passedPawns[BLACK]))
             score -= passedPawnConnected[FLIP[BLACK][f]];
 
         score -= kingPasserDistance[distance(f + 8, pos.King(WHITE))];
@@ -200,13 +173,13 @@ Pair bishopAndRook;
     while (x)
     {
         f = PopLSB(x);
-        score += pawnDoubled[f];
+        score += pawnDoubled;
     }
     x = ps.m_doubledPawns[BLACK];
     while (x)
     {
         f = PopLSB(x);
-        score -= pawnDoubled[FLIP[BLACK][f]];
+        score -= pawnDoubled;
     }
 
     // isolated
@@ -214,27 +187,13 @@ Pair bishopAndRook;
     while (x)
     {
         f = PopLSB(x);
-        score += pawnIsolated[f];
+        score += pawnIsolated;
     }
     x = ps.m_isolatedPawns[BLACK];
     while (x)
     {
         f = PopLSB(x);
-        score -= pawnIsolated[FLIP[BLACK][f]];
-    }
-
-    // doubled and isolated
-    x = ps.m_doubledPawns[WHITE] & ps.m_isolatedPawns[WHITE];
-    while (x)
-    {
-        f = PopLSB(x);
-        score += pawnDoubledIsolated[f];
-    }
-    x = ps.m_doubledPawns[BLACK] & ps.m_isolatedPawns[BLACK];
-    while (x)
-    {
-        f = PopLSB(x);
-        score -= pawnDoubledIsolated[FLIP[BLACK][f]];
+        score -= pawnIsolated;
     }
 
     // blocked
@@ -242,27 +201,13 @@ Pair bishopAndRook;
     while (x)
     {
         f = PopLSB(x);
-        score += pawnBlocked[f];
+        score += pawnBlocked;
     }
     x = pos.Bits(PB) & Up(occ);
     while (x)
     {
         f = PopLSB(x);
-        score -= pawnBlocked[FLIP[BLACK][f]];
-    }
-
-    // fence
-    x = pos.Bits(PW) & Down(pos.Bits(PB));
-    while (x)
-    {
-        f = PopLSB(x);
-        score += pawnFence[f];
-    }
-    x = pos.Bits(PB) & Up(pos.Bits(PW));
-    while (x)
-    {
-        f = PopLSB(x);
-        score -= pawnFence[FLIP[BLACK][f]];
+        score -= pawnBlocked;
     }
 
     // pawns on a bishop color
@@ -660,32 +605,10 @@ Pair bishopAndRook;
 {
     Pair score;
 
-    // piece pairs
-    if (pos.Count(NW) >= 2)
-        score += knightsPair;
-    if (pos.Count(NB) >= 2)
-        score -= knightsPair;
-
     if (pos.Count(BW) >= 2)
         score += bishopsPair;
     if (pos.Count(BB) >= 2)
         score -= bishopsPair;
-
-    if (pos.Count(RW) >= 2)
-        score += rooksPair;
-    if (pos.Count(RB) >= 2)
-        score -= rooksPair;
-
-    // piece combinations
-    if (pos.Count(NW) && pos.Count(QW))
-        score += knightAndQueen;
-    if (pos.Count(NB) && pos.Count(QB))
-        score -= knightAndQueen;
-
-    if (pos.Count(BW) && pos.Count(RW))
-        score += bishopAndRook;
-    if (pos.Count(BB) && pos.Count(RB))
-        score -= bishopAndRook;
 
     assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
     return score;
@@ -695,11 +618,11 @@ Pair bishopAndRook;
 {
     Pair score;
 
-    if (attackers[WHITE] > 3)
-        attackers[WHITE] = 3;
+    if (attackers[WHITE] > 5)
+        attackers[WHITE] = 5;
 
-    if (attackers[BLACK] > 3)
-        attackers[BLACK] = 3;
+    if (attackers[BLACK] > 5)
+        attackers[BLACK] = 5;
 
     score += attackKingZone[attackers[WHITE]];
     score -= attackKingZone[attackers[BLACK]];
@@ -832,45 +755,13 @@ void Evaluator::initEval(const vector<int> & x)
             pieceSquareTables[PW][f].mid = VAL_P + refParam(Mid_Pawn, f);
             pieceSquareTables[PW][f].end = VAL_P + refParam(End_Pawn, f);
 
-            passedPawn[f].mid = refParam(Mid_PawnPassed, f);
-            passedPawn[f].end = refParam(End_PawnPassed, f);
-
-            passedPawnBlocked[f].mid = refParam(Mid_PawnPassedBlocked, f);
-            passedPawnBlocked[f].end = refParam(End_PawnPassedBlocked, f);
-
-            passedPawnFree[f].mid = refParam(Mid_PawnPassedFree, f);
-            passedPawnFree[f].end = refParam(End_PawnPassedFree, f);
-
-            passedPawnConnected[f].mid = refParam(Mid_PawnConnectedFree, f);
-            passedPawnConnected[f].end = refParam(End_PawnConnectedFree, f);
-
-            pawnDoubled[f].mid = refParam(Mid_PawnDoubled, f);
-            pawnDoubled[f].end = refParam(End_PawnDoubled, f);
-
-            pawnIsolated[f].mid = refParam(Mid_PawnIsolated, f);
-            pawnIsolated[f].end = refParam(End_PawnIsolated, f);
-
-            pawnDoubledIsolated[f].mid = refParam(Mid_PawnDoubledIsolated, f);
-            pawnDoubledIsolated[f].end = refParam(End_PawnDoubledIsolated, f);
-
-            pawnBlocked[f].mid = refParam(Mid_PawnBlocked, f);
-            pawnBlocked[f].end = refParam(End_PawnBlocked, f);
-
-            pawnFence[f].mid = refParam(Mid_PawnFence, f);
-            pawnFence[f].end = refParam(End_PawnFence, f);
+            passedPawnConnected[f].mid = refParam(Mid_PawnConnected, f);
+            passedPawnConnected[f].end = refParam(End_PawnConnected, f);
         }
         else
         {
             pieceSquareTables[PW][f]    = VAL_P;
-            passedPawn[f]               = 0;
-            passedPawnBlocked[f]        = 0;
-            passedPawnFree[f]           = 0;
             passedPawnConnected[f]      = 0;
-            pawnDoubled[f]              = 0;
-            pawnIsolated[f]             = 0;
-            pawnDoubledIsolated[f]      = 0;
-            pawnBlocked[f]              = 0;
-            pawnFence[f]                = 0;
         }
 
         pieceSquareTables[NW][f].mid = VAL_N + refParam(Mid_Knight, f);
@@ -974,25 +865,27 @@ void Evaluator::initEval(const vector<int> & x)
     bishopsPair.mid = refParam(Mid_BishopsPair, 0);
     bishopsPair.end = refParam(End_BishopsPair, 0);
 
-    rooksPair.mid = refParam(Mid_RooksPair, 0);
-    rooksPair.end = refParam(End_RooksPair, 0);
-
-    knightsPair.mid = refParam(Mid_KnightsPair, 0);
-    knightsPair.end = refParam(End_KnightsPair, 0);
-
     pawnOnBiColor.mid = refParam(Mid_PawnOnBiColor, 0);
     pawnOnBiColor.end = refParam(End_PawnOnBiColor, 0);
 
-    knightAndQueen.mid = refParam(Mid_KnightAndQueen, 0);
-    knightAndQueen.end = refParam(End_KnightAndQueen, 0);
-
-    bishopAndRook.mid = refParam(Mid_BishopAndRook, 0);
-    bishopAndRook.end = refParam(End_BishopAndRook, 0);
-
-    for (int att = 0; att < 4; ++att) {
+    for (int att = 0; att < 6; ++att) {
         attackKingZone[att].mid = refParam(Mid_AttackKingZone, att);
         attackKingZone[att].end = refParam(End_AttackKingZone, att);
     }
+
+    for (int passer = 0; passer < 7; ++passer) {
+        passedPawn[passer].mid = refParam(Mid_PawnPassed, passer);
+        passedPawn[passer].end = refParam(End_PawnPassed, passer);
+    }
+
+    pawnDoubled.mid = refParam(Mid_PawnDoubled, 0);
+    pawnDoubled.end = refParam(End_PawnDoubled, 0);
+
+    pawnIsolated.mid = refParam(Mid_PawnIsolated, 0);
+    pawnIsolated.end = refParam(End_PawnIsolated, 0);
+
+    pawnBlocked.mid = refParam(Mid_PawnBlocked, 0);
+    pawnBlocked.end = refParam(End_PawnBlocked, 0);
 }
 
 void Evaluator::initEval()
@@ -1000,7 +893,8 @@ void Evaluator::initEval()
     InitParamLines();
 
     //if (!ReadParamsFromFile(evalWeights, "igel.txt"))
-    SetDefaultValues(evalWeights);
+        SetDefaultValues(evalWeights);
+
     initEval(evalWeights);
     //WriteParamsToFile(evalWeights, "igel.txt");
 }
