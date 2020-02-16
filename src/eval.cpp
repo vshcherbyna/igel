@@ -105,6 +105,12 @@ Pair bishopsPair;
 
     EVAL eval = (score.mid * mid + score.end * end) / 64;
 
+    if (eval > 0 && pos.MatIndex(WHITE) < 5 && !pos.Count(PW))
+        eval = 0;
+
+    if (eval < 0 && pos.MatIndex(BLACK) < 5 && !pos.Count(PB))
+        eval = 0;
+
     if (pos.Side() == BLACK)
         eval = -eval;
 
