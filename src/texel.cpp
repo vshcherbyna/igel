@@ -114,8 +114,8 @@ std::string paramNumberToName(int n)
 
 void Texel::Tune()
 {
-    //evalWeights.resize(0);
-    //evalWeights.resize(NUM_PARAMS);
+    evalWeights.resize(0);
+    evalWeights.resize(NUM_PARAMS);
 
     auto x0 = evalWeights;
     auto params = readParams();
@@ -125,19 +125,17 @@ void Texel::Tune()
     double K = computeOptimalK(params);
 
     // texel tuning: https://www.chessprogramming.org/Texel%27s_Tuning_Method
+
     while (true) {
+
         cout << "epoch " << ++epoch << endl;
-        for (size_t i = 0; i < NUM_LINES; ++i) {
-            while (true) {
-                std::shuffle(std::begin(params), std::end(params), std::default_random_engine{});
-                auto optimized = localOptimize(K, x0, params, epoch, lines[i].start, lines[i].len);
+        std::shuffle(std::begin(params), std::end(params), std::default_random_engine{});
+        auto optimized = localOptimize(K, x0, params, epoch, 0, NUM_PARAMS);
 
-                if (optimized.empty())
-                    break;
+        if (optimized.empty())
+            break;
 
-                x0 = optimized;
-            }
-        }
+        x0 = optimized;
 
         std::ifstream  src("igel.txt");
         std::ofstream  dst("igel.txt_" + std::to_string(epoch));
