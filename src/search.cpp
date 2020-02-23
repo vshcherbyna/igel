@@ -348,9 +348,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     //   iid
     //
 
-    if (onPV && hashMove == 0 && depth > 4 && m_level == MAX_LEVEL)
-    {
-        abSearch(alpha, beta, depth - 4, ply, isNull, false, false);
+    if (onPV && hashMove == 0 && depth >= 5 && m_level == MAX_LEVEL) {
+        abSearch(alpha, beta, depth - 2, ply, isNull, false, false);
         if (m_pvSize[ply] > 0)
             hashMove = m_pv[ply][0];
     }
