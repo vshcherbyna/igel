@@ -3,6 +3,21 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2020 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 2.4.0
+-------------
+22-Mar-2020
+
+- Implement singlular extensions
+- Detect drop of score and using time more aggressively
+- Remove IID and simplify search
+- Do not tt cutoff on pv moves
+- Simplification for nullmove pruning
+- Simplification for connected pawn evalution
+- Basic endgame knowledge to detect draw in eval/search
+- Retune everything + decrease number of tunnable parameters from 2600 to 1500
+- Apply LMR when at least one legal move has been played
+- Decrease reductions in LMR for pv moves
+
 Igel 2.3.1
 -------------
 14-Jan-2020

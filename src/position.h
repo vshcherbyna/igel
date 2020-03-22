@@ -100,7 +100,6 @@ public:
     bool   MakeMove(Move mv);
     void   MakeNullMove();
     int    MatIndex(COLOR side) const { return m_matIndex[side]; }
-    void   Mirror();
     U32    PawnHash() const { return m_pawnHash; }
     int    Ply() const { return m_ply; }
     void   Print() const;

@@ -88,13 +88,14 @@ private:
     void lazySmpSearcher();
     void indicateWorkersStop();
     Move tableBaseRootSearch();
-    EVAL abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves, bool rootNode/*, Move skipMove = 0*/);
+    EVAL abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves, bool rootNode, Move skipMove = 0);
     EVAL qSearch(EVAL alpha, EVAL beta, int ply);
     int extensionRequired(Move mv, Move lastMove, bool inCheck, int ply, bool onPV, size_t quietMoves, int cmhistory, int fmhistory);
     bool ProbeHash(TEntry & hentry);
     bool isGameOver(Position & pos, string & result, string & comment, Move & bestMove, int & legalMoves);
     Move forceFetchPonder(Position & pos, const Move & bestMove);
     void printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv, uint64_t sumNodes, uint64_t sumHits, uint64_t nps);
+    bool isDraw();
 
     bool checkLimits();
     void releaseHelperThreads();
@@ -140,7 +141,6 @@ private:
     std::unique_ptr<Search[]> m_threadParams;
     std::condition_variable m_lazycv;
     volatile int m_lazyDepth;
-    Move m_best;
     volatile bool m_smpThreadExit;
     bool m_lazyPonder;
     static constexpr int m_lmpDepth = 8;

@@ -166,56 +166,27 @@ bool Time::evaluate()
     return true;
 }
 
-bool Time::adjust(bool onPv, int depth, EVAL score)
+void Time::adjust(EVAL score, int depth)
 {
     //
-    //  Do not bother with shallow depth
+    //  Ignore shallow depth
     //
 
-    if (depth < 5) {
+    if (depth < 8) {
         m_prevScore = score;
-        return false;
+        return;
     }
 
     //
-    //  We are back on track and pv is obtained
+    //  If score is dropping, request more time
     //
 
-    if (onPv && !m_onPv) {
-        m_onPv = true;
-    }
-
-    ////
-    ////  We just lost the pv, request more time
-    ////
-
-    //if (m_onPv && !onPv) {
-    //    m_onPv = onPv;
-    //    m_prevScore = score;
-    //    auto newTime = (m_softLimit + (m_softLimit / 250));
-    //    if (newTime < m_hardLimit) {
-    //        m_softLimit = newTime;
-    //        return true;
-    //    }
-    //}
-
-    //
-    //  Score is dropping, request more time
-    //
-
-    double delta = score - m_prevScore;
-
-    if (delta < -25) {
-        double factor = abs(500 / delta);
-        m_prevScore = score;
-
-        auto newTime = (m_softLimit + (m_softLimit / factor));
-        m_softLimit = std::min(static_cast<int>(newTime), static_cast<int>(m_hardLimit));
-        return true;
+    if (m_prevScore > score) {
+        m_softLimit *= std::min(1.0 + static_cast<double>(static_cast<double>(m_prevScore) - static_cast<double>(score)) / 80.0, 1.5);
+        m_softLimit  = std::min(static_cast<int>(m_softLimit), static_cast<int>(m_hardLimit));
     }
 
     m_prevScore = score;
-    return false;
 }
 void Time::resetAdjustment()
 {

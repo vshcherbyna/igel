@@ -108,7 +108,7 @@ inline FLD PopLSB(U64& b)
 inline unsigned int countBits(U64 b)
 {
 #if _WIN32 || _WIN64
-    return __popcnt64(b);
+    return static_cast<unsigned int>(__popcnt64(b));
 #else
     return __builtin_popcountl(b);
 #endif
