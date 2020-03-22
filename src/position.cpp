@@ -216,7 +216,7 @@ bool Position::IsAttacked(FLD f, COLOR side) const
 
 bool Position::MakeMove(Move mv)
 {
-    assert(m_undoSize <= MAX_UNDO);
+    assert(m_undoSize < MAX_UNDO);
     Undo& undo = m_undos[m_undoSize++];
     undo.m_castlings = m_castlings;
     undo.m_ep = m_ep;
@@ -323,27 +323,6 @@ void Position::MakeNullMove()
 
     ++m_ply;
     m_side ^= 1;
-}
-
-void Position::Mirror()
-{
-    Position tmp = *this;
-    Clear();
-    for (FLD f = 0; f < 64; ++f)
-    {
-        PIECE p = tmp[f];
-        if (p == NOPIECE)
-            continue;
-        Put(FLIP[BLACK][f], p ^ 1);
-    }
-    m_side = tmp.Side() ^ 1;
-    m_ply = tmp.Ply();
-
-    m_castlings |= ((tmp.Castlings() & 0x0f) << 4);
-    m_castlings |= ((tmp.Castlings() & 0xf0) >> 4);
-
-    m_Kings[WHITE] = FLIP[BLACK][tmp.King(BLACK)];
-    m_Kings[BLACK] = FLIP[BLACK][tmp.King(WHITE)];
 }
 
 void Position::MovePiece(PIECE p, FLD from, FLD to)
@@ -694,20 +673,6 @@ bool Position::NonPawnMaterial()
         return true;
 
     if (Bits(KNIGHT | side))
-        return true;
-
-    COLOR opp = side ^ 1;
-
-    if (Bits(QUEEN | opp))
-        return true;
-
-    if (Bits(ROOK | opp))
-        return true;
-
-    if (Bits(BISHOP | opp))
-        return true;
-
-    if (Bits(KNIGHT | opp))
         return true;
 
     return false;

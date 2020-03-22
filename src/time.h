@@ -40,7 +40,7 @@ public:
 
 public:
     void onNewGame();
-    bool adjust(bool onPv, int depth, EVAL score);
+    void adjust(EVAL score, int depth);
     void resetAdjustment();
     bool parseTime(const std::vector<std::string> & cmdline, bool whiteSide);
     TimeControl getTimeMode();
