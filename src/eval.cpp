@@ -168,47 +168,14 @@ Pair bishopsPair;
         score += kingPasserDistance[distance(f + 8, pos.King(BLACK))];
     }
 
-    // doubled
-    x = ps.m_doubledPawns[WHITE];
-    while (x)
-    {
-        f = PopLSB(x);
-        score += pawnDoubled;
-    }
-    x = ps.m_doubledPawns[BLACK];
-    while (x)
-    {
-        f = PopLSB(x);
-        score -= pawnDoubled;
-    }
+    score += countBits(ps.m_doubledPawns[WHITE]) * pawnDoubled;
+    score -= countBits(ps.m_doubledPawns[BLACK]) * pawnDoubled;
 
-    // isolated
-    x = ps.m_isolatedPawns[WHITE];
-    while (x)
-    {
-        f = PopLSB(x);
-        score += pawnIsolated;
-    }
-    x = ps.m_isolatedPawns[BLACK];
-    while (x)
-    {
-        f = PopLSB(x);
-        score -= pawnIsolated;
-    }
+    score += countBits(ps.m_isolatedPawns[WHITE]) * pawnIsolated;
+    score -= countBits(ps.m_isolatedPawns[BLACK]) * pawnIsolated;
 
-    // blocked
-    x = pos.Bits(PW) & Down(occ);
-    while (x)
-    {
-        f = PopLSB(x);
-        score += pawnBlocked;
-    }
-    x = pos.Bits(PB) & Up(occ);
-    while (x)
-    {
-        f = PopLSB(x);
-        score -= pawnBlocked;
-    }
+    score += countBits(pos.Bits(PW) & Down(occ)) * pawnBlocked;
+    score -= countBits(pos.Bits(PB) &   Up(occ)) * pawnBlocked;
 
     // pawns on a bishop color
     if (pos.Count(BW) == 1)
