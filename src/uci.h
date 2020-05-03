@@ -36,6 +36,7 @@ public:
 
 public:
     int handleCommands();
+    int onBench();
     static commandParams split(const std::string & s, const std::string & sep = " ");
 
 private:

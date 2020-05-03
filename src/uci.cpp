@@ -22,6 +22,7 @@
 #include "notation.h"
 #include "texel.h"
 #include "eval.h"
+#include "utils.h"
 
 #include "fathom/tbprobe.h"
 
@@ -91,6 +92,8 @@ int Uci::handleCommands()
             onTune();
         else if (startsWith(cmd, "eval"))
             onEval();
+        else if (startsWith(cmd, "bench"))
+            onBench();
     }
 
     return 0;
@@ -183,6 +186,51 @@ void Uci::onEval()
     std::unique_ptr<Evaluator> evaluator(new Evaluator);
 
     std::cout << "eval: " << evaluator->evaluate(m_searcher.m_position) << std::endl;
+}
+
+// benchmark positions from Ethereal
+static const char* benchmarkPositions[] = {
+    #include "bench.csv"
+    ""
+};
+
+int Uci::onBench()
+{
+    std::cout << "Running benchmark" << std::endl;
+
+    auto& time = Time::instance();
+
+    if (!TTable::instance().setHashSize(16, 1)) {
+        std::cout << "Fatal error: unable to allocate 16 Mb for transposition table" << std::endl;
+        abort();
+    }
+
+    onUciNewGame();
+
+    m_searcher.m_principalSearcher = true;
+
+    uint64_t sumNodes = 0;
+    auto start = GetProcTime();
+    commandParams p = { "go", "depth", "11" };
+
+    for (auto i = 0; strcmp(benchmarkPositions[i], ""); i++) {
+        if (!m_searcher.m_position.SetFEN(benchmarkPositions[i]))
+            abort();
+
+        if (!time.parseTime(p, m_searcher.m_position.Side() == WHITE)) {
+            std::cout << "Fatal error: invalid parameters for go command" << std::endl;
+            abort();
+        }
+
+        sumNodes += m_searcher.startSearch(time, 1, false, true);
+        onUciNewGame();
+    }
+
+    std::cout << "Time  : " << (GetProcTime() - start) << std::endl;
+    std::cout << "Nodes : " << sumNodes << std::endl;
+    std::cout << "NPS   : " << static_cast<int>(sumNodes / ((GetProcTime() - start) / 1000.0)) << std::endl;
+
+    return static_cast<int>(sumNodes);
 }
 
 void Uci::onPosition(commandParams params)
