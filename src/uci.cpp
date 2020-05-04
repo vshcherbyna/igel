@@ -94,6 +94,10 @@ int Uci::handleCommands()
             onEval();
         else if (startsWith(cmd, "bench"))
             onBench();
+        else {
+            cout << "Unknown command. Good bye." << endl;
+            exit(0);
+        }
     }
 
     return 0;
