@@ -64,7 +64,7 @@ public:
     Search& operator=(const Search&) = delete;
 
 public:
-    void startSearch(Time time, int depth, bool ponder);
+    uint64_t startSearch(Time time, int depth, bool ponder, bool bench = false);
     void clearHistory();
     void clearKillers();
     void clearStacks();

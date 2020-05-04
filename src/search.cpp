@@ -985,7 +985,7 @@ void Search::startPrincipalSearch(Time time, bool ponder)
         m_principalThread.reset(new std::thread(&Search::lazySmpSearcher, this));
 }
 
-void Search::startSearch(Time time, int depth, bool ponderSearch)
+uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench)
 {
     m_t0 = GetProcTime();
     m_time = time;
@@ -997,14 +997,19 @@ void Search::startSearch(Time time, int depth, bool ponderSearch)
     m_limitCheck = 1023;
     m_waitStarted = false;
 
-    if (m_principalSearcher) {
-        if (ponderSearch)
-            m_time.setPonderMode(true);
-
-        m_flags = (m_time.getTimeMode() == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
+    if (bench) {
+        m_flags = MODE_SILENT | MODE_PLAY;
     }
-    else
-        m_time.setPonderMode(true); // always run smp threads in analyze mode
+    else {
+        if (m_principalSearcher) {
+            if (ponderSearch)
+                m_time.setPonderMode(true);
+
+            m_flags = (m_time.getTimeMode() == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
+        }
+        else
+            m_time.setPonderMode(true); // always run smp threads in analyze mode
+    }
 
     memset(&m_pv, 0, sizeof(m_pv));
     m_time.resetAdjustment();
@@ -1038,7 +1043,7 @@ void Search::startSearch(Time time, int depth, bool ponderSearch)
             waitUntilCompletion();
             cout << result << " " << comment << endl << endl;
             printBestMove(this, m_position, onlyMove, ponder);
-            return;
+            return 0;
         }
 
         //
@@ -1048,7 +1053,7 @@ void Search::startSearch(Time time, int depth, bool ponderSearch)
         if (legalMoves == 1) {
             waitUntilCompletion();
             printBestMove(this, m_position, onlyMove, ponder);
-            return;
+            return 1;
         }
 
         //
@@ -1060,7 +1065,7 @@ void Search::startSearch(Time time, int depth, bool ponderSearch)
         if (bestTb) {
             waitUntilCompletion();
             printBestMove(this, m_position, bestTb, ponder);
-            return;
+            return 1;
         }
     }
 
@@ -1149,7 +1154,7 @@ void Search::startSearch(Time time, int depth, bool ponderSearch)
             m_time.adjust(score, m_depth);
         }
 
-        if (m_principalSearcher)
+        if (!(m_flags & MODE_SILENT) && m_principalSearcher)
             printPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], best, sumNodes, sumHits, nps);
 
         //
@@ -1192,8 +1197,10 @@ void Search::startSearch(Time time, int depth, bool ponderSearch)
 
     waitUntilCompletion();
 
-    if (m_principalSearcher)
+    if (!(m_flags & MODE_SILENT) && m_principalSearcher)
         printBestMove(this, m_position, best, ponder);
+
+    return m_nodes;
 }
 
 void Search::setPonderHit()
