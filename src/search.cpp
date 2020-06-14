@@ -23,7 +23,9 @@
 #include "notation.h"
 #include "search.h"
 #include "utils.h"
+#if defined (SYZYGY_SUPPORT)
 #include "fathom/tbprobe.h"
+#endif
 #include "history.h"
 #include "moveeval.h"
 
@@ -43,9 +45,6 @@ const U8 HASH_BETA = 2;
 /*static */constexpr int Search::m_fmpDepth[2];
 /*static */constexpr int Search::m_fmpHistoryLimit[2];
 /*static */constexpr int Search::m_fpHistoryLimit[2];
-/*static */constexpr int Search::m_skipSize[16];
-/*static */constexpr int Search::m_skipDepths[16];
-/*static */constexpr int Search::m_SMPCycles;
 
 extern FILE * g_log;
 
@@ -59,7 +58,6 @@ Search::Search() :
     m_syzygyDepth(0),
     m_selDepth(0),
     m_iterPVSize(0),
-    m_index(0),
     m_principalSearcher(false),
     m_thc(0),
     m_threads(nullptr),
@@ -68,8 +66,8 @@ Search::Search() :
     m_smpThreadExit(false),
     m_lazyPonder(false),
     m_terminateSmp(false),
-    m_waitStarted(false),
-    m_level(DEFAULT_LEVEL)
+    m_level(DEFAULT_LEVEL),
+    m_ponderHit(false)
 {
     m_evaluator.reset(new Evaluator);
     memset(&m_logLMRTable, 0, sizeof(m_logLMRTable));
@@ -142,19 +140,19 @@ bool Search::isDraw()
     return false;
 }
 
-EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool pruneMoves, bool rootNode, Move skipMove/*= 0*/)
+EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool rootNode, Move skipMove/*= 0*/)
 {
-    m_pvSize[ply] = 0;
-    m_selDepth = std::max(ply, m_selDepth);
-
     //
     //   qsearch
     //
 
     if (depth <= 0 && m_level > MEDIUM_LEVEL)
-        return qSearch(alpha, beta, ply);
+        return qSearch(alpha, beta, ply, 0);
 
-    ++m_nodes;
+    TTable::instance().prefetchEntry(m_position.Hash());
+
+    m_pvSize[ply]  = 0;
+    m_selDepth     = std::max(ply, m_selDepth);
 
     if (!rootNode) {
 
@@ -180,30 +178,32 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     //
 
     Move hashMove{};
-    TEntry hEntry;
+    TEntry hEntry{};
+    EVAL ttScore;
     auto onPV  = (beta - alpha > 1);
+    auto ttHit = !skipMove && ProbeHash(hEntry);
 
-    if (!skipMove && ProbeHash(hEntry)) {
-        if (hEntry.depth() >= depth && (depth == 0 || !onPV)) {
-            EVAL score = hEntry.score();
-            if (score > CHECKMATE_SCORE - 50 && score <= CHECKMATE_SCORE)
-                score -= ply;
-            if (score < -CHECKMATE_SCORE + 50 && score >= -CHECKMATE_SCORE)
-                score += ply;
-
-            if (!onPV && (hEntry.type() == HASH_EXACT
-                || (hEntry.type() == HASH_BETA && score >= beta)
-                || (hEntry.type() == HASH_ALPHA && score <= alpha)))
-                return score;
+    if (ttHit) {
+        ttScore = hEntry.m_data.score;
+        if (ttScore > CHECKMATE_SCORE - 50 && ttScore <= CHECKMATE_SCORE)
+            ttScore -= ply;
+        if (ttScore < -CHECKMATE_SCORE + 50 && ttScore >= -CHECKMATE_SCORE)
+            ttScore += ply;
+        if (hEntry.m_data.depth >= depth && (depth == 0 || !onPV)) {
+            if (!onPV && (hEntry.m_data.type == HASH_EXACT
+                || (hEntry.m_data.type == HASH_BETA && ttScore >= beta)
+                || (hEntry.m_data.type == HASH_ALPHA && ttScore <= alpha)))
+                return ttScore;
         }
 
-        hashMove = hEntry.move();
+        hashMove = hEntry.m_data.move;
     }
 
     //
     //  tablebase probe
     //
 
+#if defined (SYZYGY_SUPPORT)
     if (!rootNode && TB_LARGEST && depth >= 2 && !m_position.Fifty() && !(m_position.CanCastle(m_position.Side(), KINGSIDE) || m_position.CanCastle(m_position.Side(), QUEENSIDE))) {
         auto pieces = countBits(m_position.BitsAll());
 
@@ -262,71 +262,85 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             }
         }
     }
+#endif
 
-    EVAL staticEval;
     auto inCheck = m_position.InCheck();
 
-    if (inCheck)
-        staticEval = -CHECKMATE_SCORE + ply;
-    else
-        staticEval = m_evaluator->evaluate(m_position);
+    EVAL staticEval  = inCheck ? -CHECKMATE_SCORE + ply : m_evaluator->evaluate(m_position);
+    EVAL bestScore   = staticEval;
 
     m_evalStack[ply] = staticEval;
 
-    //
-    //  static null move pruning
-    //
-
-    if (!onPV && !inCheck && depth <= 8 && staticEval - 85 * depth > beta)
-        return staticEval;
-
-    //
-    //   null move
-    //
-
-    auto nonPawnMaterial = m_position.NonPawnMaterial();
-
-    if (!onPV && !inCheck && !isNull && !onPV && depth >= 2 && nonPawnMaterial && staticEval >= beta) {
-        int R = 4 + depth / 6 + min(3, (staticEval - beta) / 200);
-
-        m_position.MakeNullMove();
-        m_moveStack[ply] = 0;
-        EVAL nullScore = -abSearch(-beta, -beta + 1, depth - R, ply + 1, true, false, false);
-        m_position.UnmakeNullMove();
-
-        if (nullScore >= beta)
-            return isCheckMateScore(nullScore) ? beta : nullScore;
+    if (ttHit && !inCheck) {
+        if ((hEntry.m_data.type == HASH_BETA && ttScore > staticEval) ||
+            (hEntry.m_data.type == HASH_ALPHA && ttScore < staticEval) ||
+            (hEntry.m_data.type == HASH_EXACT))
+            bestScore = ttScore;
     }
 
     //
-    //  probcut
+    //  apply prunning when we are not in check and not on PV
     //
 
-    if (!onPV && depth >= 5 && abs(beta) < (CHECKMATE_SCORE + 50)) {
-        auto betaCut = beta + 100;
-        MoveList captureMoves;
-        GenCapturesAndPromotions(m_position, captureMoves);
-        auto captureMovesSize = captureMoves.Size();
+    if (!inCheck && !onPV) {
 
-        for (size_t i = 0; i < captureMovesSize; ++i)
-        {
-            if (MoveEval::SEE(this, captureMoves[i].m_mv) < betaCut - staticEval)
-                continue;
+        //
+        //  static null move pruning
+        //
 
-            if (m_position.MakeMove(captureMoves[i].m_mv)) {
-                auto score = -abSearch(-betaCut, -betaCut + 1, depth - 4, ply + 1, isNull, true, false);
-                m_position.UnmakeMove();
+        if (depth <= 8 && bestScore - 85 * depth > beta)
+            return bestScore;
 
-                if (score >= betaCut)
-                    return score;
+        //
+        //   null move
+        //
+
+        if (!isNull && depth >= 2 && m_position.NonPawnMaterial() && bestScore >= beta) {
+            int R = 4 + depth / 6 + min(3, (bestScore - beta) / 200);
+
+            m_position.MakeNullMove();
+            EVAL nullScore = -abSearch(-beta, -beta + 1, depth - R, ply + 1, true, false);
+            m_position.UnmakeNullMove();
+
+            if (nullScore >= beta)
+                return isCheckMateScore(nullScore) ? beta : nullScore;
+        }
+
+        //
+        //  probcut
+        //
+
+        if (depth >= 5 && abs(beta) < (CHECKMATE_SCORE + 50)) {
+            auto betaCut = beta + 100;
+            MoveList captureMoves;
+
+            GenCapturesAndPromotions(m_position, captureMoves);
+            MoveEval::sortMoves(this, captureMoves, hashMove, ply);
+
+            auto captureMovesSize = captureMoves.Size();
+            for (size_t i = 0; i < captureMovesSize; ++i) {
+                if (skipMove == captureMoves[i].m_mv)
+                    continue;
+
+                if (MoveEval::SEE(this, captureMoves[i].m_mv) < betaCut - staticEval)
+                    continue;
+
+                if (m_position.MakeMove(captureMoves[i].m_mv)) {
+                    ++m_nodes;
+                    auto score = -abSearch(-betaCut, -betaCut + 1, depth - 4, ply + 1, false, false);
+                    m_position.UnmakeMove();
+
+                    if (score >= betaCut)
+                        return score;
+                }
             }
         }
     }
 
-    int legalMoves = 0;
-    Move bestMove = hashMove;
-    EVAL bestScore = -CHECKMATE_SCORE + ply;
+    auto legalMoves = 0;
+    bestScore = -CHECKMATE_SCORE + ply;
     U8 type = HASH_ALPHA;
+    Move bestMove = hashMove;
 
     MoveList& mvlist = m_lists[ply];
     if (inCheck)
@@ -337,19 +351,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     MoveEval::sortMoves(this, mvlist, hashMove, ply);
     auto mvSize = mvlist.Size();
 
-    //
-    //  Different move ordering for lazy smp threads
-    //
-
-    if (!m_principalSearcher && depth == 1 && mvSize >= 2) {
-        int j = 0;
-        for (size_t i = mvSize - 1; i > 0; --i) {
-            mvlist.Swap(i, j++);
-        }
-    }
-
     std::vector<Move> quietMoves;
-    auto improving = !inCheck && ply >= 2 && staticEval > m_evalStack[ply - 2];
+    auto improving = ply >= 2 && staticEval > m_evalStack[ply - 2];
     m_killerMoves[ply + 1][0] = m_killerMoves[ply + 1][1] = 0;
     auto quietsTried = 0;
     auto skipQuiets = false;
@@ -410,9 +413,9 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //  singular extensions
         //
 
-        if (depth >= 8 && !skipMove && hashMove == mv && !rootNode && !isCheckMateScore(hEntry.score()) && hEntry.type() == HASH_BETA && hEntry.depth() >= depth - 3) {
-            auto betaCut = hEntry.score() - depth;
-            auto score = abSearch(betaCut - 1, betaCut, depth / 2, ply + 1, false, false, false, mv);
+        if (depth >= 8 && !skipMove && hashMove == mv && !rootNode && !isCheckMateScore(hEntry.m_data.score) && hEntry.m_data.type == HASH_BETA && hEntry.m_data.depth >= depth - 3) {
+            auto betaCut = hEntry.m_data.score - depth;
+            auto score = abSearch(betaCut - 1, betaCut, depth / 2, ply + 1, false, false, mv);
 
             if (score < betaCut)
                 ++newDepth;
@@ -423,6 +426,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         if (m_position.MakeMove(mv))
         {
             ++legalMoves;
+            ++m_nodes;
 
             if (quietMove) {
                 ++quietsTried;
@@ -440,7 +444,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
             EVAL e;
             if (legalMoves == 1)
-                e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, true, false);
+                e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, false);
             else
             {
                 //
@@ -466,12 +470,12 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                         reduction = 0;
                 }
 
-                e = -abSearch(-alpha - 1, -alpha, newDepth - reduction, ply + 1, false, true, false);
+                e = -abSearch(-alpha - 1, -alpha, newDepth - reduction, ply + 1, false, false);
 
                 if (e > alpha && reduction > 0)
-                    e = -abSearch(-alpha - 1, -alpha, newDepth, ply + 1, false, true, false);
+                    e = -abSearch(-alpha - 1, -alpha, newDepth, ply + 1, false, false);
                 if (e > alpha && e < beta)
-                    e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, true, false);
+                    e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, false);
             }
             m_position.UnmakeMove();
 
@@ -491,7 +495,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
                     if (alpha >= beta) {
                         type = HASH_BETA;
-                        if (!MoveEval::isTacticalMove(mv)) {
+                        if (quietMove) {
                             History::updateHistory(this, quietMoves, ply, depth * depth);
                             History::setKillerMove(this, mv, ply);
                         }
@@ -501,6 +505,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             }
         }
     }
+
+    TTable::instance().prefetchEntry(m_position.Hash());
 
     if (legalMoves == 0) {
         if (inCheck || skipMove)
@@ -517,42 +523,45 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     return bestScore;
 }
 
-EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
+EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth)
 {
-    m_pvSize[ply] = 0;
-    m_selDepth = std::max(ply, m_selDepth);
-    ++m_nodes;
+    m_pvSize[ply]   = 0;
+    m_selDepth      = std::max(ply, m_selDepth);
 
     if (checkLimits())
         return DRAW_SCORE;
+
+    TTable::instance().prefetchEntry(m_position.Hash());
 
     if ((ply > MAX_PLY - 2) || isDraw())
         return ((ply > MAX_PLY - 2) && !m_position.InCheck()) ? m_evaluator->evaluate(m_position) : DRAW_SCORE;
 
     Move hashMove{};
-    TEntry hEntry;
-    auto ttHit = false;
+    TEntry hEntry{};
     EVAL ttScore;
 
-    if (ProbeHash(hEntry)) {
-        ttScore = hEntry.score();
-        ttHit = hEntry.type() == HASH_EXACT;
+    auto inCheck = m_position.InCheck();
+    auto tteDepth = inCheck || depth >= 0 ? 0 : -1;
+    auto ttHit = ProbeHash(hEntry);
+
+    if (ttHit) {
+        ttScore = hEntry.m_data.score;
         if (ttScore > CHECKMATE_SCORE - 50 && ttScore <= CHECKMATE_SCORE)
             ttScore -= ply;
         if (ttScore < -CHECKMATE_SCORE + 50 && ttScore >= -CHECKMATE_SCORE)
             ttScore += ply;
+        if (hEntry.m_data.depth >= tteDepth) {
+            auto onPV = (beta - alpha > 1);
 
-        auto onPV = (beta - alpha > 1);
+            if (!onPV && (hEntry.m_data.type == HASH_EXACT
+                || (hEntry.m_data.type == HASH_BETA && ttScore >= beta)
+                || (hEntry.m_data.type == HASH_ALPHA && ttScore <= alpha)))
+                return ttScore;
+        }
 
-        if (!onPV && (hEntry.type() == HASH_EXACT
-            || (hEntry.type() == HASH_BETA && ttScore >= beta)
-            || (hEntry.type() == HASH_ALPHA && ttScore <= alpha)))
-            return ttScore;
-
-        hashMove = hEntry.move();
+        hashMove = hEntry.m_data.move;
     }
 
-    auto inCheck = m_position.InCheck();
     EVAL bestScore;
 
     if (inCheck)
@@ -563,11 +572,10 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
     {
         bestScore = m_evaluator->evaluate(m_position);
 
-        if (ttHit)
-        {
-            if ((hEntry.type() == HASH_BETA && ttScore > bestScore) ||
-                (hEntry.type() == HASH_ALPHA && ttScore < bestScore) ||
-                (hEntry.type() == HASH_EXACT))
+        if (ttHit) {
+            if ((hEntry.m_data.type == HASH_BETA && ttScore > bestScore)  ||
+                (hEntry.m_data.type == HASH_ALPHA && ttScore < bestScore) ||
+                (hEntry.m_data.type == HASH_EXACT))
                 bestScore = ttScore;
         }
 
@@ -585,10 +593,9 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
         GenCapturesAndPromotions(m_position, mvlist);
 
     MoveEval::sortMoves(this, mvlist, hashMove, ply);
-
-    int legalMoves = 0;
     auto mvSize = mvlist.Size();
-    Move bestMove = ttHit ? hEntry.move() : Move{};
+    Move bestMove = hashMove;
+    U8 type = HASH_ALPHA;
 
     for (size_t i = 0; i < mvSize; ++i) {
         Move mv = MoveEval::getNextBest(mvlist, i);
@@ -597,12 +604,9 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
             continue;
 
         if (m_position.MakeMove(mv)) {
-            ++legalMoves;
 
-            m_moveStack[ply] = mv;
-            m_pieceStack[ply] = mv.Piece();
-
-            EVAL e = -qSearch(-beta, -alpha, ply + 1);
+            ++m_nodes;
+            auto e = -qSearch(-beta, -alpha, ply + 1, depth - 1);
             m_position.UnmakeMove();
 
             if (m_flags & SEARCH_TERMINATED)
@@ -613,6 +617,7 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
                 if (e > alpha) {
                     alpha = e;
                     bestMove = mv;
+                    type = HASH_EXACT;
                     m_pv[ply][0] = mv;
                     memcpy(m_pv[ply] + 1, m_pv[ply + 1], m_pvSize[ply + 1] * sizeof(Move));
                     m_pvSize[ply] = 1 + m_pvSize[ply + 1];
@@ -620,15 +625,13 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply)
             }
 
             if (alpha >= beta) {
+                type = HASH_BETA;
                 break;
             }
         }
     }
 
-    if (!legalMoves && inCheck)
-        bestScore = -CHECKMATE_SCORE + ply;
-
-    assert((m_position.Fifty() >= 100) == false); // in qs promotions and captures discard the rule
+    TTable::instance().record(bestMove, bestScore, tteDepth, ply, type, m_position.Hash());
     return bestScore;
 }
 
@@ -679,32 +682,6 @@ int Search::extensionRequired(Move mv, Move lastMove, bool inCheck, int ply, boo
             return 1;
     }
     return 0;
-}
-
-Move Search::forceFetchPonder(Position & pos, const Move & bestMove)
-{
-    Move ponder{};
-    auto legalMoves = 0;
-
-    if (pos.MakeMove(bestMove)) {
-        MoveList mvlist{};
-        GenAllMoves(pos, mvlist);
-
-        for (size_t i = 0; i < mvlist.Size(); ++i) {
-            ponder = mvlist[i].m_mv;
-            if (pos.MakeMove(ponder)) {
-                ++legalMoves;
-                pos.UnmakeMove();
-
-                if (legalMoves > 1)
-                    break;
-            }
-        }
-
-        pos.UnmakeMove();
-    }
-
-    return legalMoves ? ponder : Move{};
 }
 
 bool Search::isGameOver(Position & pos, string & result, string & comment, Move & bestMove, int & legalMoves)
@@ -784,6 +761,11 @@ void Search::printPV(const Position& pos, int iter, int selDepth, EVAL score, co
 
     cout << "info depth " << iter << " seldepth " << selDepth;
 
+#if defined (OB_ADJUDICATION_OFF)
+    // disable adjudication in OpenBench as Igel still has little endgame knowledge
+    score = score > 0 ? std::max(25, std::min(200, score)) : std::max(-200, std::min(-25, score));
+#endif
+
     if (abs(score) >= (CHECKMATE_SCORE - MAX_PLY))
         cout << " score mate" << ((score >= 0) ? " " : " -") << ((CHECKMATE_SCORE - abs(score)) / 2) + 1;
     else
@@ -810,17 +792,11 @@ void Search::printPV(const Position& pos, int iter, int selDepth, EVAL score, co
 
 bool Search::ProbeHash(TEntry & hentry)
 {
-    U64 hash = m_position.Hash();
-    TEntry * nEntry = TTable::instance().retrieve(hash);
-
-    if (!nEntry)
-        return false;
-
-    hentry = *nEntry;
-
-    return ((hentry.m_key ^ hentry.m_data) == hash);
+    auto hash  = m_position.Hash();
+    return TTable::instance().retrieve(hash, hentry);
 }
 
+#if defined (SYZYGY_SUPPORT)
 Move Search::tableBaseRootSearch()
 {
     if (!TB_LARGEST || countBits(m_position.BitsAll()) > TB_LARGEST)
@@ -904,6 +880,7 @@ Move Search::tableBaseRootSearch()
     assert(false);
     return 0;
 }
+#endif
 
 void Search::startWorkerThreads(Time time)
 {
@@ -920,7 +897,6 @@ void Search::startWorkerThreads(Time time)
         m_threadParams[i].m_smpThreadExit = false;
 
         m_threadParams[i].m_lazyDepth = 1;
-        m_threadParams[i].m_index = i + 1;
         m_threadParams[i].m_readyMutex.unlock();
 
         m_threadParams[i].m_lazycv.notify_one();
@@ -947,14 +923,11 @@ void Search::stopWorkerThreads()
 
 void Search::waitUntilCompletion()
 {
-    m_waitStarted = true;
+    if (!m_principalSearcher)
+        return;
 
-    if (m_principalSearcher && (m_flags & MODE_ANALYZE)) {
-        while ((m_flags & SEARCH_TERMINATED) == 0)
-            ; // we must wait explicitely for stop command
-    }
-
-    m_waitStarted = false;
+    while ((m_flags & MODE_ANALYZE) && (m_flags & SEARCH_TERMINATED) == 0)
+        ; // we must wait explicitely for stop command or a ponderhit
 }
 
 void Search::isReady()
@@ -967,6 +940,7 @@ void Search::isReady()
 
 void Search::stopPrincipalSearch()
 {
+    m_ponderHit = false;
     m_flags |= TERMINATED_BY_USER;
 }
 
@@ -987,45 +961,44 @@ void Search::startPrincipalSearch(Time time, bool ponder)
 
 uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench)
 {
-    m_t0 = GetProcTime();
-    m_time = time;
-    m_ponderTime = time;
     m_iterPVSize = 0;
     m_nodes = 0;
     m_selDepth = 0;
     m_tbHits = 0;
     m_limitCheck = 1023;
-    m_waitStarted = false;
 
-    if (bench) {
-        m_flags = MODE_SILENT | MODE_PLAY;
-    }
-    else {
-        if (m_principalSearcher) {
-            if (ponderSearch)
-                m_time.setPonderMode(true);
-
-            m_flags = (m_time.getTimeMode() == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
+    if (!m_ponderHit) {
+        m_t0 = GetProcTime();
+        m_time = time;
+        m_ponderTime = time;
+        if (bench) {
+            m_flags = MODE_SILENT | MODE_PLAY;
         }
-        else
-            m_time.setPonderMode(true); // always run smp threads in analyze mode
+        else {
+            if (m_principalSearcher) {
+                if (ponderSearch)
+                    m_time.setPonderMode(true);
+
+                m_flags = (m_time.getTimeMode() == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
+            }
+            else
+                m_time.setPonderMode(true); // always run smp threads in analyze mode
+        }
     }
 
     memset(&m_pv, 0, sizeof(m_pv));
     m_time.resetAdjustment();
 
     Move ponder{};
+    Move best{};
 
     auto printBestMove = [](Search * pthis, Position & pos, Move m, Move p) {
 
         if (m)
             cout << "bestmove " << MoveToStrLong(m);
 
-        /*if (!p)
-            p = pthis->forceFetchPonder(pos, m);
-
         if (p)
-            cout << " ponder " << MoveToStrLong(p);*/
+            cout << " ponder " << MoveToStrLong(p);
 
         cout << endl;
     };
@@ -1050,12 +1023,13 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         //  Check if only a single legal move possible at this position
         //
 
-        if (legalMoves == 1) {
+        if (legalMoves == 1 && time.chopperMove()) {
             waitUntilCompletion();
             printBestMove(this, m_position, onlyMove, ponder);
             return 1;
         }
 
+#if defined (SYZYGY_SUPPORT)
         //
         //  Probe tablebases/tt at root
         //
@@ -1067,6 +1041,9 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
             printBestMove(this, m_position, bestTb, ponder);
             return 1;
         }
+#endif
+
+        best = onlyMove; // set best move to first legal move in case we are low on time
     }
 
     //
@@ -1083,21 +1060,12 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     if (m_thc)
         startWorkerThreads(time);
 
-    const int cycle = m_index % m_SMPCycles;
     uint64_t sumNodes = 0;
     uint64_t sumHits = 0;
     uint64_t nps = 0;
-    Move best {};
 
     for (m_depth = depth; m_depth < maxDepth; ++m_depth)
     {
-        //
-        // Occasionally skip depths by smp threads (laser & ethereal method)
-        //
-
-        if (!m_principalSearcher && (m_index + cycle) % m_skipDepths[cycle] == 0)
-            m_depth += m_skipSize[cycle];
-
         //
         //  Make a search
         //
@@ -1108,7 +1076,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         EVAL beta  = std::min(score + aspiration, CHECKMATE_SCORE);
 
         while (aspiration <= CHECKMATE_SCORE) {
-            score = abSearch(alpha, beta, m_depth, 0, false, false, true);
+            score = abSearch(alpha, beta, m_depth, 0, false, true);
 
             if (m_flags & SEARCH_TERMINATED)
                 break;
@@ -1196,6 +1164,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     //
 
     waitUntilCompletion();
+    m_ponderHit = false;
 
     if (!(m_flags & MODE_SILENT) && m_principalSearcher)
         printBestMove(this, m_position, best, ponder);
@@ -1205,12 +1174,10 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
 
 void Search::setPonderHit()
 {
-    m_t0    = GetProcTime();
-    m_time  = m_ponderTime;
-    m_flags = (m_time.getTimeMode() == Time::TimeControl::Infinite ? MODE_ANALYZE : MODE_PLAY);
-
-    if (m_waitStarted)
-        stopPrincipalSearch();
+    m_ponderHit = true;
+    m_flags     = MODE_PLAY;
+    m_t0        = GetProcTime();
+    m_time      = m_ponderTime;
 }
 
 void Search::setSyzygyDepth(int depth)

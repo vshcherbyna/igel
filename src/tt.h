@@ -1,8 +1,6 @@
 /*
 *  Igel - a UCI chess playing engine derived from GreKo 2018.01
 *
-*  Copyright (C) 1990-1992 Robert Hyatt and Tim Mann (crafty authors): lockless design of tt
-*  Copyright (C) 2002-2018 Vladimir Medvedev <vrm@bk.ru> (GreKo author): general logic of tt
 *  Copyright (C) 2018-2020 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 *
 *  Igel is free software: you can redistribute it and/or modify
@@ -27,53 +25,57 @@
 class TEntry
 {
 public:
+    typedef union {
+        struct {
+            U32 move:24, age:8, type:2;
+            I32 score:22, depth:8;
+        };
+        U64 raw;
+    }HashEntry;
+    static_assert(sizeof(HashEntry) == 8, "HashEntry must be 8 bytes");
 
-    TEntry(): m_data(0), m_key(0)
+    TEntry()
     {
+        m_data.raw  = 0;
+        m_key       = 0;
     }
 
 public:
-    /*
-     *     shr  bits   name   description                                          *
-     *      56    8    age    age of tt table entry                                *
-     *      54    2    type   0:HASH_ALPHA; 1:HASH_EXACT; 2:HASH_BETA              *
-     *      30   24    move   best move from the current position, according to    *
-     *                        the search at the time this position was stored      *
-     *      22   8     depth  the depth of the search below this position, which   *
-     *                        is used to see if we can use this entry at the       *
-     *                        current position                                     *
-     *       0   22    score  signed score integer value of this position          *
-     *       0   64    key    64 bit hash signature, used to verify that this      *
-     *                        entry goes with the current board position.          *
-     *                                                                             *
-     */
-    void store(Move mv, EVAL score, U8 depth, U8 type, U64 hash0, U8 age)
+
+    void store(Move mv, EVAL score, I8 depth, U8 type, U64 hash0, U8 age)
     {
         assert(type >= 0 && type <= 2);
         assert(age >= 0 && age <= 255);
-        assert(depth >= 0 && depth <= 255);
+        assert(depth >= -128 && depth <= 127);
         assert(score >= -50000 && score <= 50000);
         assert(mv >= 0 && mv <= 16777216);
 
-        m_data = age;
-        m_data = (m_data << 2)  | type;
-        m_data = (m_data << 24) | mv;
-        m_data = (m_data << 8)  | depth;
-        m_data = (m_data << 22) | (score + 65536);
+        m_data.age   = age;
+        m_data.type  = type;
+        m_data.move  = mv;
+        m_data.depth = depth;
+        m_data.score = score;
 
-        m_key = hash0 ^ m_data;
+        m_key = hash0 ^ m_data.raw;
+
+        assert(age == m_data.age);
+        assert(type == m_data.type);
+        assert(mv == m_data.move);
+        assert(depth == m_data.depth);
+        assert(score == m_data.score);
     }
 
-    U8 age() {return (m_data >> 56);}
-    U8 type() {return (m_data >> 54) & 3;}
-    Move move(){ return Move((m_data >> 30) & ~0xff000000);}
-    U8 depth() {return (m_data >> 22) & 0x7fff;}
-    EVAL score() {return (m_data & 0x1ffff) - 65536;}
-
 public:
-    U64  m_data;
+    HashEntry m_data;
     U64  m_key;
 };
+static_assert(sizeof(TEntry) == 16, "TEntry must be 16 bytes");
+
+struct TTCluster {
+    TEntry entry[4];
+};
+
+static_assert(sizeof(TTCluster) == 64, "TTCluster must be 64 bytes");
 
 class TTable
 {
@@ -84,15 +86,18 @@ public:
 public:
     bool setHashSize(double mb, unsigned int threads);
     bool clearHash(unsigned int threads);
-    bool record(Move mv, EVAL score, U8 depth, int ply, U8 type, U64 hash0);
-    TEntry * retrieve(U64 hash);
+    void record(Move mv, EVAL score, I8 depth, int ply, U8 type, U64 hash0);
+    bool retrieve(U64 hash, TEntry & hentry);
     bool increaseAge();
     void clearAge();
+    void prefetchEntry(U64 hash);
 
 private:
-    mutable TEntry * m_hash;
+    mutable TTCluster * m_hash;
     mutable size_t m_hashSize;
     mutable unsigned int m_hashAge;
+    static constexpr uint64_t MB = 1ull << 20;
+
 };
 
 #endif

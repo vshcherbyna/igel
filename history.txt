@@ -3,6 +3,31 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2020 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 2.5.0
+-------------
+15-Jun-2020
+
+- Implement OpenBench support
+- Implement BMI2 instruction support for faster search
+- Implement prefetch instruction support for faster search
+- Implement ponder support
+- Implement improved sudden death time control management
+- Implement use of hugepages in Linux OS
+- Implement more efficient tt management and re-write tt replacement scheme to 'always replace'
+- Implement proper handling of chopper moves
+- Implement improved king safety evaluation
+- Implement improved weights management
+- Implement symmetric evaluation function
+- Set tt score in qsearch
+- Set bestmove as a hashmove by default
+- Bugfix for knight outpost
+- Bugfix for depth skipping in smp mode
+- Implement pst based evaluation for connected passers
+- Bugfix for probcut in check
+- Factor in 'improving' even when in checks
+- Adjust bestscore from tt score
+- Bugfix shuffling of moves at root in smp mode
+
 Igel 2.4.0
 -------------
 22-Mar-2020

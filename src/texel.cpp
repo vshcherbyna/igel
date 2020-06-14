@@ -246,7 +246,7 @@ vector<int> Texel::localOptimize(double K, const vector<int> & initialGuess, std
             bestE = newE;
             bestParValues = newParValues;
             texelInfo(initialError, bestE, (GetProcTime() - iterationTime) / 1000, pi, epoch, newParValues[pi]);
-            WriteParamsToFile(bestParValues, "igel.txt");
+            writeParams(bestParValues, "weights.txt");
         }
         else {
             newParValues[pi] -= 2;
@@ -257,7 +257,7 @@ vector<int> Texel::localOptimize(double K, const vector<int> & initialGuess, std
                 bestE = newE;
                 bestParValues = newParValues;
                 texelInfo(initialError, bestE, (GetProcTime() - iterationTime) / 1000, pi, epoch, newParValues[pi]);
-                WriteParamsToFile(bestParValues, "igel.txt");
+                writeParams(bestParValues, "weights.txt");
             }
         }
     }

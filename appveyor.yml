@@ -28,9 +28,9 @@ before_build:
 build_script:
   - pip3 --version
   - python -V
-  - cmake -D_BTYPE=POPCNT -G "Visual Studio 15 2017 Win64" .
+  - cmake -D_BTYPE=1 -G "Visual Studio 15 2017 Win64" .
   - cmake --build . --target ALL_BUILD --config %CONFIGURATION%
-  - cmake -D_MAKE_UNIT_TEST=UNIT_TEST -D_BTYPE=POPCNT -G "Visual Studio 15 2017 Win64" .
+  - cmake -D_MAKE_UNIT_TEST=UNIT_TEST -D_BTYPE=1 -G "Visual Studio 15 2017 Win64" .
   - cmake --build . --target ALL_BUILD --config %CONFIGURATION%
   - cp %CONFIGURATION%\igel.exe igel
   - cp %CONFIGURATION%\unit.exe unit.exe

@@ -35,22 +35,30 @@ class Evaluator
 {
 public:
     static void initEval();
-    static void initEval(const vector<int>& x);
+    static void initEval(const vector<int> & x);
     EVAL evaluate(Position & pos);
 
 private:
     inline Pair evaluatePawns(Position & pos, U64 occ, PawnHashEntry ** pps);
     inline Pair evaluatePawnsAttacks(Position & pos);
-    inline Pair evaluateKnights(Position & pos, U64 kingZone[], int attackers[]);
-    inline Pair evaluateBishops(Position & pos, U64 occ, U64 kingZone[], int attackers[]);
-    inline Pair evaluateOutposts(Position & pos, PawnHashEntry *ps);
-    inline Pair evaluateRooks(Position & pos, U64 occ, U64 kingZone[], int attackers[], PawnHashEntry *ps);
+    inline Pair evaluateKnights(Position & pos, U64 kingZone[], int attackers[], PawnHashEntry * ps);
+    inline Pair evaluateBishops(Position & pos, U64 occ, U64 kingZone[], int attackers[], PawnHashEntry * ps);
+    inline Pair evaluateRooks(Position & pos, U64 occ, U64 kingZone[], int attackers[], PawnHashEntry * ps);
     inline Pair evaluateQueens(Position & pos, U64 occ, U64 kingZone[], int attackers[]);
-    inline Pair evaluateKings(Position & pos, U64 occ, PawnHashEntry *ps);
-    inline Pair evaluateKingAttackers(Position & pos, int attackers[]);
+    inline Pair evaluateKings(Position & pos, U64 occ, PawnHashEntry * ps);
+    inline Pair evaluateKingsAttackers(Position & pos, int attackers[]);
+    inline Pair evaluatePiecesPairs(Position & pos);
 
 private:
-    Pair evaluatePiecePairs(Position & pos);
+    inline Pair evaluatePawn(Position & pos, COLOR side, U64 occ, PawnHashEntry * ps);
+    inline Pair evaluatePawnAttacks(Position & pos, COLOR side);
+    inline Pair evaluateKnight(Position & pos, COLOR side, U64 kingZone[], int attackers[], PawnHashEntry * ps);
+    inline Pair evaluateBishop(Position & pos, COLOR side, U64 occ, U64 kingZone[], int attackers[], PawnHashEntry * ps);
+    inline Pair evaluateRook(Position & pos, COLOR side, U64 occ, U64 kingZone[], int attackers[], PawnHashEntry * ps);
+    inline Pair evaluateQueen(Position & pos, COLOR side, U64 occ, U64 kingZone[], int attackers[]);
+    inline Pair evaluateKing(Position & pos, COLOR side, U64 occ, PawnHashEntry * ps);
+    inline Pair evaluateKingAttackers(Position & pos, COLOR side, int attackers[]);
+    inline Pair evaluatePiecePairs(Position & pos, COLOR side);
 
 private:
     int distance(FLD f1, FLD f2);
@@ -59,9 +67,9 @@ private:
     void showPsq(const char * stable, Pair* table, EVAL mid_w = 0, EVAL end_w = 0);
 
 private:
-    static constexpr int WhiteAttacks = NOPIECE;
-    static constexpr int BlackAttacks = NOPIECE + 1;
-    U64 m_pieceAttacks[KB];
+    static constexpr int WhiteAttacks = WHITE;
+    static constexpr int BlackAttacks = BLACK;
+    U64 m_pieceAttacks[KB + 1];
 };
 
 #endif

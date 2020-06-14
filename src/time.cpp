@@ -256,3 +256,15 @@ U32 Time::getMiddleGameTimeBonus(U32 remainingTime, U32 hardLimit)
 
     return std::min(hardLimit, remainingTime);
 }
+
+bool Time::chopperMove()
+{
+    //
+    //  Prevent instant move play in time controls of 'go movetime' and 'go infinite'
+    //
+
+    if (m_infinite || m_movetime)
+        return false;
+
+    return true;
+}

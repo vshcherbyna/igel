@@ -1,8 +1,6 @@
 /*
 *  Igel - a UCI chess playing engine derived from GreKo 2018.01
 *
-*  Copyright (C) 1990-1992 Robert Hyatt and Tim Mann (crafty authors): lockless design of tt
-*  Copyright (C) 2002-2018 Vladimir Medvedev <vrm@bk.ru> (GreKo author): general logic of tt
 *  Copyright (C) 2018-2020 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 *
 *  Igel is free software: you can redistribute it and/or modify
@@ -20,9 +18,14 @@
 */
 
 #include "tt.h"
+#include "utils.h"
 
 #include <algorithm>
 #include <thread>
+
+#if defined(__linux__)
+#include <sys/mman.h>
+#endif
 
 TTable::TTable() : m_hash(nullptr), m_hashSize(0), m_hashAge(0)
 {
@@ -34,39 +37,50 @@ TTable & TTable::instance()
     return instance;
 }
 
-bool TTable::record(Move mv, EVAL score, U8 depth, int ply, U8 type, U64 hash0)
+void TTable::record(Move mv, EVAL score, I8 depth, int ply, U8 type, U64 hash0)
 {
     assert(m_hash);
     assert(m_hashSize);
 
     size_t index = hash0 % m_hashSize;
-    TEntry & entry = m_hash[index];
+    TTCluster & cluster = m_hash[index];
+    auto * replaceEntry = &cluster.entry[0];
 
-    if (depth >= entry.depth() || m_hashAge != entry.age())
-    {
-        if (score > CHECKMATE_SCORE - 50 && score <= CHECKMATE_SCORE)
-            score += ply;
+    for (auto i = 0; i < 4; ++i) {
+        // empty bucket or a matched hash
+        if ((!cluster.entry[i].m_key) || ((cluster.entry[i].m_key ^ cluster.entry[i].m_data.raw) == hash0)) {
+            replaceEntry = &cluster.entry[i];
+            break;
+        }
 
-        if (score < -CHECKMATE_SCORE + 50 && score >= -CHECKMATE_SCORE)
-            score -= ply;
-
-        entry.store(mv, score, depth, type, hash0, m_hashAge);
-
-        return true;
+        if ((cluster.entry[i].m_data.age == m_hashAge) - (replaceEntry->m_data.age == m_hashAge) - (cluster.entry[i].m_data.depth < replaceEntry->m_data.depth) < 0)
+            replaceEntry = &cluster.entry[i];
     }
 
-    return false;
+    if (score > CHECKMATE_SCORE - 50 && score <= CHECKMATE_SCORE)
+        score += ply;
+
+    if (score < -CHECKMATE_SCORE + 50 && score >= -CHECKMATE_SCORE)
+        score -= ply;
+
+    replaceEntry->store(mv, score, depth, type, hash0, m_hashAge);
 }
 
-TEntry * TTable::retrieve(U64 hash)
+bool TTable::retrieve(U64 hash, TEntry & hentry)
 {
     assert(m_hash);
     assert(m_hashSize);
 
     size_t index = hash % m_hashSize;
-    TEntry * pEntry = m_hash + index;
+    auto pCluster = m_hash + index;
 
-    return pEntry;
+    for (auto i = 0; i < 4; ++i) {
+        hentry = pCluster->entry[i]; // make a copy of entry because a race conditon may occure between 'if' and 'return'
+        if ((hentry.m_key ^ hentry.m_data.raw) == hash)
+            return true;
+    }
+
+    return false;
 }
 
 bool TTable::clearHash(unsigned int threads)
@@ -79,11 +93,11 @@ bool TTable::clearHash(unsigned int threads)
     //
 
     if (threads == 1) {
-        memset(reinterpret_cast<void*>(m_hash), 0, m_hashSize * sizeof(TEntry));
+        memset(reinterpret_cast<void*>(m_hash), 0, m_hashSize * sizeof(TTCluster));
         return true;
     }
 
-    size_t size = m_hashSize * sizeof(TEntry);
+    size_t size = m_hashSize * sizeof(TTCluster);
     void * tt   = m_hash;
 
     //
@@ -127,10 +141,20 @@ bool TTable::setHashSize(double mb, unsigned int threads)
     if (m_hash)
         free(m_hash);
 
-    m_hashSize = static_cast<size_t>(static_cast<size_t>(1024 * 1024) * mb / sizeof(TEntry));
-    m_hash = reinterpret_cast<TEntry*>(malloc(sizeof(TEntry) * m_hashSize));
+    m_hashSize = static_cast<size_t>(static_cast<size_t>(1024 * 1024) * mb / sizeof(TTCluster));
+
+#if defined(__linux__)
+    // on linux systems we align on 2MB boundaries and request Huge Pages
+    // idea comes from Sami Kiminki as used in Ethereal
+    m_hash = reinterpret_cast<TTCluster*>(aligned_alloc(2 * MB, sizeof(TTCluster) * m_hashSize));
+    madvise(m_hash, sizeof(TTCluster) * m_hashSize, MADV_HUGEPAGE);
+#else
+    // otherwise, we simply allocate as usual and make no requests
+    m_hash = reinterpret_cast<TTCluster*>(malloc(sizeof(TTCluster) * m_hashSize));
+#endif
 
     clearHash(threads);
+
     assert(m_hash);
     return m_hash != nullptr;
 }
@@ -144,4 +168,16 @@ bool TTable::increaseAge()
 void TTable::clearAge()
 {
     m_hashAge = 0;
+}
+
+void TTable::prefetchEntry(U64 hash)
+{
+    assert(hash);
+    assert(m_hash);
+    assert(m_hashSize);
+
+    size_t index = hash % m_hashSize;
+    auto pCluster = m_hash + index;
+
+    prefetch(pCluster);
 }
