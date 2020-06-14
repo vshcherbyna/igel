@@ -24,42 +24,43 @@
 #include "eval.h"
 #include "utils.h"
 
+#if defined (SYZYGY_SUPPORT)
 #include "fathom/tbprobe.h"
+#endif
 
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "2.4.0";
+const std::string VERSION = "2.5.0"; // "2020-next-18"
 
+#if defined(ENV64BIT)
+    #if defined(_BTYPE)
+        #if _BTYPE==0
+            const std::string ARCHITECTURE = " 64 POPCNT";
+        #else
+            const std::string ARCHITECTURE = " 64 BMI2";
+    #endif
+    #else
+        const std::string ARCHITECTURE = " 64";
+    #endif
+#endif
+
+#if defined(__linux__)
+const int MIN_HASH_SIZE = 2;
+#else
 const int MIN_HASH_SIZE = 1;
-const int MAX_HASH_SIZE = 1048576;
+#endif
+
 const int DEFAULT_HASH_SIZE = 128;
+const int MAX_HASH_SIZE     = 1048576;
 
-const int MIN_THREADS = 1;
-const int MAX_THREADS = 1024;
 const int DEFAULT_THREADS = 1;
-
-// Check windows
-#if _WIN32 || _WIN64
-#if _WIN64
-#define ENV64BIT
-#else
-#define ENV32BIT
-#endif
-#endif
-
-// Check GCC
-#if __GNUC__
-#if __x86_64__ || __ppc64__
-#define ENV64BIT
-#else
-#define ENV32BIT
-#endif
-#endif
+const int MIN_THREADS     = 1;
+const int MAX_THREADS     = 1024;
 
 int Uci::handleCommands()
 {
-    std::cout << "Igel " << VERSION << " by V. Medvedev, V. Shcherbyna" << std::endl;
+    std::cout << "Igel " << VERSION << ARCHITECTURE << " by V. Medvedev, V. Shcherbyna" << std::endl;
 
     if (!TTable::instance().setHashSize(DEFAULT_HASH_SIZE, DEFAULT_THREADS)) {
         cout << "Fatal error: unable to allocate memory for transposition table" << endl;
@@ -80,8 +81,8 @@ int Uci::handleCommands()
             onIsready();
         else if (startsWith(cmd, "stop"))
             onStop();
-        /*else if (startsWith(cmd, "ponderhit"))
-            onPonderHit();*/
+        else if (startsWith(cmd, "ponderhit"))
+            onPonderHit();
         else if (startsWith(cmd, "quit"))
             exit(0);
         else if (startsWith(cmd, "ucinewgame"))
@@ -105,17 +106,8 @@ int Uci::handleCommands()
 
 void Uci::onUci()
 {
-    std::cout << "id name Igel " << VERSION;
-
-#if defined(ENV64BIT)
-#if defined (_BTYPE)
-    cout << " 64 POPCNT";
-#else
-    cout << " 64";
-#endif
-#endif
-
-    std::cout << std::endl << "id author V. Medvedev, V. Shcherbyna" << std::endl;
+    std::cout << "id name Igel " << VERSION << ARCHITECTURE << std::endl;
+    std::cout << "id author V. Medvedev, V. Shcherbyna" << std::endl;
 
     std::cout << "option name Hash type spin"   <<
         " default " << DEFAULT_HASH_SIZE        <<
@@ -127,15 +119,17 @@ void Uci::onUci()
         " min "     << MIN_THREADS                  <<
         " max "     << MAX_THREADS                  << std::endl;
 
+#if defined (SYZYGY_SUPPORT)
     std::cout << "option name SyzygyPath type string default <empty>" << std::endl;
 
     std::cout << "option name SyzygyProbeDepth type spin" <<
         " default "     << 1        <<
         " min "         << 1        <<
         " max "         << MAX_PLY  << std::endl;
+#endif
 
-    /*cout << "option name Ponder type check" <<
-        " default false" << endl;*/
+    cout << "option name Ponder type check" <<
+        " default false" << endl;
 
     std::cout << "option name Skill Level type spin" <<
         " default " << DEFAULT_LEVEL <<
@@ -171,7 +165,7 @@ void Uci::onGo(commandParams params)
     assert(params[0] == "go");
 
     TTable::instance().increaseAge();
-    m_searcher.startPrincipalSearch(time, false/*params[1] == "ponder"*/);
+    m_searcher.startPrincipalSearch(time, params[1] == "ponder");
 }
 
 void Uci::onStop()
@@ -186,9 +180,7 @@ void Uci::onPonderHit()
 
 void Uci::onEval()
 {
-    //std::unique_ptr<Position> pos(new Position);
     std::unique_ptr<Evaluator> evaluator(new Evaluator);
-
     std::cout << "eval: " << evaluator->evaluate(m_searcher.m_position) << std::endl;
 }
 
@@ -316,12 +308,14 @@ void Uci::onSetOption(commandParams params)
             std::cout << "Unable set level value. Make sure number is correct" << std::endl;
         m_searcher.setLevel(level);
     }
+#if defined (SYZYGY_SUPPORT)
     else if (name == "SyzygyPath")
         tb_init(value.c_str());
     else if (name == "SyzygyProbeDepth")
         m_searcher.setSyzygyDepth(atoi(value.c_str()));
-    //else if (name == "Ponder")
-    //    // nothing to do, we are stateless here
+#endif
+    else if (name == "Ponder")
+        ; // nothing to do, we are stateless here
     else
         std::cout << "Unknown option " << name << std::endl;
 }

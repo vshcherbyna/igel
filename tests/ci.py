@@ -22,6 +22,7 @@
 import os
 import platform
 import mate_in_n
+import multiprocessing
 
 if platform.system() == 'Windows':
     if os.system('..\\unit.exe') != 0:
@@ -35,3 +36,16 @@ else:
 #
 
 mate_in_n.fnc_mate_in_n(1)
+
+#
+#   run integration tests with N threads if multiple CPUs are available
+#
+
+cpus = multiprocessing.cpu_count()
+
+if cpus > 1:
+    print("==========================================================================================")
+    print("multi cpu environment detected: %d" % cpus)
+    print("running ci tests with %d threads" % cpus)
+    print("==========================================================================================")
+    mate_in_n.fnc_mate_in_n(cpus)

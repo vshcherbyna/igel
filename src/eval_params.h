@@ -51,14 +51,22 @@ enum Param
     End_King,
     Mid_PawnPassed,
     End_PawnPassed,
-    Mid_PawnConnected,
-    End_PawnConnected,
+    Mid_PawnPassedBlocked,
+    End_PawnPassedBlocked,
+    Mid_PawnPassedFree,
+    End_PawnPassedFree,
+    Mid_PawnConnectedFree,
+    End_PawnConnectedFree,
     Mid_PawnDoubled,
     End_PawnDoubled,
     Mid_PawnIsolated,
     End_PawnIsolated,
+    Mid_PawnDoubledIsolated,
+    End_PawnDoubledIsolated,
     Mid_PawnBlocked,
     End_PawnBlocked,
+    Mid_PawnFence,
+    End_PawnFence,
     Mid_PawnOnBiColor,
     End_PawnOnBiColor,
     Mid_KnightStrong,
@@ -67,6 +75,8 @@ enum Param
     End_KnightForpost,
     Mid_KnightKingDist,
     End_KnightKingDist,
+    Mid_KnightAndQueen,
+    End_KnightAndQueen,
     Mid_BishopStrong,
     End_BishopStrong,
     Mid_BishopMobility,
@@ -75,6 +85,8 @@ enum Param
     End_KnightMobility,
     Mid_BishopKingDist,
     End_BishopKingDist,
+    Mid_BishopAndRook,
+    End_BishopAndRook,
     Mid_RookMobility,
     End_RookMobility,
     Mid_QueenMobility,
@@ -105,20 +117,30 @@ enum Param
     End_ConnectedRooks,
     Mid_BishopsPair,
     End_BishopsPair,
+    Mid_RooksPair,
+    End_RooksPair,
+    Mid_KnightsPair,
+    End_KnightsPair,
     Mid_Tempo,
     End_Tempo,
+    Mid_QueenSafeChecksPenalty,
+    End_QueenSafeChecksPenalty,
+    Mid_RookSafeChecksPenalty,
+    End_RookSafeChecksPenalty,
+    Mid_BishopSafeChecksPenalty,
+    End_BishopSafeChecksPenalty,
+    Mid_KnightSafeChecksPenalty,
+    End_KnightSafeChecksPenalty,
     NUM_LINES
 };
 
 extern Line lines[NUM_LINES];
 extern int NUM_PARAMS;
 
-void InitParamLines();
+void initParams();
+void setDefaultWeights(vector<int> & x);
+void writeParams(const vector<int>& x, const std::string& filename);
 
-void SetDefaultValues(vector<int>& x);
-void SetMaterialOnlyValues(vector<int>& x);
-void WriteParamsToFile(const vector<int>& x, const std::string& filename);
 std::string ParamNumberToName(size_t n);
-bool ReadParamsFromFile(vector<int>& x, const std::string& filename);
 
 #endif

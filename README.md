@@ -10,8 +10,9 @@ Igel is a free UCI chess engine forked from GreKo 2018.01. It is not a complete 
 
 ### Acknowledgements
 
-I would like to thank the authors and the community involved in the creation of the open source projects listed below. Their work influences development of Igel, and without them, this project wouldn't exist.
+I would like to thank the authors and the community involved in the creation of the open source projects listed below. Their work influences development of Igel, and without them, this project wouldn't exist. Special thanks to Andrew Grant for supporting Igel development on OpenBench.
 
+* [OpenBench](https://github.com/AndyGrant/OpenBench/)
 * [GreKo](http://greko.su/)
 * [Chess Programming Wiki](https://www.chessprogramming.org/)
 * [Ethereal](https://github.com/AndyGrant/Ethereal/)

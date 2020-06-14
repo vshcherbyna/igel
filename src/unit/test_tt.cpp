@@ -41,83 +41,68 @@ TEST(TranspositionTableSizeTest, Positive)
 
 TEST(TranspositionTableEntryTest, Positive)
 {
-    // allocate tt size of 2 mb
-    // each tt entry is 16 bytes
-    // therefore we can store 131072 positions max
+    EXPECT_EQ(true, TTable::instance().setHashSize(2, 1));
+    EXPECT_EQ(true, TTable::instance().clearHash(1));
 
-    for (auto i = 1; i <= 2; ++i)
-    {
-        EXPECT_EQ(true, TTable::instance().setHashSize(i, 1));
-        EXPECT_EQ(true, TTable::instance().clearHash(1));
+    for (auto j = 1; j < 16384; ++j)
+        TTable::instance().record(j, j, 3, 0, 1, j);
 
-        auto j = 1;
+    for (auto j = 1; j < 16384; ++j) {
+        TEntry hentry{};
+        EXPECT_EQ(true, TTable::instance().retrieve(j, hentry));
 
-        for (j = 1; j <= ((1024 * 1024 * i) / 16); ++j)
-            EXPECT_EQ(true, TTable::instance().record(i, 2, 3, 0, 1, j));
-
-        // tt is full, now we want to store an item with less depth
-        // it has to fail storing
-        ++j;
-        EXPECT_EQ(false, TTable::instance().record(i, 2, 2, 0, 1, j));
-
-        for (j = 1; j <= ((1024 * 1024 * i) / 16); ++j)
-        {
-            auto * hentry = TTable::instance().retrieve(j);
-            EXPECT_EQ(j, hentry->m_key ^ hentry->m_data);
-            EXPECT_EQ(i, hentry->move());
-            EXPECT_EQ(2, hentry->score());
-            EXPECT_EQ(3, hentry->depth());
-            EXPECT_EQ(1, hentry->type());
-        }
+        EXPECT_EQ(j, hentry.m_key ^ hentry.m_data.raw);
+        EXPECT_EQ(j, hentry.m_data.move);
+        EXPECT_EQ(j, hentry.m_data.score);
+        EXPECT_EQ(3, hentry.m_data.depth);
+        EXPECT_EQ(1, hentry.m_data.type);
     }
 }
 
 TEST(TranspositionTableEntryScoreTest, Positive)
 {
-    TEntry te;
+    TEntry te{};
 
-    EXPECT_EQ(0, te.m_data);
+    EXPECT_EQ(0, te.m_data.raw);
     EXPECT_EQ(0, te.m_key);
 
     te.store(0, 0, 0, 0, 0, 0);
 
-    EXPECT_EQ(0, te.score());
+    EXPECT_EQ(0, te.m_data.score);
 
-    for (auto i = -CHECKMATE_SCORE + 128; i <= CHECKMATE_SCORE + 128; ++i)
-    {
+    for (auto i = -CHECKMATE_SCORE + 128; i <= CHECKMATE_SCORE + 128; ++i) {
         te.store(0, i, 0, 0, 0, 0);
-        EXPECT_EQ(i, te.score());
+        EXPECT_EQ(i, te.m_data.score);
     }
 }
 
 TEST(TranspositionTableEntryDepthTest, Positive)
 {
-    TEntry te;
+    TEntry te{};
 
-    EXPECT_EQ(0, te.m_data);
+    EXPECT_EQ(0, te.m_data.raw);
     EXPECT_EQ(0, te.m_key);
 
     te.store(0, 0, 0, 0, 0, 0);
 
-    EXPECT_EQ(0, te.depth());
+    EXPECT_EQ(0, te.m_data.depth);
 
-    for (auto i = 0; i < 255; ++i)
-    {
+    for (auto i = -128; i <= 127; ++i) {
         te.store(0, 0, i, 0, 0, 0);
-        EXPECT_EQ(i, te.depth());
+        EXPECT_EQ(i, te.m_data.depth);
     }
 }
 
 TEST(TranspositionTableEntryMoveTest, Positive)
 {
-    TEntry te;
+    TEntry te{};
 
-    EXPECT_EQ(0, te.m_data);
+    EXPECT_EQ(0, te.m_data.raw);
     EXPECT_EQ(0, te.m_key);
 
     te.store(0, 0, 0, 0, 0, 0);
 
-    EXPECT_EQ(0, te.move());
+    EXPECT_EQ(0, te.m_data.move);
 
     InitBitboards();
     Position::InitHashNumbers();
@@ -128,140 +113,133 @@ TEST(TranspositionTableEntryMoveTest, Positive)
     pos->SetInitial();
 
     GenAllMoves(*pos, mvlist);
-
     auto mvSize = mvlist.Size();
-    for (size_t i = 0; i < mvSize; ++i)
-    {
+
+    for (size_t i = 0; i < mvSize; ++i) {
         Move mv = mvlist[i].m_mv;
         te.store(mv, 0, 0, 0, 0, 0);
-        EXPECT_EQ(mv, te.move());
+        EXPECT_EQ(mv, te.m_data.move);
     }
 }
 
 TEST(TranspositionTableEntryTypeTest, Positive)
 {
-    TEntry te;
+    TEntry te{};
 
-    EXPECT_EQ(0, te.m_data);
+    EXPECT_EQ(0, te.m_data.raw);
     EXPECT_EQ(0, te.m_key);
 
     te.store(0, 0, 0, 0, 0, 0);
-    EXPECT_EQ(0, te.type());
+    EXPECT_EQ(0, te.m_data.type);
 
     for (auto i = 0; i < 3; ++i)
     {
         te.store(0, 0, 0, i, 0, 0);
-        EXPECT_EQ(i, te.type());
+        EXPECT_EQ(i, te.m_data.type);
     }
 }
 
 TEST(TranspositionTableEntryAgeTest, Positive)
 {
-    TEntry te;
+    TEntry te{};
 
-    EXPECT_EQ(0, te.m_data);
+    EXPECT_EQ(0, te.m_data.raw);
     EXPECT_EQ(0, te.m_key);
 
     te.store(0, 0, 0, 0, 0, 0);
-    EXPECT_EQ(0, te.age());
+    EXPECT_EQ(0, te.m_data.age);
 
-    for (auto i = 0; i < 255; ++i)
-    {
+    for (auto i = 0; i < 255; ++i) {
         te.store(0, 0, 0, 0, 0, i);
-        EXPECT_EQ(i, te.age());
+        EXPECT_EQ(i, te.m_data.age);
     }
 }
 
 TEST(TranspositionTableEntryCompositeTest, Positive)
 {
-    TEntry te;
+    TEntry te{};
 
-    EXPECT_EQ(0, te.m_data);
+    EXPECT_EQ(0, te.m_data.raw);
     EXPECT_EQ(0, te.m_key);
 
     te.store(0, 0, 0, 0, 0, 0);
 
-    EXPECT_EQ(0, te.age());
-    EXPECT_EQ(0, te.type());
-    EXPECT_EQ(0, te.move());
-    EXPECT_EQ(0, te.depth());
-    EXPECT_EQ(0, te.score());
+    EXPECT_EQ(0, te.m_data.age);
+    EXPECT_EQ(0, te.m_data.type);
+    EXPECT_EQ(0, te.m_data.move);
+    EXPECT_EQ(0, te.m_data.depth);
+    EXPECT_EQ(0, te.m_data.score);
 
     te.store(1, 1, 1, 1, 1, 1);
 
-    EXPECT_EQ(1, te.age());
-    EXPECT_EQ(1, te.type());
-    EXPECT_EQ(1, te.move());
-    EXPECT_EQ(1, te.depth());
-    EXPECT_EQ(1, te.score());
+    EXPECT_EQ(1, te.m_data.age);
+    EXPECT_EQ(1, te.m_data.type);
+    EXPECT_EQ(1, te.m_data.move);
+    EXPECT_EQ(1, te.m_data.depth);
+    EXPECT_EQ(1, te.m_data.score);
 
     te.store(16777215, CHECKMATE_SCORE, 1, 1, 1, 1);
-    EXPECT_EQ(1, te.age());
-    EXPECT_EQ(1, te.type());
-    EXPECT_EQ(16777215, te.move());
-    EXPECT_EQ(1, te.depth());
-    EXPECT_EQ(CHECKMATE_SCORE, te.score());
+    EXPECT_EQ(1, te.m_data.age);
+    EXPECT_EQ(1, te.m_data.type);
+    EXPECT_EQ(16777215, te.m_data.move);
+    EXPECT_EQ(1, te.m_data.depth);
+    EXPECT_EQ(CHECKMATE_SCORE, te.m_data.score);
 
     te.store(16777215, -CHECKMATE_SCORE, 1, 1, 1, 1);
-    EXPECT_EQ(1, te.age());
-    EXPECT_EQ(1, te.type());
-    EXPECT_EQ(16777215, te.move());
-    EXPECT_EQ(1, te.depth());
-    EXPECT_EQ(-CHECKMATE_SCORE, te.score());
+    EXPECT_EQ(1, te.m_data.age);
+    EXPECT_EQ(1, te.m_data.type);
+    EXPECT_EQ(16777215, te.m_data.move);
+    EXPECT_EQ(1, te.m_data.depth);
+    EXPECT_EQ(-CHECKMATE_SCORE, te.m_data.score);
 
-    // move range
-    for (auto i = 0; i <= 16777215; ++i)
-    {
+     // move range
+    for (auto i = 0; i <= 16777215; ++i) {
         te.store(i, CHECKMATE_SCORE, 1, 1, 1, 1);
-        EXPECT_EQ(i, te.move());
-        EXPECT_EQ(CHECKMATE_SCORE, te.score());
-        EXPECT_EQ(1, te.depth());
-        EXPECT_EQ(1, te.age());
-        EXPECT_EQ(1, te.type());
+        EXPECT_EQ(i, te.m_data.move);
+        EXPECT_EQ(CHECKMATE_SCORE, te.m_data.score);
+        EXPECT_EQ(1, te.m_data.depth);
+        EXPECT_EQ(1, te.m_data.age);
+        EXPECT_EQ(1, te.m_data.type);
     }
 
-    // depth range
-    for (auto i = 0; i < 255; ++i)
-    {
+     // depth range
+    for (auto i = -128; i <= 127; ++i) {
         te.store(16777215, -CHECKMATE_SCORE, i, 1, 1, 1);
-        EXPECT_EQ(i, te.depth());
-        EXPECT_EQ(1, te.age());
-        EXPECT_EQ(1, te.type());
-        EXPECT_EQ(16777215, te.move());
-        EXPECT_EQ(-CHECKMATE_SCORE, te.score());
+        EXPECT_EQ(i, te.m_data.depth);
+        EXPECT_EQ(1, te.m_data.age);
+        EXPECT_EQ(1, te.m_data.type);
+        EXPECT_EQ(16777215, te.m_data.move);
+        EXPECT_EQ(-CHECKMATE_SCORE, te.m_data.score);
     }
 
     // score range
-    for (auto i = -CHECKMATE_SCORE + 128; i <= CHECKMATE_SCORE + 128; ++i)
-    {
+    for (auto i = -CHECKMATE_SCORE + 128; i <= CHECKMATE_SCORE + 128; ++i) {
         te.store(16777215, i, 1, 1, 1, 1);
-        EXPECT_EQ(i, te.score());
-        EXPECT_EQ(1, te.depth());
-        EXPECT_EQ(1, te.age());
-        EXPECT_EQ(1, te.type());
-        EXPECT_EQ(16777215, te.move());
+        EXPECT_EQ(i, te.m_data.score);
+        EXPECT_EQ(1, te.m_data.depth);
+        EXPECT_EQ(1, te.m_data.age);
+        EXPECT_EQ(1, te.m_data.type);
+        EXPECT_EQ(16777215, te.m_data.move);
     }
 
     // type range
-    for (auto i = 0; i < 3; ++i)
-    {
+    for (auto i = 0; i < 3; ++i) {
         te.store(16777215, 1, 1, i, 1, 1);
-        EXPECT_EQ(i, te.type());
-        EXPECT_EQ(1, te.score());
-        EXPECT_EQ(1, te.depth());
-        EXPECT_EQ(1, te.age());
-        EXPECT_EQ(16777215, te.move());
+        EXPECT_EQ(i, te.m_data.type);
+        EXPECT_EQ(1, te.m_data.score);
+        EXPECT_EQ(1, te.m_data.depth);
+        EXPECT_EQ(1, te.m_data.age);
+        EXPECT_EQ(16777215, te.m_data.move);
     }
 
     // age range
-    for (auto i = 0; i < 255; ++i)
-    {
+    for (auto i = 0; i < 255; ++i) {
         te.store(16777215, 1, 1, 1, 1, i);
-        EXPECT_EQ(i, te.age());
-        EXPECT_EQ(1, te.type());
-        EXPECT_EQ(1, te.score());
-        EXPECT_EQ(1, te.depth());
-        EXPECT_EQ(16777215, te.move());
+        EXPECT_EQ(i, te.m_data.age);
+        EXPECT_EQ(1, te.m_data.type);
+        EXPECT_EQ(1, te.m_data.score);
+        EXPECT_EQ(1, te.m_data.depth);
+        EXPECT_EQ(16777215, te.m_data.move);
     }
 }
 

@@ -139,3 +139,22 @@ string Timestamp()
 {
     return {};
 }
+
+#if defined (_BTYPE)
+void prefetch(void* addr) {
+
+#  if defined(__INTEL_COMPILER)
+    // Stockfish hack that prevents prefetches from being optimized away by
+    // Intel compiler. Both MSVC and gcc seem not be affected by this.
+    __asm__("");
+#  endif
+
+#  if defined(__INTEL_COMPILER) || defined(_MSC_VER)
+    _mm_prefetch((char*)addr, _MM_HINT_T0);
+#  else
+    __builtin_prefetch(addr);
+#  endif
+}
+#else
+void prefetch(void*) {}
+#endif

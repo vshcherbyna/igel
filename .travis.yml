@@ -15,9 +15,9 @@ matrix:
 script:
       - pyenv versions
       - pyenv global 3.7
-      - cmake -D_BTYPE=POPCNT .
+      - cmake -D_BTYPE=0 .
       - make -j
-      - cmake -D_MAKE_UNIT_TEST=UNIT_TEST -D_BTYPE=POPCNT .
+      - cmake -D_MAKE_UNIT_TEST=UNIT_TEST -D_BTYPE=0 .
       - make -j
       - cd tests
       - pip install --upgrade pip

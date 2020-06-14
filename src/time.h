@@ -49,6 +49,7 @@ public:
     U32 getHardLimit();
     U32 getDepthLimit();
     U32 getNodesLimit();
+    bool chopperMove();
 
 private:
     void reset();
