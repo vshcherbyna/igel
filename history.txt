@@ -3,6 +3,28 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2020 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 2.6.0
+-------------
+01-Aug-2020
+
+- Implement piece threats evaluation
+- Simplify connected pass pawn evaluation
+- Implement backward pawn evaluation
+- Apply tempo after interpolation and speed up null move evaluation
+- Implement verification qsearch for probcut
+- Remove L1 normalisation from tuner and retune all params
+- Implement trapped rook evaluation
+- Implement razoring in search
+- Implement king danger evaluation
+- Implement hanging piece evaluation
+- Implement weak pawn evaluation
+- Implement restricted piece evaluation
+- Implement lazy evaluation with a threshould of 300cp
+- Implement multicut search
+- Implement threat by a protected pawn evaluation
+- Improve safe check evaluations
+- Bench 7538060
+
 Igel 2.5.0
 -------------
 15-Jun-2020
@@ -27,6 +49,7 @@ Igel 2.5.0
 - Factor in 'improving' even when in checks
 - Adjust bestscore from tt score
 - Bugfix shuffling of moves at root in smp mode
+- Bench 8175057
 
 Igel 2.4.0
 -------------

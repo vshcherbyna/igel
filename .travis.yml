@@ -9,19 +9,20 @@ matrix:
       addons:
         apt:
           sources: ['george-edison55-precise-backports']
-          packages: ['cmake-data', 'cmake', 'python3', 'python3-pip']
+          packages: ['cmake-data', 'cmake']
       env:
 
+    - os: osx
+      osx_image: xcode10.2
+      compiler: gcc
+      language: generic
+      env:
+        - COMPILER=g++
+        - COMP=gcc
+
 script:
-      - pyenv versions
-      - pyenv global 3.7
       - cmake -D_BTYPE=0 .
       - make -j
       - cmake -D_MAKE_UNIT_TEST=UNIT_TEST -D_BTYPE=0 .
       - make -j
-      - cd tests
-      - pip install --upgrade pip
-      - pip --version
-      - python -V
-      - pip install python-chess futures
-      - python ci.py
+      - ./unit

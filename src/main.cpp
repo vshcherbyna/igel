@@ -21,8 +21,6 @@
 #include "eval.h"
 #include "uci.h"
 
-FILE* g_log = nullptr;
-
 #if !defined(UNIT_TEST)
 int main(int argc, const char* argv[])
 {

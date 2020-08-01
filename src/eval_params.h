@@ -23,6 +23,10 @@
 
 #include "types.h"
 
+#define REFERENCE_PARAM(n)       \
+    n.mid = refParam(Mid_##n, 0);\
+    n.end = refParam(End_##n, 0);
+
 extern vector<int> evalWeights;
 
 struct Line
@@ -67,6 +71,8 @@ enum Param
     End_PawnBlocked,
     Mid_PawnFence,
     End_PawnFence,
+    Mid_PawnBackwards,
+    End_PawnBackwards,
     Mid_PawnOnBiColor,
     End_PawnOnBiColor,
     Mid_KnightStrong,
@@ -121,8 +127,6 @@ enum Param
     End_RooksPair,
     Mid_KnightsPair,
     End_KnightsPair,
-    Mid_Tempo,
-    End_Tempo,
     Mid_QueenSafeChecksPenalty,
     End_QueenSafeChecksPenalty,
     Mid_RookSafeChecksPenalty,
@@ -131,6 +135,31 @@ enum Param
     End_BishopSafeChecksPenalty,
     Mid_KnightSafeChecksPenalty,
     End_KnightSafeChecksPenalty,
+    Mid_LesserAttacksOnRooks,
+    End_LesserAttacksOnRooks,
+    Mid_LesserAttacksOnQueen,
+    End_LesserAttacksOnQueen,
+    Mid_MajorAttacksOnMinors,
+    End_MajorAttacksOnMinors,
+    Mid_MinorAttacksOnMinors,
+    End_MinorAttacksOnMinors,
+    Mid_RookTrapped,
+    End_RookTrapped,
+    KingDangerInit,
+    KingDangerWeakSquares,
+    KingDangerKnightChecks,
+    KingDangerBishopChecks,
+    KingDangerRookChecks,
+    KingDangerQueenChecks,
+    KingDangerNoEnemyQueen,
+    Mid_HangingPiece,
+    End_HangingPiece,
+    Mid_WeakPawn,
+    End_WeakPawn,
+    Mid_RestrictedPiece,
+    End_RestrictedPiece,
+    Mid_SafePawnThreat,
+    End_SafePawnThreat,
     NUM_LINES
 };
 

@@ -23,7 +23,7 @@
 #include <algorithm>
 #include <thread>
 
-#if defined(__linux__)
+#if defined(__linux__) && !defined(__ANDROID__)
 #include <sys/mman.h>
 #endif
 
@@ -143,7 +143,7 @@ bool TTable::setHashSize(double mb, unsigned int threads)
 
     m_hashSize = static_cast<size_t>(static_cast<size_t>(1024 * 1024) * mb / sizeof(TTCluster));
 
-#if defined(__linux__)
+#if defined(__linux__) && !defined(__ANDROID__)
     // on linux systems we align on 2MB boundaries and request Huge Pages
     // idea comes from Sami Kiminki as used in Ethereal
     m_hash = reinterpret_cast<TTCluster*>(aligned_alloc(2 * MB, sizeof(TTCluster) * m_hashSize));

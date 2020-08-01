@@ -31,7 +31,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "2.5.0"; // "2020-next-18"
+const std::string VERSION = "2.6.0";
 
 #if defined(ENV64BIT)
     #if defined(_BTYPE)
@@ -43,9 +43,11 @@ const std::string VERSION = "2.5.0"; // "2020-next-18"
     #else
         const std::string ARCHITECTURE = " 64";
     #endif
+#else
+    const std::string ARCHITECTURE = " CUSTOM";
 #endif
 
-#if defined(__linux__)
+#if defined(__linux__) && !defined(__ANDROID__)
 const int MIN_HASH_SIZE = 2;
 #else
 const int MIN_HASH_SIZE = 1;

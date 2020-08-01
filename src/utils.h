@@ -25,14 +25,12 @@
 
 U32    GetProcTime();
 bool   Is(const string& cmd, const string& pattern, size_t minLen);
-void   Log(const string& s);
 U32    Rand32();
 U64    Rand64();
 U64    Rand64(int bits);
 double RandDouble();
 void   RandSeed(U64 seed);
 void   Split(const string& s, vector<string>& tokens, const string& sep = " ");
-string Timestamp();
 void   prefetch(void * addr);
 
 #endif

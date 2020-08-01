@@ -46,8 +46,6 @@ const U8 HASH_BETA = 2;
 /*static */constexpr int Search::m_fmpHistoryLimit[2];
 /*static */constexpr int Search::m_fpHistoryLimit[2];
 
-extern FILE * g_log;
-
 Search::Search() :
     m_nodes(0),
     m_tbHits(0),
@@ -104,18 +102,9 @@ bool Search::checkLimits()
     if (!(m_limitCheck &= 1023)) {
 
         U32 dt = GetProcTime() - m_t0;
-        if (m_flags & MODE_PLAY)
-        {
+        if (m_flags & MODE_PLAY) {
             if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getHardLimit())
-            {
                 m_flags |= TERMINATED_BY_LIMIT;
-
-                if (g_log) {
-                    stringstream ss;
-                    ss << "Search stopped by stHard, dt = " << dt;
-                    Log(ss.str());
-                }
-            }
         }
     }
 
@@ -151,6 +140,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
     TTable::instance().prefetchEntry(m_position.Hash());
 
+    ++m_nodes;
     m_pvSize[ply]  = 0;
     m_selDepth     = std::max(ply, m_selDepth);
 
@@ -264,9 +254,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     }
 #endif
 
-    auto inCheck = m_position.InCheck();
-
-    EVAL staticEval  = inCheck ? -CHECKMATE_SCORE + ply : m_evaluator->evaluate(m_position);
+    auto inCheck     = m_position.InCheck();
+    EVAL staticEval  = inCheck ? -CHECKMATE_SCORE + ply : (isNull ? -m_evalStack[ply - 1] + 2 * Evaluator::Tempo : m_evaluator->evaluate(m_position));
     EVAL bestScore   = staticEval;
 
     m_evalStack[ply] = staticEval;
@@ -283,6 +272,13 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     //
 
     if (!inCheck && !onPV) {
+
+        //
+        //   razoring
+        //
+
+        if (depth <= 1 && staticEval + 325 < alpha)
+            return qSearch(alpha, beta, ply, 0);
 
         //
         //  static null move pruning
@@ -326,8 +322,12 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                     continue;
 
                 if (m_position.MakeMove(captureMoves[i].m_mv)) {
-                    ++m_nodes;
-                    auto score = -abSearch(-betaCut, -betaCut + 1, depth - 4, ply + 1, false, false);
+
+                    auto score = -qSearch(-betaCut, -betaCut + 1, ply, 0);
+
+                    if (score >= betaCut)
+                        score = -abSearch(-betaCut, -betaCut + 1, depth - 4, ply + 1, false, false);
+
                     m_position.UnmakeMove();
 
                     if (score >= betaCut)
@@ -419,14 +419,14 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
             if (score < betaCut)
                 ++newDepth;
+            else if (betaCut >= beta)
+                return betaCut;
         }
 
         auto lastMove = m_position.LastMove();
 
-        if (m_position.MakeMove(mv))
-        {
+        if (m_position.MakeMove(mv)) {
             ++legalMoves;
-            ++m_nodes;
 
             if (quietMove) {
                 ++quietsTried;
@@ -525,6 +525,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
 EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth)
 {
+    ++m_nodes;
     m_pvSize[ply]   = 0;
     m_selDepth      = std::max(ply, m_selDepth);
 
@@ -605,7 +606,6 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth)
 
         if (m_position.MakeMove(mv)) {
 
-            ++m_nodes;
             auto e = -qSearch(-beta, -alpha, ply + 1, depth - 1);
             m_position.UnmakeMove();
 
@@ -1136,13 +1136,6 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
 
         if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getSoftLimit()) {
             m_flags |= TERMINATED_BY_LIMIT;
-
-            if (g_log) {
-                stringstream ss;
-                ss << "Search stopped by stSoft, dt = " << dt;
-                Log(ss.str());
-            }
-
             break;
         }
 
