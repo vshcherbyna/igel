@@ -21,6 +21,7 @@
 #include "notation.h"
 #include "position.h"
 #include "utils.h"
+#include "eval.h"
 
 #include <memory>
 
@@ -676,4 +677,18 @@ bool Position::NonPawnMaterial()
         return true;
 
     return false;
+}
+
+EVAL Position::nonPawnMaterial()
+{
+    return nonPawnMaterial(WHITE)
+        +  nonPawnMaterial(BLACK);
+}
+
+EVAL Position::nonPawnMaterial(COLOR side)
+{
+    return (Count(KNIGHT | side) * VAL_N)
+        +  (Count(BISHOP | side) * VAL_B)
+        +  (Count(ROOK   | side) * VAL_R)
+        +  (Count(QUEEN  | side) * VAL_Q);
 }

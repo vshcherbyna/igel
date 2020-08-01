@@ -24,8 +24,6 @@
 #include "bitboards.h"
 #include "utils.h"
 
-extern FILE* g_log;
-
 U64 g_rand64 = 42;
 
 #ifndef _MSC_VER
@@ -57,15 +55,6 @@ U32 GetProcTime()
 bool Is(const string& cmd, const string& pattern, size_t minLen)
 {
     return (pattern.find(cmd) == 0 && cmd.length() >= minLen);
-}
-
-void Log(const string& s)
-{
-    if (!g_log)
-        return;
-
-    fprintf(g_log, "%s %s\n", Timestamp().c_str(), s.c_str());
-    fflush(g_log);
 }
 
 U32 Rand32()
@@ -133,11 +122,6 @@ void Split(const string& s, vector<string>& tokens, const string& sep)
         }
     }
     if (inWord) tokens.push_back(s.substr(begin, i - begin));
-}
-
-string Timestamp()
-{
-    return {};
 }
 
 #if defined (_BTYPE)

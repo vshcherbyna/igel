@@ -45,9 +45,10 @@ private:
     inline Pair evaluateBishops(Position & pos, U64 occ, U64 kingZone[], int attackers[], PawnHashEntry * ps);
     inline Pair evaluateRooks(Position & pos, U64 occ, U64 kingZone[], int attackers[], PawnHashEntry * ps);
     inline Pair evaluateQueens(Position & pos, U64 occ, U64 kingZone[], int attackers[]);
-    inline Pair evaluateKings(Position & pos, U64 occ, PawnHashEntry * ps);
+    inline Pair evaluateKings(Position & pos, U64 occ, PawnHashEntry * ps, int attackers[]);
     inline Pair evaluateKingsAttackers(Position & pos, int attackers[]);
     inline Pair evaluatePiecesPairs(Position & pos);
+    inline Pair evaluateThreats(Position & pos);
 
 private:
     inline Pair evaluatePawn(Position & pos, COLOR side, U64 occ, PawnHashEntry * ps);
@@ -56,9 +57,10 @@ private:
     inline Pair evaluateBishop(Position & pos, COLOR side, U64 occ, U64 kingZone[], int attackers[], PawnHashEntry * ps);
     inline Pair evaluateRook(Position & pos, COLOR side, U64 occ, U64 kingZone[], int attackers[], PawnHashEntry * ps);
     inline Pair evaluateQueen(Position & pos, COLOR side, U64 occ, U64 kingZone[], int attackers[]);
-    inline Pair evaluateKing(Position & pos, COLOR side, U64 occ, PawnHashEntry * ps);
+    inline Pair evaluateKing(Position & pos, COLOR side, U64 occ, PawnHashEntry * ps, int attackers[]);
     inline Pair evaluateKingAttackers(Position & pos, COLOR side, int attackers[]);
     inline Pair evaluatePiecePairs(Position & pos, COLOR side);
+    inline Pair evaluateThreat(Position & pos, COLOR side);
 
 private:
     int distance(FLD f1, FLD f2);
@@ -69,7 +71,18 @@ private:
 private:
     static constexpr int WhiteAttacks = WHITE;
     static constexpr int BlackAttacks = BLACK;
-    U64 m_pieceAttacks[KB + 1];
+
+    U64 m_pieceAttacks        [KB + 1];
+    U64 m_pieceAttacks2       [COLORS];
+    U32 m_lesserAttacksOnRooks[COLORS];
+    U32 m_lesserAttacksOnQueen[COLORS];
+    U32 m_majorAttacksOnMinors[COLORS];
+    U32 m_minorAttacksOnMinors[COLORS];
+    U32 m_kingAttackersWeight [COLORS];
+    U32 m_kingAttackers       [COLORS];
+
+public:
+    static constexpr int Tempo = 20;
 };
 
 #endif

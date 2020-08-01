@@ -94,8 +94,9 @@ enum
 
 enum
 {
-    WHITE = 0,
-    BLACK = 1
+    WHITE  = 0,
+    BLACK  = 1,
+    COLORS = 2
 };
 
 enum

@@ -77,6 +77,7 @@ struct PawnHashEntry
     U64 m_doubledPawns[2];
     U64 m_isolatedPawns[2];
     U64 m_strongFields[2];
+    U64 m_backwardPawns;
 };
 
 class Position
@@ -114,12 +115,14 @@ public:
     const PIECE& operator[] (FLD f) const { return m_board[f]; }
     static void  InitHashNumbers();
     bool NonPawnMaterial();
+    EVAL nonPawnMaterial();
 
 private:
     void Clear();
     void Put(FLD f, PIECE p);
     void Remove(FLD f);
     void MovePiece(PIECE p, FLD from, FLD to);
+    EVAL nonPawnMaterial(COLOR side);
 
     static U64 s_hash[64][14];
     static U64 s_hashSide[2];

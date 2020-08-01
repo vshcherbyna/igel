@@ -237,7 +237,13 @@ void Time::setPonderMode(bool ponder)
 
 U32 Time::getEnemyLowTimeBonus()
 {
+    if (!m_remainingTime || !m_remainingEnemyTime)
+        return 0;
+
     if (m_remainingTime <= m_remainingEnemyTime)
+        return 0;
+
+    if ((m_remainingTime / m_remainingEnemyTime) > 5)
         return 0;
 
     U32 diff = m_remainingTime - m_remainingEnemyTime;
