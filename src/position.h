@@ -22,6 +22,8 @@
 #define POSITION_H
 
 #include "bitboards.h"
+#include "evaluate.h"
+#include "nnue/nnue_accumulator.h"
 
 #define STD_POSITION "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
@@ -80,6 +82,21 @@ struct PawnHashEntry
     U64 m_backwardPawns;
 };
 
+struct Undo
+{
+    U8   m_castlings;
+    FLD  m_ep;
+    int  m_fifty;
+    U64  m_hash;
+    Move m_mv;
+
+#if defined(EVAL_NNUE)
+    Eval::NNUE::Accumulator accumulator;
+    DirtyPiece dirtyPiece;
+    Undo* previous;
+#endif
+};
+
 class Position
 {
 public:
@@ -90,7 +107,7 @@ public:
     bool   CanCastle(COLOR side, U8 flank) const;
     int    Count(PIECE p) const { return m_count[p]; }
     FLD    EP() const { return m_ep; }
-    string FEN() const;
+    std::string FEN() const;
     int    Fifty() const { return m_fifty; }
     U64    GetAttacks(FLD to, COLOR side, U64 occ) const;
     U64    Hash() const;
@@ -106,9 +123,10 @@ public:
     void   Print() const;
     int    Repetitions() const;
     Pair   Score() const { return m_score; }
-    bool   SetFEN(const string& fen);
+    bool   SetFEN(const std::string& fen);
     void   SetInitial();
     COLOR  Side() const { return m_side; }
+    Color  side_to_move() const{ return m_side; }
     void   UnmakeMove();
     void   UnmakeNullMove();
     bool   isInitialPosition();
@@ -117,9 +135,18 @@ public:
     bool NonPawnMaterial();
     EVAL nonPawnMaterial();
 
+#if defined(EVAL_NNUE)
+    Undo * state() const { return m_state; }
+    const EvalList * eval_list() const;
+    inline PieceId piece_id_on(Square sq) const;
+    Undo * m_state;
+    inline Piece NNUEPieceAdaptor(PIECE p);
+#endif
+
 private:
     void Clear();
     void Put(FLD f, PIECE p);
+    void Put(FLD f, PIECE p, PieceId & next_piece_id);
     void Remove(FLD f);
     void MovePiece(PIECE p, FLD from, FLD to);
     EVAL nonPawnMaterial(COLOR side);
@@ -147,19 +174,11 @@ private:
     Pair  m_score;
     COLOR m_side;
 
-    struct Undo
-    {
-        U8   m_castlings;
-        FLD  m_ep;
-        int  m_fifty;
-        U64  m_hash;
-        Move m_mv;
-    };
-
     enum { MAX_UNDO = 1024 };
     Undo m_undos[MAX_UNDO];
     int m_undoSize;
     bool m_initialPosition;
+    EvalList evalList;
 
 public:
     static const int m_pawnHashSize = 131072;

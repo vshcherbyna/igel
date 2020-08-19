@@ -18,7 +18,7 @@
 */
 
 #include "moveeval.h"
-#include "eval.h"
+#include "evaluate.h"
 
 const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VAL_R, VAL_R, VAL_Q, VAL_Q, VAL_K, VAL_K };
 
@@ -98,7 +98,7 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
     for (size_t j = i + 1; j < mvSize; ++j)
     {
         if (mvlist[j].m_score > mvlist[i].m_score)
-            swap(mvlist[i], mvlist[j]);
+            std::swap(mvlist[i], mvlist[j]);
     }
     return mvlist[i].m_mv;
 }

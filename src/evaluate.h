@@ -21,8 +21,11 @@
 #ifndef EVAL_H
 #define EVAL_H
 
+#include <string>
 #include "eval_params.h"
-#include "position.h"
+
+class Position;
+struct PawnHashEntry;
 
 const EVAL VAL_P = 100;
 const EVAL VAL_N = 310;
@@ -35,7 +38,7 @@ class Evaluator
 {
 public:
     static void initEval();
-    static void initEval(const vector<int> & x);
+    static void initEval(const std::vector<int> & x);
     EVAL evaluate(Position & pos);
 
 private:
@@ -84,5 +87,26 @@ private:
 public:
     static constexpr int Tempo = 20;
 };
+
+namespace Eval {
+
+    std::string trace(const Position& pos);
+    Value evaluate(const Position& pos);
+
+    extern bool useNNUE;
+    extern std::string eval_file_loaded;
+    void init_NNUE();
+    void verify_NNUE();
+
+    namespace NNUE {
+
+        Value evaluate(const Position& pos);
+        Value compute_eval(const Position& pos);
+        void  update_eval(const Position& pos);
+        bool  load_eval_file(const std::string& evalFile);
+
+    } // namespace NNUE
+
+} // namespace Eval
 
 #endif

@@ -17,7 +17,7 @@
 *  along with Igel.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "eval.h"
+#include "evaluate.h"
 #include "eval_params.h"
 #include "texel.h"
 #include "moves.h"
@@ -54,10 +54,10 @@ Texel::~Texel()
 
 std::vector<TexelParam> Texel::readParams()
 {
-    ifstream ifs("positions.fen");
-    string s;
+    std::ifstream ifs("positions.fen");
+    std::string s;
     std::vector<TexelParam> params;
-    std::set<string> unique;
+    std::set<std::string> unique;
     auto duplicates = 0;
 
     while (getline(ifs, s)) {
@@ -74,14 +74,14 @@ std::vector<TexelParam> Texel::readParams()
             param.result = 0.5;
         else
         {
-            cout << "invalid string: " << s << endl;
+            std::cout << "invalid string: " << s << std::endl;
             abort();
         }
 
-        string fen = string(s.c_str() + 2);
+        std::string fen = std::string(s.c_str() + 2);
 
         if (fen.length() > 127) {
-            cout << "invalid length: " << fen.length() << endl;
+            std::cout << "invalid length: " << fen.length() << std::endl;
             abort();
         }
 
@@ -103,7 +103,7 @@ std::string paramNumberToName(int n)
 {
     for (int i = 0; i < NUM_LINES; ++i) {
         if (n >= lines[i].start && n < lines[i].start + lines[i].len) {
-            stringstream ss;
+            std::stringstream ss;
             ss << lines[i].name << "[" << n - lines[i].start + 1 << "]";
             return ss.str();
         }
@@ -128,7 +128,7 @@ void Texel::Tune()
 
     while (true) {
 
-        cout << "epoch " << ++epoch << endl;
+        std::cout << "epoch " << ++epoch << std::endl;
         std::shuffle(std::begin(params), std::end(params), std::default_random_engine{});
         auto optimized = localOptimize(K, x0, params, epoch, 0, NUM_PARAMS);
 
@@ -149,13 +149,13 @@ void texelInfo(double y0Start, double y0, int t, int p, int epoch, int value)
     int mm = (t - 3600 * hh) / 60;
     int ss = t - 3600 * hh - 60 * mm;
 
-    cout << right;
-    cout << setw(2) << setfill('0') << hh << ":";
-    cout << setw(2) << setfill('0') << mm << ":";
-    cout << setw(2) << setfill('0') << ss << " ";
+    std::cout << std::right;
+    std::cout << std::setw(2) << std::setfill('0') << hh << ":";
+    std::cout << std::setw(2) << std::setfill('0') << mm << ":";
+    std::cout << std::setw(2) << std::setfill('0') << ss << " ";
 
-    cout << left << "      " << setw(8) << y0 << " " << 100 * (y0 - y0Start) / y0Start << " % " << "[" << epoch << "] " << paramNumberToName(p) << " = " << value << "          \r";
-    cout << setfill(' ');
+    std::cout << std::left << "      " << std::setw(8) << y0 << " " << 100 * (y0 - y0Start) / y0Start << " % " << "[" << epoch << "] " << paramNumberToName(p) << " = " << value << "          \r";
+    std::cout << std::setfill(' ');
 }
 
 double sigmoid(double K, double S) {
@@ -203,7 +203,7 @@ double Texel::completeEvaluationError(std::vector<TexelParam> & fens, double K)
 
 double Texel::computeOptimalK(std::vector<TexelParam>& fens) {
 
-    cout << "calculate optimal K:" << endl;
+    std::cout << "calculate optimal K:" << std::endl;
 
     double start = -10.0, end = 10.0, delta = 1.0;
     double curr = start, error, best = completeEvaluationError(fens, start);
@@ -227,7 +227,7 @@ double Texel::computeOptimalK(std::vector<TexelParam>& fens) {
     return start;
 }
 
-vector<int> Texel::localOptimize(double K, const vector<int> & initialGuess, std::vector<TexelParam>& fens, size_t epoch, size_t start, size_t len)
+std::vector<int> Texel::localOptimize(double K, const std::vector<int> & initialGuess, std::vector<TexelParam>& fens, size_t epoch, size_t start, size_t len)
 {
     auto bestParValues = initialGuess;
     Evaluator::initEval(initialGuess);
@@ -237,7 +237,7 @@ vector<int> Texel::localOptimize(double K, const vector<int> & initialGuess, std
     auto improved = false;
 
     for (size_t pi = start; pi < (start + len); ++pi) {
-        vector<int> newParValues = bestParValues;
+        std::vector<int> newParValues = bestParValues;
         newParValues[pi] += 1;
         Evaluator::initEval(newParValues);
         double newE = completeEvaluationError(fens, K);
@@ -262,7 +262,7 @@ vector<int> Texel::localOptimize(double K, const vector<int> & initialGuess, std
         }
     }
 
-    return improved ? bestParValues : vector<int>{};
+    return improved ? bestParValues : std::vector<int>{};
 }
 
 void Texel::setTuneStartTime()

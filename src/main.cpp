@@ -18,7 +18,7 @@
 *  along with Igel.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "eval.h"
+#include "evaluate.h"
 #include "uci.h"
 
 #if !defined(UNIT_TEST)
@@ -31,6 +31,10 @@ int main(int argc, const char* argv[])
     InitBitboards();
     Position::InitHashNumbers();
     Evaluator::initEval();
+
+#if defined(EVAL_NNUE)
+    Eval::init_NNUE();
+#endif
 
     std::unique_ptr<Search> searcher(new Search);
 

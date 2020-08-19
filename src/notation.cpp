@@ -21,27 +21,27 @@
 #include "moves.h"
 #include "notation.h"
 
-bool CanBeMove(const string& s)
+bool CanBeMove(const std::string& s)
 {
-    static const string goodChars = "12345678abcdefghNBRQKOxnbrq=-+#!?";
+    static const std::string goodChars = "12345678abcdefghNBRQKOxnbrq=-+#!?";
     for (size_t i = 0; i < s.length(); ++i)
     {
-        if (goodChars.find_first_of(s[i]) == string::npos)
+        if (goodChars.find_first_of(s[i]) == std::string::npos)
             return false;
     }
     return true;
 }
 
-string FldToStr(FLD f)
+std::string FldToStr(FLD f)
 {
     char buf[3];
     buf[0] = 'a' + Col(f);
     buf[1] = '8' - Row(f);
     buf[2] = 0;
-    return string(buf);
+    return std::string(buf);
 }
 
-FLD StrToFld(const string& s)
+FLD StrToFld(const std::string& s)
 {
     if (s.length() < 2)
         return NF;
@@ -54,14 +54,14 @@ FLD StrToFld(const string& s)
     return 8 * row + col;
 }
 
-Move StrToMove(const string& s, Position& pos)
+Move StrToMove(const std::string& s, Position& pos)
 {
-    string s1 = s;
+    std::string s1 = s;
     while (s1.length() > 2)
     {
-        const string special = "+#?!";
+        const std::string special = "+#?!";
         char ch = s1[s1.length() - 1];
-        if (special.find_first_of(ch) == string::npos) break;
+        if (special.find_first_of(ch) == std::string::npos) break;
         s1 = s1.substr(0, s1.length() - 1);
     }
 
@@ -74,11 +74,12 @@ Move StrToMove(const string& s, Position& pos)
         Move mv = mvlist[i].m_mv;
         if (MoveToStrLong(mv) == s1)
         {
-            if (pos.MakeMove(mv))
+            return mv;
+            /*if (pos.MakeMove(mv))
             {
                 pos.UnmakeMove();
                 return mv;
-            }
+            }*/
         }
     }
 
@@ -87,20 +88,21 @@ Move StrToMove(const string& s, Position& pos)
         Move mv = mvlist[i].m_mv;
         if (MoveToStrShort(mv, pos, mvlist) == s1)
         {
-            if (pos.MakeMove(mv))
+            return mv;
+            /*if (pos.MakeMove(mv))
             {
                 pos.UnmakeMove();
                 return mv;
-            }
+            }*/
         }
     }
 
     return 0;
 }
 
-string MoveToStrLong(Move mv)
+std::string MoveToStrLong(Move mv)
 {
-    string s = FldToStr(mv.From()) + FldToStr(mv.To());
+    std::string s = FldToStr(mv.From()) + FldToStr(mv.To());
     switch (mv.Promotion())
     {
         case QW: case QB: s += "q"; break;
@@ -112,14 +114,14 @@ string MoveToStrLong(Move mv)
     return s;
 }
 
-string MoveToStrShort(Move mv, Position& pos, const MoveList& mvlist)
+std::string MoveToStrShort(Move mv, Position& pos, const MoveList& mvlist)
 {
     if (mv == MOVE_O_O[WHITE] || mv == MOVE_O_O[BLACK])
         return "O-O";
     if (mv == MOVE_O_O_O[WHITE] || mv == MOVE_O_O_O[BLACK])
         return "O-O-O";
 
-    string strPiece, strCapture, strFrom, strTo, strPromotion;
+    std::string strPiece, strCapture, strFrom, strTo, strPromotion;
     FLD from = mv.From();
     FLD to = mv.To();
     PIECE piece = mv.Piece();

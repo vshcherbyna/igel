@@ -52,7 +52,7 @@ U32 GetProcTime()
 
 #endif
 
-bool Is(const string& cmd, const string& pattern, size_t minLen)
+bool Is(const std::string& cmd, const std::string& pattern, size_t minLen)
 {
     return (pattern.find(cmd) == 0 && cmd.length() >= minLen);
 }
@@ -98,7 +98,7 @@ void RandSeed(U64 seed)
     g_rand64 = seed;
 }
 
-void Split(const string& s, vector<string>& tokens, const string& sep)
+void Split(const std::string& s, std::vector<std::string>& tokens, const std::string& sep)
 {
     size_t i = 0, begin = 0;
     bool inWord = false;
@@ -106,7 +106,7 @@ void Split(const string& s, vector<string>& tokens, const string& sep)
 
     for (i = 0; i < s.length(); ++i)
     {
-        if (sep.find_first_of(s[i]) != string::npos)
+        if (sep.find_first_of(s[i]) != std::string::npos)
         {
             // separator character
             if (inWord)

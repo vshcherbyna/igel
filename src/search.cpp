@@ -18,7 +18,7 @@
 *  along with Igel.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "eval.h"
+#include "evaluate.h"
 #include "moves.h"
 #include "notation.h"
 #include "search.h"
@@ -109,11 +109,6 @@ bool Search::checkLimits()
     }
 
     return (m_flags & SEARCH_TERMINATED);
-}
-
-void Search::setPosition(Position & pos)
-{
-    m_position = pos;
 }
 
 bool Search::isDraw()
@@ -292,7 +287,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //
 
         if (!isNull && depth >= 2 && m_position.NonPawnMaterial() && bestScore >= beta) {
-            int R = 4 + depth / 6 + min(3, (bestScore - beta) / 200);
+            int R = 4 + depth / 6 + std::min(3, (bestScore - beta) / 200);
 
             m_position.MakeNullMove();
             EVAL nullScore = -abSearch(-beta, -beta + 1, depth - R, ply + 1, true, false);
@@ -477,6 +472,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                 if (e > alpha && e < beta)
                     e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, false);
             }
+
             m_position.UnmakeMove();
 
             if (m_flags & SEARCH_TERMINATED)
@@ -684,7 +680,7 @@ int Search::extensionRequired(Move mv, Move lastMove, bool inCheck, int ply, boo
     return 0;
 }
 
-bool Search::isGameOver(Position & pos, string & result, string & comment, Move & bestMove, int & legalMoves)
+bool Search::isGameOver(Position & pos, std::string & result, std::string & comment, Move & bestMove, int & legalMoves)
 {
     MoveList mvlist;
     GenAllMoves(pos, mvlist);
@@ -759,7 +755,7 @@ void Search::printPV(const Position& pos, int iter, int selDepth, EVAL score, co
 {
     auto dt = GetProcTime() - m_t0;
 
-    cout << "info depth " << iter << " seldepth " << selDepth;
+    std::cout << "info depth " << iter << " seldepth " << selDepth;
 
 #if defined (OB_ADJUDICATION_OFF)
     // disable adjudication in OpenBench as Igel still has little endgame knowledge
@@ -767,27 +763,27 @@ void Search::printPV(const Position& pos, int iter, int selDepth, EVAL score, co
 #endif
 
     if (abs(score) >= (CHECKMATE_SCORE - MAX_PLY))
-        cout << " score mate" << ((score >= 0) ? " " : " -") << ((CHECKMATE_SCORE - abs(score)) / 2) + 1;
+        std::cout << " score mate" << ((score >= 0) ? " " : " -") << ((CHECKMATE_SCORE - abs(score)) / 2) + 1;
     else
-        cout << " score cp " << score;
+        std::cout << " score cp " << score;
 
-    cout << " time " << dt;
-    cout << " nodes " << sumNodes;
-    cout << " tbhits " << sumHits;
+    std::cout << " time " << dt;
+    std::cout << " nodes " << sumNodes;
+    std::cout << " tbhits " << sumHits;
 
     if (nps)
-        cout << " nps " << nps;
+        std::cout << " nps " << nps;
 
-    cout << " pv";
+    std::cout << " pv";
 
     if (pvSize > 0) {
         for (int i = 0; i < pvSize; ++i)
-            cout << " " << MoveToStrLong(pv[i]);
+            std::cout << " " << MoveToStrLong(pv[i]);
     }
     else
-        cout << " " << MoveToStrLong(mv);
+        std::cout << " " << MoveToStrLong(mv);
 
-    cout << endl;
+    std::cout << std::endl;
 }
 
 bool Search::ProbeHash(TEntry & hentry)
@@ -995,12 +991,12 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     auto printBestMove = [](Search * pthis, Position & pos, Move m, Move p) {
 
         if (m)
-            cout << "bestmove " << MoveToStrLong(m);
+            std::cout << "bestmove " << MoveToStrLong(m);
 
         if (p)
-            cout << " ponder " << MoveToStrLong(p);
+            std::cout << " ponder " << MoveToStrLong(p);
 
-        cout << endl;
+        std::cout << std::endl;
     };
 
     if (m_principalSearcher) {
@@ -1009,12 +1005,12 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         //  Check if game is over
         //
 
-        string result, comment;
+        std::string result, comment;
         int legalMoves = 0;
         Move onlyMove {};
         if (isGameOver(m_position, result, comment, onlyMove, legalMoves)) {
             waitUntilCompletion();
-            cout << result << " " << comment << endl << endl;
+            std::cout << result << " " << comment << std::endl << std::endl;
             printBestMove(this, m_position, onlyMove, ponder);
             return 0;
         }

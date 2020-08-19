@@ -21,7 +21,7 @@
 #define TEXEL_H
 
 #include "types.h"
-#include "eval.h"
+#include "evaluate.h"
 #include "position.h"
 
 #include <memory>
@@ -55,7 +55,7 @@ public:
 private:
     std::vector<TexelParam> readParams();
     double computeOptimalK(std::vector<TexelParam> & fens);
-    vector<int> localOptimize(double K, const vector<int>& initialGuess, std::vector<TexelParam>& fens, size_t epoch, size_t start, size_t len);
+    std::vector<int> localOptimize(double K, const std::vector<int>& initialGuess, std::vector<TexelParam>& fens, size_t epoch, size_t start, size_t len);
     double completeEvaluationError(std::vector<TexelParam>& fens, double K);
     void setTuneStartTime();
 

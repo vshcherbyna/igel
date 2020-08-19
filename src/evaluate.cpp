@@ -18,9 +18,20 @@
 *  along with Igel.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "eval.h"
+#include "evaluate.h"
+#include "position.h"
 #include "eval_params.h"
 #include "utils.h"
+
+#if defined(EVAL_NNUE)
+
+namespace Eval {
+
+    void init_NNUE() {
+    }
+}
+
+#endif
 
 Pair pieceSquareTables[14][64];
 
@@ -64,11 +75,13 @@ Pair rookKingDistance[10];
 Pair queenOn7thRank;
 Pair queenKingDistance[10];
 Pair rooksConnected;
+Pair RookOnQueenFile;
 Pair RookTrapped;
 Pair HangingPiece;
 Pair WeakPawn;
 Pair RestrictedPiece;
 Pair SafePawnThreat;
+Pair BishopAttackOnKingRing;
 
 int pKingDangerInit         = 0;
 int pKingDangerWeakSquares  = 0;
@@ -119,6 +132,9 @@ EVAL Evaluator::evaluate(Position & pos)
     int attackKing[2];
     PawnHashEntry* ps;
     U64 occ;
+#if defined(EVAL_NNUE)
+    EVAL nnueEval;
+#endif
 
     auto score = pos.Score();
 
@@ -128,6 +144,15 @@ EVAL Evaluator::evaluate(Position & pos)
 
     if (lazy_skip(300))
         goto calculate_score;
+
+#if defined(EVAL_NNUE)
+    nnueEval = static_cast<EVAL>(Eval::NNUE::evaluate(pos));
+
+    if (abs(nnueEval) < VAL_Q)
+        nnueEval = nnueEval * 2;
+
+    return nnueEval + Tempo;
+#endif
 
     memset(m_pieceAttacks,         0, sizeof(m_pieceAttacks));
     memset(m_pieceAttacks2,        0, sizeof(m_pieceAttacks2));
@@ -385,6 +410,7 @@ Pair Evaluator::evaluateBishop(Position & pos, COLOR side, U64 occ, U64 kingZone
             attackers[side]++;
             m_kingAttackers[side]++;
             m_kingAttackersWeight[side] += KingAttackerWeight[1];
+            score += BishopAttackOnKingRing;
         }
 
         m_lesserAttacksOnRooks[side] += countBits(y & pos.Bits(ROOK  | opp));
@@ -449,7 +475,10 @@ Pair Evaluator::evaluateRook(Position & pos, COLOR side, U64 occ, U64 kingZone[]
         m_majorAttacksOnMinors[side] += countBits(y & (pos.Bits(BISHOP | opp) | pos.Bits(KNIGHT | opp)));
 
         if (y & pos.Bits(ROOK | side))
-            score += rooksConnected;
+            score += rooksConnected;  // bonus for rook on the same file as another rook
+
+        if (y & pos.Bits(QUEEN | side))
+            score += RookOnQueenFile; // bonus for rook on the same file as queen
 
         mobility &= ~pos.BitsAll(); // exclude enemy/friendly occupied squares
         mobility &= ~(m_pieceAttacks[PAWN | opp] | m_pieceAttacks[KNIGHT | opp] | m_pieceAttacks[BISHOP | opp]); // exclude attacks by enemy pieces: pawns, knights and bishops
@@ -788,32 +817,32 @@ void Evaluator::showPsq(const char * stable, Pair* table, EVAL mid_w/* = 0*/, EV
     double sum_mid = 0, sum_end = 0;
     if (table != NULL)
     {
-        cout << endl << "Midgame: " << stable << endl << endl;
+        std::cout << std::endl << "Midgame: " << stable << std::endl << std::endl;
         for (FLD f = 0; f < 64; ++f)
         {
-            cout << setw(4) << (table[f].mid - mid_w);
+            std::cout << std::setw(4) << (table[f].mid - mid_w);
             sum_mid += table[f].mid;
 
             if (f < 63)
-                cout << ", ";
+                std::cout << ", ";
             if (Col(f) == 7)
-                cout << endl;
+                std::cout << std::endl;
         }
 
-        cout << endl << "Endgame: " << stable << endl << endl;
+        std::cout << std::endl << "Endgame: " << stable << std::endl << std::endl;
         for (FLD f = 0; f < 64; ++f)
         {
-            cout << setw(4) << (table[f].end - end_w);
+            std::cout << std::setw(4) << (table[f].end - end_w);
             sum_end += table[f].end;
 
             if (f < 63)
-                cout << ", ";
+                std::cout << ", ";
             if (Col(f) == 7)
-                cout << endl;
+                std::cout << std::endl;
         }
-        cout << endl;
-        cout << "avg_mid = " << sum_mid / 64. << ", avg_end = " << sum_end / 64. << endl;
-        cout << endl;
+        std::cout << std::endl;
+        std::cout << "avg_mid = " << sum_mid / 64. << ", avg_end = " << sum_end / 64. << std::endl;
+        std::cout << std::endl;
     }
 }
 
@@ -823,7 +852,7 @@ int refParam(int tag, int f)
     return ptr[f];
 }
 
-void Evaluator::initEval(const vector<int> & x)
+void Evaluator::initEval(const std::vector<int> & x)
 {
     evalWeights = x;
 
@@ -1033,6 +1062,8 @@ void Evaluator::initEval(const vector<int> & x)
     REFERENCE_PARAM(WeakPawn)
     REFERENCE_PARAM(RestrictedPiece)
     REFERENCE_PARAM(SafePawnThreat)
+    REFERENCE_PARAM(RookOnQueenFile)
+    REFERENCE_PARAM(BishopAttackOnKingRing)
 }
 
 void Evaluator::initEval()

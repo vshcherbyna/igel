@@ -27,14 +27,14 @@
     n.mid = refParam(Mid_##n, 0);\
     n.end = refParam(End_##n, 0);
 
-extern vector<int> evalWeights;
+extern std::vector<int> evalWeights;
 
 struct Line
 {
     Line() : name(""), start(0), len(0) {}
-    Line(const string& n, int l) : name(n), start(0), len(l) {}
+    Line(const std::string& n, int l) : name(n), start(0), len(l) {}
 
-    string name;
+    std::string name;
     int start;
     int len;
 };
@@ -160,6 +160,10 @@ enum Param
     End_RestrictedPiece,
     Mid_SafePawnThreat,
     End_SafePawnThreat,
+    Mid_RookOnQueenFile,
+    End_RookOnQueenFile,
+    Mid_BishopAttackOnKingRing,
+    End_BishopAttackOnKingRing,
     NUM_LINES
 };
 
@@ -167,8 +171,8 @@ extern Line lines[NUM_LINES];
 extern int NUM_PARAMS;
 
 void initParams();
-void setDefaultWeights(vector<int> & x);
-void writeParams(const vector<int>& x, const std::string& filename);
+void setDefaultWeights(std::vector<int> & x);
+void writeParams(const std::vector<int>& x, const std::string& filename);
 
 std::string ParamNumberToName(size_t n);
 

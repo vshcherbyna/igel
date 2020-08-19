@@ -328,19 +328,19 @@ void FindMagicLSB()
         if (f == 64)
             break;
         if ((N % 1000000) == 0)
-            cout << N / 1000000 << " M, best = " << best << "\r";
+            std::cout << N / 1000000 << " M, best = " << best << "\r";
         ++N;
     }
 
-    cout << N << " M, best = " << best << endl;
-    cout << "mult = 0x" << hex << mult << dec << endl << endl;
+    std::cout << N << " M, best = " << best << std::endl;
+    std::cout << "mult = 0x" << std::hex << mult << std::dec << std::endl << std::endl;
     for (f = 0; f < 64; ++f)
     {
-        cout << setw(2) << outputs[f] - 1;
+        std::cout << std::setw(2) << outputs[f] - 1;
         if (f < 63)
-            cout << ", ";
+            std::cout << ", ";
         if (Col(f) == 7)
-            cout << endl;
+            std::cout << std::endl;
     }
 }
 
@@ -353,15 +353,15 @@ void FindMaskB()
     }
 
     PrintArray(mask);
-    cout << endl;
+    std::cout << std::endl;
 
     for (FLD f = 0; f < 64; ++f)
     {
-        cout << setw(2) << setfill(' ') << countBits(mask[f]);
+        std::cout << std::setw(2) << std::setfill(' ') << countBits(mask[f]);
         if (f < 63)
-            cout << ", ";
+            std::cout << ", ";
         if (Col(f) == 7)
-            cout << endl;
+            std::cout << std::endl;
     }
 }
 
@@ -382,15 +382,15 @@ void FindMaskR()
     }
 
     PrintArray(mask);
-    cout << endl;
+    std::cout << std::endl;
 
     for (FLD f = 0; f < 64; ++f)
     {
-        cout << setw(2) << setfill(' ') << countBits(mask[f]);
+        std::cout << std::setw(2) << std::setfill(' ') << countBits(mask[f]);
         if (f < 63)
-            cout << ", ";
+            std::cout << ", ";
         if (Col(f) == 7)
-            cout << endl;
+            std::cout << std::endl;
     }
 }
 
@@ -403,7 +403,7 @@ U64 FindMultB(FLD f)
     U64 mult;
     int n;
 
-    vector<U64> inputs;
+    std::vector<U64> inputs;
     inputs.resize(N);
 
     for (n = 0; n < N; ++n)
@@ -413,7 +413,7 @@ U64 FindMultB(FLD f)
     {
         mult = Rand64(6);
 
-        vector<U8> outputs;
+        std::vector<U8> outputs;
         outputs.resize(N);
 
         for (n = 0; n < N; ++n)
@@ -451,7 +451,7 @@ U64 FindMultR(FLD f)
     U64 mult;
     int n;
 
-    vector<U64> inputs;
+    std::vector<U64> inputs;
     inputs.resize(N);
 
     for (n = 0; n < N; ++n)
@@ -461,7 +461,7 @@ U64 FindMultR(FLD f)
     {
         mult = Rand64(7);
 
-        vector<U8> outputs;
+        std::vector<U8> outputs;
         outputs.resize(N);
 
         for (n = 0; n < N; ++n)
@@ -494,11 +494,11 @@ void FindShiftB()
 {
     for (FLD f = 0; f < 64; ++f)
     {
-        cout << setw(2) << 64 - B_BITS[f];
+        std::cout << std::setw(2) << 64 - B_BITS[f];
         if (f < 63)
-            cout << ", ";
+            std::cout << ", ";
         if (Col(f) == 7)
-            cout << endl;
+            std::cout << std::endl;
     }
 }
 
@@ -506,11 +506,11 @@ void FindShiftR()
 {
     for (FLD f = 0; f < 64; ++f)
     {
-        cout << setw(2) << 64 - R_BITS[f];
+        std::cout << std::setw(2) << 64 - R_BITS[f];
         if (f < 63)
-            cout << ", ";
+            std::cout << ", ";
         if (Col(f) == 7)
-            cout << endl;
+            std::cout << std::endl;
     }
 }
 
@@ -701,36 +701,36 @@ void InitBitboards()
 
 void Print(U64 b)
 {
-    cout << endl;
+    std::cout << std::endl;
     for (FLD f = 0; f < 64; ++f)
     {
         if (b & BB_SINGLE[f])
-            cout << " 1";
+            std::cout << " 1";
         else
-            cout << " -";
+            std::cout << " -";
         if (Col(f) == 7)
-            cout << endl;
+            std::cout << std::endl;
     }
-    cout << endl;
+    std::cout << std::endl;
 }
 
 void PrintArray(const U64* arr)
 {
-    cout << endl;
+    std::cout << std::endl;
     for (FLD f = 0; f < 64; ++f)
     {
         PrintHex(arr[f]);
         if (f < 63)
-            cout << ", ";
+            std::cout << ", ";
         if ((f % 4) == 3)
-            cout << endl;
+            std::cout << std::endl;
     }
-    cout << endl;
+    std::cout << std::endl;
 }
 
 void PrintHex(U64 b)
 {
-    cout << "LL(0x" << setw(16) << setfill('0') << hex << b << dec << ")";
+    std::cout << "LL(0x" << std::setw(16) << std::setfill('0') << std::hex << b << std::dec << ")";
 }
 
 U64 QueenAttacks(FLD f, U64 occ)
@@ -804,14 +804,14 @@ void TestMagic()
                 Print(occ);
                 Print(att1);
                 Print(att2);
-                cout << "ERROR - Test failed" << endl;
+                std::cout << "ERROR - Test failed" << std::endl;
                 return;
             }
             if (i % 1000 == 0)
-                cout << i / 1000 << "...\r";
+                std::cout << i / 1000 << "...\r";
         }
     }
     U32 t1 = GetProcTime();
-    cout << "OK - Test passed in " << (t1 - t0) / 1000. << " sec." << endl;
+    std::cout << "OK - Test passed in " << (t1 - t0) / 1000. << " sec." << std::endl;
 }
 
