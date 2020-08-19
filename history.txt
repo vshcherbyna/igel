@@ -3,6 +3,13 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2020 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 2.7.0
+-------------
+19-Aug-2020
+
+- Switch to NNUE as a main evaluation function
+- Use Dietrich Kappe's Night Nurse NNUE net as a default net for Igel 2.7.0 release
+
 Igel 2.6.0
 -------------
 01-Aug-2020

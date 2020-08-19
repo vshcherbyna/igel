@@ -19,7 +19,7 @@
 
 #include "../moves.h"
 #include "../position.h"
-#include "../eval.h"
+#include "../evaluate.h"
 #include "../utils.h"
 #include <gtest/gtest.h>
 

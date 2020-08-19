@@ -24,13 +24,13 @@
 #include "types.h"
 
 U32    GetProcTime();
-bool   Is(const string& cmd, const string& pattern, size_t minLen);
+bool   Is(const std::string& cmd, const std::string& pattern, size_t minLen);
 U32    Rand32();
 U64    Rand64();
 U64    Rand64(int bits);
 double RandDouble();
 void   RandSeed(U64 seed);
-void   Split(const string& s, vector<string>& tokens, const string& sep = " ");
+void   Split(const std::string& s, std::vector<std::string>& tokens, const std::string& sep = " ");
 void   prefetch(void * addr);
 
 #endif

@@ -117,3 +117,7 @@
 "End_RestrictedPiece 1",
 "Mid_SafePawnThreat 5",
 "End_SafePawnThreat 5",
+"Mid_RookOnQueenFile 5",
+"End_RookOnQueenFile 15",
+"Mid_BishopAttackOnKingRing 5",
+"End_BishopAttackOnKingRing 1",

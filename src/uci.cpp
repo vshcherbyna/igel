@@ -21,7 +21,7 @@
 #include "time.h"
 #include "notation.h"
 #include "texel.h"
-#include "eval.h"
+#include "evaluate.h"
 #include "utils.h"
 
 #if defined (SYZYGY_SUPPORT)
@@ -31,7 +31,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "2.6.0";
+const std::string VERSION = "2.7.0"; //"2.7-dev-2";
 
 #if defined(ENV64BIT)
     #if defined(_BTYPE)
@@ -65,7 +65,7 @@ int Uci::handleCommands()
     std::cout << "Igel " << VERSION << ARCHITECTURE << " by V. Medvedev, V. Shcherbyna" << std::endl;
 
     if (!TTable::instance().setHashSize(DEFAULT_HASH_SIZE, DEFAULT_THREADS)) {
-        cout << "Fatal error: unable to allocate memory for transposition table" << endl;
+        std::cout << "Fatal error: unable to allocate memory for transposition table" << std::endl;
         return 1;
     }
 
@@ -98,7 +98,7 @@ int Uci::handleCommands()
         else if (startsWith(cmd, "bench"))
             onBench();
         else {
-            cout << "Unknown command. Good bye." << endl;
+            std::cout << "Unknown command. Good bye." << std::endl;
             exit(0);
         }
     }
@@ -130,13 +130,17 @@ void Uci::onUci()
         " max "         << MAX_PLY  << std::endl;
 #endif
 
-    cout << "option name Ponder type check" <<
-        " default false" << endl;
+    std::cout << "option name Ponder type check" <<
+        " default false" << std::endl;
 
     std::cout << "option name Skill Level type spin" <<
         " default " << DEFAULT_LEVEL <<
         " min "		<< MIN_LEVEL	<<
         " max "		<< MAX_LEVEL << std::endl;
+
+#if defined(EVAL_NNUE)
+    std::cout << "option name EvalFile type string default ./eval/nn.bin" << std::endl;
+#endif
 
     std::cout << "uciok" << std::endl;
 }
@@ -234,7 +238,7 @@ int Uci::onBench()
 void Uci::onPosition(commandParams params)
 {
     if (params.size() < 2) {
-        std::cout << "Fatal error: invalid parameters for position command" << endl;
+        std::cout << "Fatal error: invalid parameters for position command" << std::endl;
         return;
     }
 
@@ -242,7 +246,7 @@ void Uci::onPosition(commandParams params)
     size_t movesTag = 0;
 
     if (params[1] == "fen") {
-        string fen = "";
+        std::string fen = "";
         for (size_t i = 2; i < params.size(); ++i) {
             if (params[i] == "moves")
             {
@@ -315,6 +319,16 @@ void Uci::onSetOption(commandParams params)
         tb_init(value.c_str());
     else if (name == "SyzygyProbeDepth")
         m_searcher.setSyzygyDepth(atoi(value.c_str()));
+#if defined(EVAL_NNUE)
+    else if (name == "EvalFile") {
+        if (!Eval::NNUE::load_eval_file(value)) {
+            std::cout << "Unable to set EvalFile. Aborting" << std::endl;
+            abort();
+        }
+        else
+            std::cout << "Using EvalFile " << value << std::endl;
+#endif
+    }
 #endif
     else if (name == "Ponder")
         ; // nothing to do, we are stateless here

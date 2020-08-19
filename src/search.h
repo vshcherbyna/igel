@@ -21,7 +21,7 @@
 #ifndef SEARCH_H
 #define SEARCH_H
 
-#include "eval.h"
+#include "evaluate.h"
 #include "position.h"
 #include "time.h"
 #include "tt.h"
@@ -68,7 +68,6 @@ public:
     void clearHistory();
     void clearKillers();
     void clearStacks();
-    void setPosition(Position & pos);
     void setTime(Time time) {m_time = time;}
     void setThreadCount(unsigned int threads);
     unsigned int getThreadsCount();
@@ -94,7 +93,7 @@ private:
     EVAL qSearch(EVAL alpha, EVAL beta, int ply, int depth);
     int extensionRequired(Move mv, Move lastMove, bool inCheck, int ply, bool onPV, size_t quietMoves, int cmhistory, int fmhistory);
     bool ProbeHash(TEntry & hentry);
-    bool isGameOver(Position & pos, string & result, string & comment, Move & bestMove, int & legalMoves);
+    bool isGameOver(Position & pos, std::string & result, std::string & comment, Move & bestMove, int & legalMoves);
     void printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv, uint64_t sumNodes, uint64_t sumHits, uint64_t nps);
     bool isDraw();
 

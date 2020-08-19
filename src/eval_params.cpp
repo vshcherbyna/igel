@@ -27,7 +27,7 @@ static const char* weightsFile[] = {
     ""
 };
 
-vector<int> evalWeights;
+std::vector<int> evalWeights;
 int NUM_PARAMS = 0;
 
 Line lines[NUM_LINES] =
@@ -150,7 +150,11 @@ Line lines[NUM_LINES] =
     Line("Mid_RestrictedPiece", 1),
     Line("End_RestrictedPiece", 1),
     Line("Mid_SafePawnThreat", 1),
-    Line("End_SafePawnThreat", 1)
+    Line("End_SafePawnThreat", 1),
+    Line("Mid_RookOnQueenFile", 1),
+    Line("End_RookOnQueenFile", 1),
+    Line("Mid_BishopAttackOnKingRing", 1),
+    Line("End_BishopAttackOnKingRing", 1)
 };
 
 void initParams()
@@ -161,13 +165,13 @@ void initParams()
     NUM_PARAMS = lines[NUM_LINES - 1].start + lines[NUM_LINES - 1].len;
 }
 
-void setDefaultWeights(vector<int>& x)
+void setDefaultWeights(std::vector<int>& x)
 {
     x.resize(NUM_PARAMS);
 
     for (auto w = 0; strcmp(weightsFile[w], ""); w++) {
-        vector<string> tokens;
-        string s = weightsFile[w];
+        std::vector<std::string> tokens;
+        std::string s = weightsFile[w];
         Split(s, tokens, " ");
         if (tokens.size() < 2)
             continue;
@@ -182,9 +186,9 @@ void setDefaultWeights(vector<int>& x)
     }
 }
 
-void writeParams(const vector<int>& x, const std::string& filename)
+void writeParams(const std::vector<int>& x, const std::string& filename)
 {
-    ofstream ofs(filename.c_str());
+    std::ofstream ofs(filename.c_str());
 
     if (!ofs.good())
         return;
@@ -194,13 +198,13 @@ void writeParams(const vector<int>& x, const std::string& filename)
         ofs << "\"" << line.name;
         for (int j = line.start; j < line.start + line.len; ++j)
             ofs << " " << x[j];
-        ofs << "\"," << endl;
+        ofs << "\"," << std::endl;
     }
 }
 
 std::string ParamNumberToName(size_t n)
 {
-    stringstream ss;
+    std::stringstream ss;
     ss << "Param_" << n;
     return ss.str();
 }

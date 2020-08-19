@@ -23,11 +23,11 @@
 
 #include "moves.h"
 
-bool   CanBeMove(const string& s);
-string FldToStr(FLD f);
-string MoveToStrLong(Move mv);
-string MoveToStrShort(Move mv, Position& pos, const MoveList& mvlist);
-FLD    StrToFld(const string& s);
-Move   StrToMove(const string& s, Position& pos);
+bool   CanBeMove(const std::string& s);
+std::string FldToStr(FLD f);
+std::string MoveToStrLong(Move mv);
+std::string MoveToStrShort(Move mv, Position& pos, const MoveList& mvlist);
+FLD    StrToFld(const std::string& s);
+Move   StrToMove(const std::string& s, Position& pos);
 
 #endif
