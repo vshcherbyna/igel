@@ -20,3 +20,5 @@ I would like to thank the authors and the community involved in the creation of 
 * [Stockfish](https://github.com/official-stockfish/Stockfish/)
 * [Fathom](https://github.com/jdart1/Fathom/)
 * [Syzygy](https://github.com/syzygy1/tb)
+* Yu Nasu for creating NNUE and Hisayori Noda and others for integrating it in Stockfish
+* Dietrich Kappe for creating NiNu network and allowing it to use in Igel 2.7.0
