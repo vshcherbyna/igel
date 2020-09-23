@@ -31,7 +31,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "2.7.0"; //"2.7-dev-2";
+const std::string VERSION = "2.8.0";//"2.8-dev-3";
 
 #if defined(ENV64BIT)
     #if defined(_BTYPE)
@@ -95,8 +95,6 @@ int Uci::handleCommands()
             onTune();
         else if (startsWith(cmd, "eval"))
             onEval();
-        else if (startsWith(cmd, "bench"))
-            onBench();
         else {
             std::cout << "Unknown command. Good bye." << std::endl;
             exit(0);
@@ -196,11 +194,25 @@ static const char* benchmarkPositions[] = {
     ""
 };
 
-int Uci::onBench()
+int Uci::onBench(const char * nnue)
 {
     std::cout << "Running benchmark" << std::endl;
 
-    auto& time = Time::instance();
+#if defined(EVAL_NNUE)
+    std::string fileNNUE = nnue;
+    std::string format = "option.EvalFile=";
+    auto pos = fileNNUE.find(format);
+
+    if (pos != std::string::npos)
+        fileNNUE.erase(pos, format.length());
+
+    if (!Eval::NNUE::load_eval_file(fileNNUE)) {
+        std::cout << "Unable to set EvalFile. Aborting. Raw value: " << nnue << std::endl;
+        abort();
+    }
+#endif
+
+    auto & time = Time::instance();
 
     if (!TTable::instance().setHashSize(16, 1)) {
         std::cout << "Fatal error: unable to allocate 16 Mb for transposition table" << std::endl;
@@ -319,6 +331,7 @@ void Uci::onSetOption(commandParams params)
         tb_init(value.c_str());
     else if (name == "SyzygyProbeDepth")
         m_searcher.setSyzygyDepth(atoi(value.c_str()));
+#endif
 #if defined(EVAL_NNUE)
     else if (name == "EvalFile") {
         if (!Eval::NNUE::load_eval_file(value)) {
@@ -327,7 +340,6 @@ void Uci::onSetOption(commandParams params)
         }
         else
             std::cout << "Using EvalFile " << value << std::endl;
-#endif
     }
 #endif
     else if (name == "Ponder")

@@ -131,7 +131,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     //
 
     if (depth <= 0 && m_level > MEDIUM_LEVEL)
-        return qSearch(alpha, beta, ply, 0);
+        return qSearch(alpha, beta, ply, 0, isNull);
 
     TTable::instance().prefetchEntry(m_position.Hash());
 
@@ -519,7 +519,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     return bestScore;
 }
 
-EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth)
+EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = false*/)
 {
     ++m_nodes;
     m_pvSize[ply]   = 0;
@@ -567,7 +567,7 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth)
     }
     else
     {
-        bestScore = m_evaluator->evaluate(m_position);
+        bestScore = (isNull ? -m_evalStack[ply - 1] + 2 * Evaluator::Tempo : m_evaluator->evaluate(m_position));
 
         if (ttHit) {
             if ((hEntry.m_data.type == HASH_BETA && ttScore > bestScore)  ||
@@ -756,11 +756,6 @@ void Search::printPV(const Position& pos, int iter, int selDepth, EVAL score, co
     auto dt = GetProcTime() - m_t0;
 
     std::cout << "info depth " << iter << " seldepth " << selDepth;
-
-#if defined (OB_ADJUDICATION_OFF)
-    // disable adjudication in OpenBench as Igel still has little endgame knowledge
-    score = score > 0 ? std::max(25, std::min(200, score)) : std::max(-200, std::min(-25, score));
-#endif
 
     if (abs(score) >= (CHECKMATE_SCORE - MAX_PLY))
         std::cout << " score mate" << ((score >= 0) ? " " : " -") << ((CHECKMATE_SCORE - abs(score)) / 2) + 1;

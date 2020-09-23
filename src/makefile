@@ -1,22 +1,35 @@
 #
-# This make file is solely designed to compile Igel for OpenBench
+# This makefile is solely designed to compile Igel for OpenBench
 # Official build method for Igel still requires cmake
 #
 
+CC  = g++
 EXE = igel
-SRC = *.cpp
+SRC = *.cpp nnue/*.cpp nnue/features/*.cpp
 
-# Defines (0 stands for POPCNT, 1 stands for BMI2)
-# BMI2 is disabled for OpenBench testing as most machines used are AMD
+GCCDEFINES = $(shell echo | $(CC) -m64 -march=native -E -dM -)
 
-POPC = -D_BTYPE=0
-
-# Flags
-LIBS   = -pthread
+LIBS   = -std=c++17 -mpopcnt -pthread
 WARN   = -Wall
 OPTIM  = -O3 -march=native -flto
+DEFS   = -DNDEBUG -DEVAL_NNUE=1 -D_BTYPE=0
 
-CFLAGS = $(WARN) $(LIBS) $(OPTIM) 
+ifneq ($(findstring __SSE4_1__, $(GCCDEFINES)),)
+    LIBS += -msse -msse2 -msse3 -msse4.1
+    DEFS += -DUSE_SSE2=1 -DUSE_SSSE3=1 -DUSE_SSE41=1
+endif
+
+ifneq ($(findstring __AVX2__, $(GCCDEFINES)),)
+    LIBS += -mavx2
+    DEFS += -DUSE_AVX2=1
+endif
+
+ifneq ($(findstring __AVX512__, $(GCCDEFINES)),)
+    LIBS += -mavx512bw
+    DEFS += -DUSE_AVX512=1
+endif
+
+CFLAGS = $(WARN) $(LIBS) $(OPTIM)
 
 basic:
-	g++ $(CFLAGS) $(SRC) $(POPC) -DOB_ADJUDICATION_OFF=1 -DNDEBUG -o $(EXE)
+	$(CC) $(CFLAGS) $(SRC) $(DEFS) -o $(EXE)

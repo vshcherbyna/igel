@@ -142,7 +142,7 @@ EVAL Evaluator::evaluate(Position & pos)
         return abs(score.mid + score.end) / 2 > threshold + pos.nonPawnMaterial() / 64;
     };
 
-    if (lazy_skip(300))
+    if (lazy_skip(250))
         goto calculate_score;
 
 #if defined(EVAL_NNUE)
