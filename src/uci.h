@@ -54,7 +54,7 @@ public:
 
 public:
     int handleCommands();
-    int onBench();
+    int onBench(const char * nnue);
     static commandParams split(const std::string & s, const std::string & sep = " ");
 
 private:

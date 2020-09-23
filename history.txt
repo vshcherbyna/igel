@@ -3,6 +3,15 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2020 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 2.8.0
+-------------
+23-Sep-2020
+
+- Fix null move prunning bug (54 elo)
+- Use 250cp as lazy eval threshould
+- Improve time management for sudden death time controls
+- Use Dietrich Kappe's Night Nurse improved net (internal version ninu-0.2.5b.nnue)
+
 Igel 2.7.0
 -------------
 19-Aug-2020

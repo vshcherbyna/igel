@@ -90,7 +90,7 @@ private:
     Move tableBaseRootSearch();
 #endif
     EVAL abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool rootNode, Move skipMove = 0);
-    EVAL qSearch(EVAL alpha, EVAL beta, int ply, int depth);
+    EVAL qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull = false);
     int extensionRequired(Move mv, Move lastMove, bool inCheck, int ply, bool onPV, size_t quietMoves, int cmhistory, int fmhistory);
     bool ProbeHash(TEntry & hentry);
     bool isGameOver(Position & pos, std::string & result, std::string & comment, Move & bestMove, int & legalMoves);
