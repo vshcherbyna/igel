@@ -22,6 +22,30 @@ By mid 2020 Igel 2.5.0 64-bit 4CPU reached 3245 elo in CCRL Blitz on 4CPU and en
 
 In June 2020 Igel was invited by Andrew Grant to participate in OpenBench testing framework and this has further accelerated the strength improvement of the engine. In August 2020 Igel switched to NNUE as a main evaluation function using Dietrich Kappe's NiNu network file and is currently approaching the top ten strongest chess engines on CCRL list.
 
+In October 2020 first Igel Generation Networks were introduced seeing participation of Igel in TCEC Cup7.
+
+### Igel Generation Networks (IGN)
+
+In late 2020 there have been a lot of discussions in the chess community about NNUE techology in general and NNUE networks in particular raising important questions about authenticity of networks. 
+
+I have decided to dedicate time and resources to create my own class of networks that will be used for future Igel releases: Igel Generation Network (IGN).
+
+The IGN networks comply with the following mandatory requirements:
+
+1. Source of network data: evaluation, search, pv line is generated solely using Igel chess engine. As a starting point Igel 2.6.0 is choosen as this was the last version of Igel featuring HCE (Hand Crafted Evaluation)
+
+2. Both data and validation data generation must be following the rule #1
+
+3. Two versions of Igel: 2.7.0 and 2.8.0 are excluded from network training/data generation process (both for data and for validation data) because they use Dietrich Kappe's Night Nurse network as thus violate the rule #1
+
+4. Data generation and network training must be done by myself on my own (or rented by me) hardware in order to make sure the rule #1 is not violated
+
+5. Each generation of network must contain information (on github page) on training parameters for clarity of the source of data
+
+6. Complete source data of network may be given to tournament organizers for validation purposes and it must be possible for external parties to train the network from scratch using the provided data to the same strength as submitted network (margin of +-10 elo)
+
+First versions of IGN will participate in TCEC Cup7 and will be released with Igel 2.9.0 in Q4 2020.
+
 ### Acknowledgements
 
 I would like to thank the authors and the community involved in the creation of the open source projects listed below. Their work influences development of Igel, and without them, this project wouldn't exist. Special thanks to Andrew Grant and Bojun Guo for supporting Igel development on OpenBench.
@@ -34,8 +58,9 @@ I would like to thank the authors and the community involved in the creation of 
 * [Stockfish](https://github.com/official-stockfish/Stockfish/)
 * [Fathom](https://github.com/jdart1/Fathom/)
 * [Syzygy](https://github.com/syzygy1/tb)
+* [Dietrich Kappe](https://www.patreon.com/badgyal) for creating Night Nurse network and allowing it to use in Igel 2.7.0 and 2.8.0 releases
+* [Dietrich Kappe](https://www.patreon.com/badgyal) for sharing his knowledge/tooling for NNUE networks training
 * Yu Nasu for creating NNUE and Hisayori Noda and others for integrating it in Stockfish
-* Dietrich Kappe for creating NiNu network and allowing it to use in Igel releases
 
 ### Compiling
 
@@ -50,3 +75,9 @@ In case you don't have Visual Studio or CMake you can compile using gcc as well:
 ```
 g++ -Wall -pthread -O3 -DEVAL_NNUE=1 -DUSE_AVX2=1 -DSYZYGY_SUPPORT=TRUE -march=native -flto *.cpp fathom/tbprobe.c nnue/*.cpp nnue/features/*.cpp -D_BTYPE=1 -DNDEBUG -o igel
 ```
+
+### Donation
+
+Consider supporting Igel development on [Patreon](https://www.patreon.com/igel).
+
+Igel is a hobby project, but it takes time and money to develop chess engine and train networks. A typical data generation session takes around 1 month of time for 500 million depth 12 data set and I am currently renting expensive dedicated Xeon hardware to make this happen.

@@ -147,10 +147,6 @@ EVAL Evaluator::evaluate(Position & pos)
 
 #if defined(EVAL_NNUE)
     nnueEval = static_cast<EVAL>(Eval::NNUE::evaluate(pos));
-
-    if (abs(nnueEval) < VAL_Q)
-        nnueEval = nnueEval * 2;
-
     return nnueEval + Tempo;
 #endif
 
