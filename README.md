@@ -46,6 +46,14 @@ The IGN networks comply with the following mandatory requirements:
 
 First versions of IGN will participate in TCEC Cup7 and will be released with Igel 2.9.0 in Q4 2020.
 
+**Technical details**
+
+###### IGN-0
+
+Source data: 1 billion of depth 8 search/eval data from Igel 2.6.0 (HCE)
+
+Validation data: 1 million of depth 12 search/eval data from Igel 2.6.0 (HCE)
+
 ### Acknowledgements
 
 I would like to thank the authors and the community involved in the creation of the open source projects listed below. Their work influences development of Igel, and without them, this project wouldn't exist. Special thanks to Andrew Grant and Bojun Guo for supporting Igel development on OpenBench.
