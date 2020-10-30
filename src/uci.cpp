@@ -31,7 +31,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "2.9-dev-0";
+const std::string VERSION = "2.9-dev-1";
 
 #if defined(ENV64BIT)
     #if defined(_BTYPE)
@@ -95,10 +95,6 @@ int Uci::handleCommands()
             onTune();
         else if (startsWith(cmd, "eval"))
             onEval();
-        else {
-            std::cout << "Unknown command. Good bye." << std::endl;
-            exit(0);
-        }
     }
 
     return 0;
