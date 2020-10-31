@@ -50,9 +50,21 @@ First versions of IGN will participate in TCEC Cup7 and will be released with Ig
 
 ###### IGN-0
 
-Source data: 1 billion of depth 8 search/eval data from Igel 2.6.0 (HCE)
+Training mode: two iterations
 
-Validation data: 1 million of depth 12 search/eval data from Igel 2.6.0 (HCE)
+Training data:
+
+Iteration 1:
+
+Search/Eval data: 1 billion of depth 8 search/eval data from Igel 2.6.0 (HCE)
+
+Validation data: 1 million of depth 10 search/eval data from Igel 2.6.0 (HCE)
+
+Iteration 2:
+
+Search/Eval data: 405 millions of depth 12 search/eval data from Igel 2.6.0 (HCE)
+
+Validation data: 1 million of depth 14 search/eval data from Igel 2.6.0 (HCE)
 
 ### Acknowledgements
 
