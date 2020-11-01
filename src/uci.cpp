@@ -31,7 +31,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "2.9-dev-1";
+const std::string VERSION = "2.9-dev-2";
 
 #if defined(ENV64BIT)
     #if defined(_BTYPE)
@@ -95,6 +95,10 @@ int Uci::handleCommands()
             onTune();
         else if (startsWith(cmd, "eval"))
             onEval();
+        else {
+            std::cout << "Unknown command. Good bye." << std::endl;
+            exit(0); // important to exit when stdin is gone to prevent issues in OpenBench
+        }
     }
 
     return 0;
