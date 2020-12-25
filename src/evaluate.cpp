@@ -133,7 +133,9 @@ EVAL Evaluator::evaluate(Position & pos)
     PawnHashEntry* ps;
     U64 occ;
 #if defined(EVAL_NNUE)
-    EVAL nnueEval;
+    EVAL nnueEval,
+         pawns,
+         material;
 #endif
 
     auto score = pos.Score();
@@ -147,7 +149,9 @@ EVAL Evaluator::evaluate(Position & pos)
 
 #if defined(EVAL_NNUE)
     nnueEval = static_cast<EVAL>(Eval::NNUE::evaluate(pos));
-    return nnueEval + Tempo;
+    pawns    = pos.Count(PAWN | WHITE) + pos.Count(PAWN | BLACK);
+    material = pos.nonPawnMaterial() + (pawns * VAL_P);
+    return nnueEval * (600 + material / 32) / 1024 + Tempo;
 #endif
 
     memset(m_pieceAttacks,         0, sizeof(m_pieceAttacks));
