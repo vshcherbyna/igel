@@ -1,6 +1,6 @@
 ### Overview
 
-![Logo](http://shcherbyna.com/files/igel.bmp)
+![Logo](https://raw.githubusercontent.com/vshcherbyna/igel/master/igel.bmp)
 
 [![Build Status](https://api.travis-ci.org/vshcherbyna/igel.svg?branch=master)](https://travis-ci.org/vshcherbyna/igel)
 [![Build Status](https://ci.appveyor.com/api/projects/status/github/vshcherbyna/igel?svg=true)](https://ci.appveyor.com/project/vshcherbyna/igel)
@@ -22,7 +22,7 @@ By mid 2020 Igel 2.5.0 64-bit 4CPU reached 3245 elo in CCRL Blitz on 4CPU and en
 
 In June 2020 Igel was invited by Andrew Grant to participate in OpenBench testing framework and this has further accelerated the strength improvement of the engine. In August 2020 Igel switched to NNUE as a main evaluation function using Dietrich Kappe's NiNu network file and is currently approaching the top ten strongest chess engines on CCRL list.
 
-In October 2020 first Igel Generation Networks were introduced seeing participation of Igel in TCEC Cup7.
+In October 2020 first Igel Generation Networks were introduced seeing participation of Igel in TCEC Cup7 and TCEC Season 20 and released later with Igel 2.9.0.
 
 ### Igel Generation Networks (IGN)
 
@@ -44,11 +44,11 @@ The IGN networks comply with the following mandatory requirements:
 
 6. Complete source data of network may be given to tournament organizers for validation purposes and it must be possible for external parties to train the network from scratch using the provided data to the same strength as submitted network (margin of +-10 elo)
 
-First versions of IGN will participate in TCEC Cup7 and will be released with Igel 2.9.0 in Q4 2020.
-
 **Technical details**
 
 ###### IGN-0
+
+Architecture: halfkp_256x2-32-32
 
 Training mode: two iterations
 
@@ -56,13 +56,13 @@ Training data:
 
 Iteration 1:
 
-Search/Eval data: 1 billion of depth 8 search/eval data from Igel 2.6.0 (HCE)
+Search/Eval data: 2.3 billion of depth 8 search/eval data from Igel 2.6.0 (HCE)
 
 Validation data: 1 million of depth 10 search/eval data from Igel 2.6.0 (HCE)
 
 Iteration 2:
 
-Search/Eval data: 405 millions of depth 12 search/eval data from Igel 2.6.0 (HCE)
+Search/Eval data: 500 millions of depth 12 search/eval data from Igel 2.6.0 (HCE)
 
 Validation data: 1 million of depth 14 search/eval data from Igel 2.6.0 (HCE)
 
@@ -100,4 +100,4 @@ g++ -Wall -pthread -O3 -DEVAL_NNUE=1 -DUSE_AVX2=1 -DSYZYGY_SUPPORT=TRUE -march=n
 
 Consider supporting Igel development on [Patreon](https://www.patreon.com/igel).
 
-Igel is a hobby project, but it takes time and money to develop chess engine and train networks. A typical data generation session takes around 1 month of time for 500 million depth 12 data set and I am currently renting expensive dedicated Xeon hardware to make this happen.
+Igel is a hobby project, but it takes time and money to develop chess engine and train networks. A typical data generation session takes around 1 month of time for 3 billion depth 12 data set and I am currently renting expensive dedicated AMD EPYC hardware to make this happen.

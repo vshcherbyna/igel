@@ -3,6 +3,13 @@ Igel chess engine
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
 (c) 2018-2020 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 
+Igel 2.9.0
+-------------
+25-Dec-2020
+
+- Switch to own network based on Igel search and evaluation (ign-0-9b1937cc)
+- NNUE dynamic eval scaling
+
 Igel 2.8.0
 -------------
 23-Sep-2020
