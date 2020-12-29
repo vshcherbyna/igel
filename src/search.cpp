@@ -428,14 +428,14 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                 quietMoves.emplace_back(mv);
             }
 
-            m_moveStack[ply] = mv;
+            m_moveStack[ply]  = mv;
             m_pieceStack[ply] = mv.Piece();
 
             //
             //   extensions
             //
 
-            newDepth += extensionRequired(mv, lastMove, inCheck, ply, onPV, quietMoves.size(), history.cmhistory, history.fmhistory);
+            newDepth += extensionRequired(mv, lastMove, m_position.InCheck(), ply, onPV, quietMoves.size(), history.cmhistory, history.fmhistory);
 
             EVAL e;
             if (legalMoves == 1)
