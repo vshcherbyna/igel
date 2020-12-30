@@ -31,7 +31,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "2.9.0"; //"2.9-dev-3";
+const std::string VERSION = "3.0-dev-0";
 
 #if defined(ENV64BIT)
     #if defined(_BTYPE)
