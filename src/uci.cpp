@@ -31,7 +31,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "3.0-dev-0";
+const std::string VERSION = "3.0-dev-1";
 
 #if defined(ENV64BIT)
     #if defined(_BTYPE)
@@ -136,10 +136,6 @@ void Uci::onUci()
         " min "		<< MIN_LEVEL	<<
         " max "		<< MAX_LEVEL << std::endl;
 
-#if defined(EVAL_NNUE)
-    std::cout << "option name EvalFile type string default ./eval/nn.bin" << std::endl;
-#endif
-
     std::cout << "uciok" << std::endl;
 }
 
@@ -194,23 +190,9 @@ static const char* benchmarkPositions[] = {
     ""
 };
 
-int Uci::onBench(const char * nnue)
+int Uci::onBench()
 {
     std::cout << "Running benchmark" << std::endl;
-
-#if defined(EVAL_NNUE)
-    std::string fileNNUE = nnue;
-    std::string format = "option.EvalFile=";
-    auto pos = fileNNUE.find(format);
-
-    if (pos != std::string::npos)
-        fileNNUE.erase(pos, format.length());
-
-    if (!Eval::NNUE::load_eval_file(fileNNUE)) {
-        std::cout << "Unable to set EvalFile. Aborting. Raw value: " << nnue << std::endl;
-        abort();
-    }
-#endif
 
     auto & time = Time::instance();
 
@@ -331,16 +313,6 @@ void Uci::onSetOption(commandParams params)
         tb_init(value.c_str());
     else if (name == "SyzygyProbeDepth")
         m_searcher.setSyzygyDepth(atoi(value.c_str()));
-#endif
-#if defined(EVAL_NNUE)
-    else if (name == "EvalFile") {
-        if (!Eval::NNUE::load_eval_file(value)) {
-            std::cout << "Unable to set EvalFile. Aborting" << std::endl;
-            abort();
-        }
-        else
-            std::cout << "Using EvalFile " << value << std::endl;
-    }
 #endif
     else if (name == "Ponder")
         ; // nothing to do, we are stateless here
