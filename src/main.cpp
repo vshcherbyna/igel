@@ -21,6 +21,21 @@
 #include "evaluate.h"
 #include "uci.h"
 
+#if defined(EVAL_NNUE)
+#include "incbin/incbin.h"
+
+#if !defined(_MSC_VER)
+INCBIN(EmbeddedNNUE, EVALFILE);
+#else
+const unsigned char        gEmbeddedNNUEData[1] = { 0x0 };
+const unsigned char* const gEmbeddedNNUEEnd = &gEmbeddedNNUEData[1];
+const unsigned int         gEmbeddedNNUESize = 1;
+#endif // _MSC_VER
+
+#include <streambuf>
+using namespace std;
+#endif
+
 #if !defined(UNIT_TEST)
 int main(int argc, const char* argv[])
 {
@@ -33,8 +48,32 @@ int main(int argc, const char* argv[])
     Evaluator::initEval();
 
 #if defined(EVAL_NNUE)
+
+    //
+    //  initialize nnue
+    //
+
     Eval::init_NNUE();
-#endif
+
+    //
+    //  load network file from resources
+    //
+
+    class MemoryBuffer : public basic_streambuf<char> {
+    public: MemoryBuffer(char* p, size_t n) { setg(p, p, p + n); setp(p, p + n); }
+    };
+
+    MemoryBuffer buffer(const_cast<char*>(reinterpret_cast<const char*>(gEmbeddedNNUEData)),
+        size_t(gEmbeddedNNUESize));
+
+    istream stream(&buffer);
+
+    if (!Eval::NNUE::load_eval(EVALFILE, stream)) {
+        std::cout << "Unable to set EvalFile. Aborting" << std::endl;
+        abort();
+    }
+
+#endif // EVAL_NNUE
 
     std::unique_ptr<Search> searcher(new Search);
 
@@ -47,8 +86,8 @@ int main(int argc, const char* argv[])
 
     Uci handler(*searcher.get());
 
-    if (argc == 3 && !strcmp(argv[1], "bench"))
-        return handler.onBench(argv[2]);
+    if (argc == 2 && !strcmp(argv[1], "bench"))
+        return handler.onBench();
     else
         return handler.handleCommands();
 }

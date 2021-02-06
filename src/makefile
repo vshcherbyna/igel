@@ -9,6 +9,9 @@ SRC = *.cpp nnue/*.cpp nnue/features/*.cpp fathom/tbprobe.c
 
 GCCDEFINES = $(shell echo | $(CC) -m64 -march=native -E -dM -)
 
+EVALFILE = weights/ign-0-9b1937cc
+NNFLAGS  = -DEVALFILE=\"$(EVALFILE)\"
+
 LIBS   = -std=c++17 -mpopcnt -pthread
 WARN   = -Wall
 OPTIM  = -O3 -march=native -flto
@@ -29,7 +32,7 @@ ifneq ($(findstring __AVX512__, $(GCCDEFINES)),)
     DEFS += -DUSE_AVX512=1
 endif
 
-CFLAGS = $(WARN) $(LIBS) $(OPTIM)
+CFLAGS = $(WARN) $(LIBS) $(OPTIM) $(NNFLAGS)
 
 basic:
 	$(CC) $(CFLAGS) $(SRC) $(DEFS) -o $(EXE)

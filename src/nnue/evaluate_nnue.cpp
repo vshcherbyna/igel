@@ -145,6 +145,13 @@ namespace Eval::NNUE {
   }
 
   // Load the evaluation function file
+  bool load_eval(std::string name, std::istream& stream) {
+      Initialize();
+      fileName = name;
+      return ReadParameters(stream);
+  }
+
+  // Load the evaluation function file
   bool load_eval_file(const std::string& evalFile) {
 
     Initialize();
