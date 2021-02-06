@@ -26,15 +26,11 @@
 
 #if !defined(_MSC_VER)
 INCBIN(EmbeddedNNUE, EVALFILE);
-#else
-const unsigned char        gEmbeddedNNUEData[1] = { 0x0 };
-const unsigned char* const gEmbeddedNNUEEnd = &gEmbeddedNNUEData[1];
-const unsigned int         gEmbeddedNNUESize = 1;
 #endif // _MSC_VER
 
 #include <streambuf>
 using namespace std;
-#endif
+#endif // EVAL_NNUE
 
 #if !defined(UNIT_TEST)
 int main(int argc, const char* argv[])
@@ -55,6 +51,18 @@ int main(int argc, const char* argv[])
 
     Eval::init_NNUE();
 
+#if defined(_MSC_VER)
+
+    //
+    //  for debugging purposes load official network file ign-0-9b1937cc
+    //
+
+    if (!Eval::NNUE::load_eval_file("ign-0-9b1937cc")) {
+        std::cout << "Unable to set EvalFile. Aborting" << std::endl;
+        abort();
+    }
+#else
+
     //
     //  load network file from resources
     //
@@ -73,6 +81,7 @@ int main(int argc, const char* argv[])
         abort();
     }
 
+#endif // _MSC_VER
 #endif // EVAL_NNUE
 
     std::unique_ptr<Search> searcher(new Search);
