@@ -86,15 +86,27 @@ I would like to thank the authors and the community involved in the creation of 
 
 Official compilation method involves CMake and Visual Studio 2019 and assumes a modern CPU with AVX2 support (most of the computers produced in last 8 years).
 
+On Windows:
+
 ```
+git clone https://github.com/vshcherbyna/igel.git ./igel
+cd igel
+git submodule update --init --recursive
 cmake -DEVAL_NNUE=1 -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE -G "Visual Studio 16 2019" -A x64 .
 ```
 
-In case you don't have Visual Studio or CMake you can compile using gcc as well:
+On Linux:
 
 ```
-g++ -Wall -pthread -O3 -DEVAL_NNUE=1 -DUSE_AVX2=1 -DSYZYGY_SUPPORT=TRUE -march=native -flto *.cpp fathom/tbprobe.c nnue/*.cpp nnue/features/*.cpp -D_BTYPE=1 -DNDEBUG -o igel
+git clone https://github.com/vshcherbyna/igel.git ./igel
+cd igel
+git submodule update --init --recursive
+wget https://github.com/vshcherbyna/igel/releases/download/2.9.0/ign-0-9b1937cc -O ./network_file
+cmake -DEVALFILE=network_file -DEVAL_NNUE=1 -DUSE_PEXT=1 -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
+make -j
 ```
+
+It is also possible to compile using gcc and traditional makefile, consult ./src/makefile for more details.
 
 ### Donation
 
