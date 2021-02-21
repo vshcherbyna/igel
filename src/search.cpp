@@ -408,7 +408,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //  singular extensions
         //
 
-        if (depth >= 8 && !skipMove && hashMove == mv && !rootNode && !isCheckMateScore(hEntry.m_data.score) && hEntry.m_data.type == HASH_BETA && hEntry.m_data.depth >= depth - 3) {
+        if (depth >= 8 && !skipMove && hashMove == mv && !rootNode && !isCheckMateScore(hEntry.m_data.score) && (hEntry.m_data.type == HASH_BETA || hEntry.m_data.type == HASH_EXACT) && hEntry.m_data.depth >= depth - 3) {
             auto betaCut = hEntry.m_data.score - depth;
             auto score = abSearch(betaCut - 1, betaCut, depth / 2, ply + 1, false, false, mv);
 
