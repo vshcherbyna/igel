@@ -301,7 +301,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //  probcut
         //
 
-        if (depth >= 5 && abs(beta) < (CHECKMATE_SCORE + 50)) {
+        if (depth >= 5) {
             auto betaCut = beta + 100;
             MoveList captureMoves;
 
