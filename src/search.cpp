@@ -370,6 +370,12 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
                 History::fetchHistory(this, mv, ply, history);
 
+                if (depth <= m_cmpDepth[improving] && history.cmhistory < m_cmpHistoryLimit[improving])
+                    continue;
+
+                if (depth <= m_fmpDepth[improving] && history.fmhistory < m_fmpHistoryLimit[improving])
+                    continue;
+
                 auto futilityMargin = staticEval + 90 * depth;
 
                 if (futilityMargin <= alpha
@@ -379,12 +385,6 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
                 if (depth <= m_lmpDepth && quietsTried >= m_lmpPruningTable[improving][depth])
                     skipQuiets = true;
-
-                if (depth <= m_cmpDepth[improving] && history.cmhistory < m_cmpHistoryLimit[improving])
-                    continue;
-
-                if (depth <= m_fmpDepth[improving] && history.fmhistory < m_fmpHistoryLimit[improving])
-                    continue;
             }
 
             if (depth <= 8 && !inCheck) {
