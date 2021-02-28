@@ -30,7 +30,7 @@
 {
     assert(ply < MAX_PLY);
 
-    if (ply <= 2 || quetMoves.empty())
+    if (ply < 2 || quetMoves.empty())
         return;
 
     auto counterMove = pSearch->m_moveStack[ply - 1];
