@@ -287,7 +287,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //
 
         if (!isNull && depth >= 2 && m_position.NonPawnMaterial() && bestScore >= beta) {
-            int R = 4 + depth / 6 + std::min(3, (bestScore - beta) / 100);
+            int R = 5 + depth / 6 + std::min(3, (bestScore - beta) / 100);
 
             m_position.MakeNullMove();
             EVAL nullScore = -abSearch(-beta, -beta + 1, depth - R, ply + 1, true, false);
