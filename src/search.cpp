@@ -435,7 +435,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             //   extensions
             //
 
-            newDepth += extensionRequired(mv, lastMove, m_position.InCheck(), quietMoves.size(), history.cmhistory, history.fmhistory);
+            newDepth += extensionRequired(mv, lastMove, m_position.InCheck(), quietMove, onPV, history.cmhistory, history.fmhistory);
 
             EVAL e;
             if (legalMoves == 1)
@@ -666,9 +666,9 @@ void Search::clearStacks()
     }
 }
 
-int Search::extensionRequired(Move mv, Move lastMove, bool inCheck, size_t quietMoves, int cmhistory, int fmhistory)
+int Search::extensionRequired(Move mv, Move lastMove, bool inCheck, bool quietMove, bool onPV, int cmhistory, int fmhistory)
 {
-    if (quietMoves <= 4 && cmhistory >= 10000 && fmhistory >= 10000)
+    if (onPV && quietMove && cmhistory >= 10000 && fmhistory >= 10000)
         return 1;
     else if (inCheck)
         return 1;
