@@ -420,13 +420,13 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
         auto lastMove = m_position.LastMove();
 
+        if (quietMove) {
+            ++quietsTried;
+            quietMoves.emplace_back(mv);
+        }
+
         if (m_position.MakeMove(mv)) {
             ++legalMoves;
-
-            if (quietMove) {
-                ++quietsTried;
-                quietMoves.emplace_back(mv);
-            }
 
             m_moveStack[ply]  = mv;
             m_pieceStack[ply] = mv.Piece();
