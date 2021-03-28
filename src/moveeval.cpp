@@ -78,7 +78,7 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
         else if (mv == pSearch->m_killerMoves[ply][0] || mv == pSearch->m_killerMoves[ply][1])
             mvlist[j].m_score = s_SortKiller;
         else {
-            mvlist[j].m_score = 100 * pSearch->m_history[pSearch->m_position.Side()][mv.From()][mv.To()];
+            mvlist[j].m_score = pSearch->m_history[pSearch->m_position.Side()][mv.From()][mv.To()];
 
             if (counterMove)
                 mvlist[j].m_score += pSearch->m_followTable[0][counterPiece][counterTo][mv.Piece()][mv.To()];
