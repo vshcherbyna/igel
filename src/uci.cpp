@@ -20,7 +20,6 @@
 #include "uci.h"
 #include "time.h"
 #include "notation.h"
-#include "texel.h"
 #include "evaluate.h"
 #include "utils.h"
 
@@ -91,8 +90,6 @@ int Uci::handleCommands()
             onUciNewGame();
         else if (startsWith(cmd, "uci"))
             onUci();
-        else if (startsWith(cmd, "tune"))
-            onTune();
         else if (startsWith(cmd, "eval"))
             onEval();
         else {
