@@ -631,6 +631,14 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
     return bestScore;
 }
 
+void Search::setInitial()
+{
+    m_position.SetInitial();
+
+    for (unsigned int i = 0; i < m_thc; ++i)
+        m_threadParams[i].m_position.SetInitial();
+}
+
 void Search::clearHistory()
 {
     memset(m_history, 0, sizeof(m_history));

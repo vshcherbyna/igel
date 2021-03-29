@@ -65,6 +65,7 @@ public:
 
 public:
     uint64_t startSearch(Time time, int depth, bool ponder, bool bench = false);
+    void setInitial();
     void clearHistory();
     void clearKillers();
     void clearStacks();
