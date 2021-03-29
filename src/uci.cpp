@@ -30,7 +30,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "3.0-dev-12";
+const std::string VERSION = "3.0-dev-13";
 
 #if defined(ENV64BIT)
     #if defined(_BTYPE)
@@ -67,6 +67,9 @@ int Uci::handleCommands()
         std::cout << "Fatal error: unable to allocate memory for transposition table" << std::endl;
         return 1;
     }
+
+    // humanoids often forget to issue a 'ucinewgame' command, so let's rectify this:
+    onUciNewGame();
 
     while (true) {
         std::string cmd;
@@ -297,6 +300,7 @@ void Uci::onSetOption(commandParams params)
         if (threads > MAX_THREADS || threads < MIN_THREADS)
             std::cout << "Unable set threads value. Make sure number is correct" << std::endl;
         m_searcher.setThreadCount(threads - 1);
+        onUciNewGame(); // reset internal state of each thread
     }
     else if (name == "Skill Level") {
         auto level = atoi(value.c_str());
