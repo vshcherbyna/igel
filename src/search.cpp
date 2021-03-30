@@ -657,7 +657,9 @@ void Search::clearKillers()
 
 void Search::clearStacks()
 {
-    memset(m_moveStack, 0, sizeof(m_moveStack));
+    for (unsigned int j = 0; j < sizeof(m_moveStack) / sizeof(Move); ++j)
+        m_moveStack[j].reset();
+
     memset(m_pieceStack, 0, sizeof(m_pieceStack));
     memset(m_followTable, 0, sizeof(m_followTable));
     memset(m_counterTable, 0, sizeof(m_counterTable));
@@ -665,7 +667,10 @@ void Search::clearStacks()
     memset(m_pvSize, 0, sizeof(m_pvSize));
 
     for (unsigned int i = 0; i < m_thc; ++i) {
-        memset(m_threadParams[i].m_moveStack, 0, sizeof(m_moveStack));
+
+        for (unsigned int j = 0; j < sizeof(m_threadParams[i].m_moveStack) / sizeof(Move); ++j)
+            m_threadParams[i].m_moveStack[j].reset();
+
         memset(m_threadParams[i].m_pieceStack, 0, sizeof(m_pieceStack));
         memset(m_threadParams[i].m_followTable, 0, sizeof(m_followTable));
         memset(m_threadParams[i].m_counterTable, 0, sizeof(m_counterTable));

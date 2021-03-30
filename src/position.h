@@ -58,7 +58,7 @@ public:
     FLD Piece() const { return (m_data >> 20) & 0x0f; }
     FLD Captured() const { return (m_data >> 16) & 0x0f; }
     FLD Promotion() const { return (m_data >> 12) & 0x0f; }
-
+    inline void reset() { m_data = 0; }
     operator U32() const { return m_data; }
 
 private:
@@ -95,6 +95,38 @@ struct Undo
     DirtyPiece dirtyPiece;
     Undo* previous;
 #endif
+
+    void reset() 
+    {
+        m_castlings = 0;
+        m_ep        = 0;
+        m_fifty     = 0;
+        m_hash      = 0;
+
+        m_mv.reset();
+
+#if defined(EVAL_NNUE)
+        std::memset(&accumulator.accumulation, 0, sizeof(accumulator.accumulation));
+
+        accumulator.score                   = VALUE_ZERO;
+        accumulator.computed_accumulation   = false;
+        accumulator.computed_score          = false;
+
+        dirtyPiece.dirty_num  = 0;
+        dirtyPiece.pieceId[0] = PIECE_ID_ZERO;
+        dirtyPiece.pieceId[1] = PIECE_ID_ZERO;
+
+        for (unsigned int i = 0; i < sizeof(dirtyPiece.old_piece) / sizeof(ExtPieceSquare); ++i)
+            for (unsigned int j = 0; j < sizeof(dirtyPiece.old_piece[i].from) / sizeof(PieceSquare); ++j)
+                dirtyPiece.old_piece[i].from[j] = PS_NONE;
+
+        for (unsigned int i = 0; i < sizeof(dirtyPiece.new_piece) / sizeof(ExtPieceSquare); ++i)
+            for (unsigned int j = 0; j < sizeof(dirtyPiece.new_piece[i].from) / sizeof(PieceSquare); ++j)
+                dirtyPiece.new_piece[i].from[j] = PS_NONE;
+
+        previous = nullptr;
+#endif
+    }
 };
 
 class Position
