@@ -30,7 +30,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "3.0-dev-13";
+const std::string VERSION = "3.0-dev-14";
 
 #if defined(ENV64BIT)
     #if defined(_BTYPE)
@@ -141,7 +141,7 @@ void Uci::onUci()
 
 void Uci::onUciNewGame()
 {
-    m_searcher.m_position.SetInitial();
+    m_searcher.setInitial();
 
     TTable::instance().clearHash(m_searcher.getThreadsCount());
     TTable::instance().clearAge();
