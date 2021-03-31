@@ -67,9 +67,6 @@
             pSearch->m_followTable[1][followPiece][followTo][piece][to] = entry;
         }
     }
-
-    if (counterMove)
-        pSearch->m_counterTable[!colour][counterPiece][counterTo] = best;
 }
 
 /*static */void History::setKillerMove(Search * pSearch, Move mv, int ply)

@@ -662,7 +662,6 @@ void Search::clearStacks()
 
     memset(m_pieceStack, 0, sizeof(m_pieceStack));
     memset(m_followTable, 0, sizeof(m_followTable));
-    memset(m_counterTable, 0, sizeof(m_counterTable));
     memset(m_evalStack, 0, sizeof(m_evalStack));
     memset(m_pvSize, 0, sizeof(m_pvSize));
 
@@ -673,7 +672,6 @@ void Search::clearStacks()
 
         memset(m_threadParams[i].m_pieceStack, 0, sizeof(m_pieceStack));
         memset(m_threadParams[i].m_followTable, 0, sizeof(m_followTable));
-        memset(m_threadParams[i].m_counterTable, 0, sizeof(m_counterTable));
         memset(m_threadParams[i].m_evalStack, 0, sizeof(m_evalStack));
         memset(m_threadParams[i].m_pvSize, 0, sizeof(m_threadParams[i].m_pvSize));
     }
