@@ -95,15 +95,13 @@
 
     if (counterMove)
         hh.cmhistory = pSearch->m_followTable[0][counterPiece][counterTo][piece][to];
-    else
-        counterMove = 0;
 
-    auto followMove = pSearch->m_moveStack[ply - 2];
-    auto followPiece = pSearch->m_pieceStack[ply - 2];
-    auto followTo = followMove.To();
+    if (ply > 1) {
+        auto followMove = pSearch->m_moveStack[ply - 2];
+        auto followPiece = pSearch->m_pieceStack[ply - 2];
+        auto followTo = followMove.To();
 
-    if (followMove)
-        hh.fmhistory = pSearch->m_followTable[1][followPiece][followTo][mv.Piece()][to];
-    else
-        hh.fmhistory = 0;
+        if (followMove)
+            hh.fmhistory = pSearch->m_followTable[1][followPiece][followTo][mv.Piece()][to];
+    }
 }
