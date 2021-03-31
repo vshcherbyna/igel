@@ -122,7 +122,6 @@ private:
     PIECE m_pieceStack[MAX_PLY + 4];
     EVAL m_evalStack[MAX_PLY + 4];
     int m_followTable[2][14][64][14][64];
-    Move m_counterTable[2][14][64];
     int m_logLMRTable[64][64];
     Time m_time, m_ponderTime;
     std::unique_ptr<std::thread> m_principalThread;
