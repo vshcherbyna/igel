@@ -57,7 +57,7 @@ int main(int argc, const char* argv[])
     //  for debugging purposes load official network file ign-0-9b1937cc
     //
 
-    if (!Eval::NNUE::load_eval_file("ign-0-9b1937cc")) {
+    if (!Eval::NNUE::load_eval_file("ign-1-139b702b")) {
         std::cout << "Unable to set EvalFile. Aborting" << std::endl;
         abort();
     }

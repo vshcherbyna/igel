@@ -46,31 +46,17 @@ The IGN networks comply with the following mandatory requirements:
 
 **Technical details**
 
-###### IGN-0
-
-Architecture: halfkp_256x2-32-32
-
-Training mode: two iterations
-
-Training data:
-
-Iteration 1:
-
-Search/Eval data: 2.3 billion of depth 8 search/eval data from Igel 2.6.0 (HCE)
-
-Validation data: 1 million of depth 10 search/eval data from Igel 2.6.0 (HCE)
-
-Iteration 2:
-
-Search/Eval data: 500 millions of depth 12 search/eval data from Igel 2.6.0 (HCE)
-
-Validation data: 1 million of depth 14 search/eval data from Igel 2.6.0 (HCE)
+| Generation    | Architecture       | Source of data         | Quantity          | Type            | Best network   |
+| ------------- | ------------------ | ---------------------- | ----------------- |  -------------- | -------------- |
+| ign-0         | halfkp_256x2-32-32 | Igel 2.6.0             | 2.3b d8, 500m d12 | HCE             | ign-0-9b1937cc |
+| ign-1         | halfkp_256x2-32-32 | Igel 2.6.0, Igel 2.9.0 | 9.5b d8, 1b d12   | HCE, NNUE       | ign-1-139b702b |
 
 ### Acknowledgements
 
 I would like to thank the authors and the community involved in the creation of the open source projects listed below. Their work influences development of Igel, and without them, this project wouldn't exist. Special thanks to Andrew Grant and Bojun Guo for supporting Igel development on OpenBench.
 
 * [OpenBench](https://github.com/AndyGrant/OpenBench/)
+* [nnue-pytorch](https://github.com/glinscott/nnue-pytorch)
 * [GreKo](http://greko.su/)
 * [Chess Programming Wiki](https://www.chessprogramming.org/)
 * [Ethereal](https://github.com/AndyGrant/Ethereal/)
@@ -101,7 +87,7 @@ On Linux:
 git clone https://github.com/vshcherbyna/igel.git ./igel
 cd igel
 git submodule update --init --recursive
-wget https://github.com/vshcherbyna/igel/releases/download/2.9.0/ign-0-9b1937cc -O ./network_file
+wget https://github.com/vshcherbyna/igel/releases/download/3.0.0/ign-1-139b702b -O ./network_file
 cmake -DEVALFILE=network_file -DEVAL_NNUE=1 -DUSE_PEXT=1 -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
 make -j
 ```

@@ -1,7 +1,31 @@
 Igel chess engine
 
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru>
-(c) 2018-2020 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+(c) 2018-2021 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+
+Igel 3.0.0
+-------------
+04-Apr-2021
+
+- Train a new network using Igel 2.6.0 (HCE) and Igel 2.9.0 (NNUE) data: ign-1-139b702b
+- Fix in check extensions
+- Use incbin on Linux to inject network file into the binary
+- Tune null move prunning conditions
+- Tune probcut prunning conditions
+- Tune quiets prunning
+- Fix bogus condition for history calculation
+- Implement more aggressive null move prunning
+- Stop extension of captures
+- Prevent explosion of history extensions
+- Implement better time management for sudden death time control
+- Count not played quiets for LMP prunning
+- Remove dummy 100 multiplier for history ordering calculation
+- Fix compilation issues with gcc 10 and Android NDK's Clang
+- Remove unused counter move table
+- Fix out of boundary access for history array
+- Fix issue with singular extensions - reported by ChizhovVadim (author of CounterGo chess engine)
+- Fix crash when 'ucinewgame' command is not issued - reported by Jean-Paul (Ipmanchess)
+- Fix crash when thread position is not initialized - reported by Jean-Paul (Ipmanchess)
 
 Igel 2.9.0
 -------------
