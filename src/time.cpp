@@ -162,7 +162,7 @@ bool Time::evaluate()
 
     auto bonus  = m_increment ? getEnemyLowTimeBonus() : 0;
     m_hardLimit = (m_remainingTime / 12) + (m_increment / 2) + bonus;
-    m_softLimit = m_increment ? (m_hardLimit / 4) : (m_hardLimit / 5);
+    m_softLimit = m_increment ? (m_hardLimit / 4) : (m_hardLimit / 6);
 
     return true;
 }
