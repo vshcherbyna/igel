@@ -70,9 +70,9 @@ I would like to thank the authors and the community involved in the creation of 
 
 ### Compiling
 
-Official compilation method involves CMake and Visual Studio 2019 and assumes a modern CPU with AVX2 support (most of the computers produced in last 8 years).
+Official compilation method involves cmake and gcc/Visual Studio 2019 and assumes a modern CPU with AVX2 support (most of the computers produced in last 8 years).
 
-On Windows:
+Using cmake/Visual Studio:
 
 ```
 git clone https://github.com/vshcherbyna/igel.git ./igel
@@ -81,7 +81,7 @@ git submodule update --init --recursive
 cmake -DEVAL_NNUE=1 -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE -G "Visual Studio 16 2019" -A x64 .
 ```
 
-On Linux:
+Using cmake/gcc:
 
 ```
 git clone https://github.com/vshcherbyna/igel.git ./igel
@@ -92,10 +92,10 @@ cmake -DEVALFILE=network_file -DEVAL_NNUE=1 -DUSE_PEXT=1 -DUSE_AVX2=1 -D_BTYPE=1
 make -j
 ```
 
-It is also possible to compile using gcc and traditional makefile, consult ./src/makefile for more details.
+It is also possible to compile using gcc and a traditional makefile, please consult ./src/makefile for more details.
 
 ### Donation
 
 Consider supporting Igel development on [Patreon](https://www.patreon.com/igel).
 
-Igel is a hobby project, but it takes time and money to develop chess engine and train networks. A typical data generation session takes around 1 month of time for 3 billion depth 12 data set and I am currently renting expensive dedicated AMD EPYC hardware to make this happen.
+Igel is a hobby project, but it takes time and money to develop chess engine and train networks. Data generation session takes around 1 month of time for 3 billion depth 12 data set and I am currently renting expensive dedicated servers to help with that.
