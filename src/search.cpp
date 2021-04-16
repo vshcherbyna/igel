@@ -166,7 +166,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     TEntry hEntry{};
     EVAL ttScore;
     auto onPV  = (beta - alpha > 1);
-    auto ttHit = !skipMove && ProbeHash(hEntry);
+    auto ttHit = !skipMove && !isNull && ProbeHash(hEntry);
 
     if (ttHit) {
         ttScore = hEntry.m_data.score;
