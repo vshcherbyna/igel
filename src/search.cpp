@@ -164,9 +164,10 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
     Move hashMove{};
     TEntry hEntry{};
-    EVAL ttScore;
-    auto onPV  = (beta - alpha > 1);
-    auto ttHit = !skipMove && !isNull && ProbeHash(hEntry);
+
+    EVAL ttScore = 0;
+    auto onPV    = (beta - alpha > 1);
+    auto ttHit   = !skipMove && !isNull && ProbeHash(hEntry);
 
     if (ttHit) {
         ttScore = hEntry.m_data.score;
@@ -286,7 +287,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //   null move
         //
 
-        if (!isNull && depth >= 2 && m_position.NonPawnMaterial() && bestScore >= beta) {
+        if (!isNull && depth >= 2 && bestScore >= beta && (!ttHit || !(hEntry.m_data.type == HASH_BETA) || ttScore >= beta) && m_position.NonPawnMaterial()) {
             int R = 5 + depth / 6 + std::min(3, (bestScore - beta) / 100);
 
             m_position.MakeNullMove();
