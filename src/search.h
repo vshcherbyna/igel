@@ -92,7 +92,7 @@ private:
 #endif
     EVAL abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool rootNode, Move skipMove = 0);
     EVAL qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull = false);
-    inline int extensionRequired(Move mv, Move lastMove, bool inCheck, bool quietMove, bool onPV, int cmhistory, int fmhistory);
+    inline int extensionRequired(Move mv, bool inCheck, bool quietMove, bool onPV, int cmhistory, int fmhistory);
     bool ProbeHash(TEntry & hentry);
     bool isGameOver(Position & pos, std::string & result, std::string & comment, Move & bestMove, int & legalMoves);
     void printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv, uint64_t sumNodes, uint64_t sumHits, uint64_t nps);
