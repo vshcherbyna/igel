@@ -58,6 +58,7 @@ public:
 
         m_key = hash0 ^ m_data.raw;
 
+        // when debugging a multi cpu configuration these may give you a trouble:
         assert(age == m_data.age);
         assert(type == m_data.type);
         assert(mv == m_data.move);

@@ -65,7 +65,10 @@ Search::Search() :
     m_lazyPonder(false),
     m_terminateSmp(false),
     m_level(DEFAULT_LEVEL),
-    m_ponderHit(false)
+    m_ponderHit(false),
+    m_score(-CHECKMATE_SCORE),
+    m_best(0),
+    m_ponder(0)
 {
     m_evaluator.reset(new Evaluator);
     memset(&m_logLMRTable, 0, sizeof(m_logLMRTable));
@@ -985,8 +988,8 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     memset(&m_pv, 0, sizeof(m_pv));
     m_time.resetAdjustment();
 
-    Move ponder{};
-    Move best{};
+    m_ponder = 0;
+    m_best   = 0;
 
     auto printBestMove = [](Search * pthis, Position & pos, Move m, Move p) {
 
@@ -1011,7 +1014,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         if (isGameOver(m_position, result, comment, onlyMove, legalMoves)) {
             waitUntilCompletion();
             std::cout << result << " " << comment << std::endl << std::endl;
-            printBestMove(this, m_position, onlyMove, ponder);
+            printBestMove(this, m_position, onlyMove, m_ponder);
             return 0;
         }
 
@@ -1021,7 +1024,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
 
         if (legalMoves == 1 && time.chopperMove()) {
             waitUntilCompletion();
-            printBestMove(this, m_position, onlyMove, ponder);
+            printBestMove(this, m_position, onlyMove, m_ponder);
             return 1;
         }
 
@@ -1034,19 +1037,19 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
 
         if (bestTb) {
             waitUntilCompletion();
-            printBestMove(this, m_position, bestTb, ponder);
+            printBestMove(this, m_position, bestTb, m_ponder);
             return 1;
         }
 #endif
 
-        best = onlyMove; // set best move to first legal move in case we are low on time
+        m_best = onlyMove; // set best move to first legal move in case we are low on time
     }
 
     //
     //  Perform search for a best move
     //
 
-    EVAL score = DRAW_SCORE;
+    m_score = -CHECKMATE_SCORE;
     auto maxDepth = m_level == MAX_LEVEL ? MAX_PLY : ((MAX_PLY * m_level) / MAX_LEVEL);
 
     //
@@ -1068,35 +1071,36 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
 
         EVAL aspiration = m_depth >= 4 ? 5 : CHECKMATE_SCORE;
 
-        EVAL alpha = std::max(score - aspiration, -CHECKMATE_SCORE);
-        EVAL beta  = std::min(score + aspiration, CHECKMATE_SCORE);
+        EVAL alpha = std::max(m_score - aspiration, -CHECKMATE_SCORE);
+        EVAL beta  = std::min(m_score + aspiration, CHECKMATE_SCORE);
 
         while (aspiration <= CHECKMATE_SCORE) {
-            score = abSearch(alpha, beta, m_depth, 0, false, true);
+            auto score = abSearch(alpha, beta, m_depth, 0, false, true);
 
             if (m_flags & SEARCH_TERMINATED)
                 break;
 
+            m_score = score;
             memcpy(m_iterPV, m_pv[0], m_pvSize[0] * sizeof(Move));
             m_iterPVSize = m_pvSize[0];
 
             if (m_iterPVSize && m_pv[0][0]) {
-                best = m_pv[0][0];
+                m_best = m_pv[0][0];
 
                 if (m_iterPVSize > 1 && m_pv[0][1])
-                    ponder = m_pv[0][1];
+                    m_ponder = m_pv[0][1];
                 else
-                    ponder = 0;
+                    m_ponder = 0;
             }
 
             aspiration += 2 + aspiration / 2;
-            if (score <= alpha)
+            if (m_score <= alpha)
             {
                 beta = (alpha + beta) / 2;
-                alpha = std::max(score - aspiration, -CHECKMATE_SCORE);
+                alpha = std::max(m_score - aspiration, -CHECKMATE_SCORE);
             }
-            else if (score >= beta)
-                beta = std::min(score + aspiration, CHECKMATE_SCORE);
+            else if (m_score >= beta)
+                beta = std::min(m_score + aspiration, CHECKMATE_SCORE);
             else
                 break;
         }
@@ -1115,11 +1119,11 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
                 sumNodes += m_threadParams[i].m_nodes;
                 sumHits += m_threadParams[i].m_tbHits;
             }
-            m_time.adjust(score, m_depth);
+            m_time.adjust(m_score, m_depth);
         }
 
         if (!(m_flags & MODE_SILENT) && m_principalSearcher)
-            printPV(m_position, m_depth, m_selDepth, score, m_pv[0], m_pvSize[0], best, sumNodes, sumHits, nps);
+            printPV(m_position, m_depth, m_selDepth, m_score, m_pv[0], m_pvSize[0], m_best, sumNodes, sumHits, nps);
 
         //
         //  Check time limits
@@ -1145,8 +1149,43 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     //  Stop worker threads if necessary
     //
 
-    if (m_thc)
+    if (m_thc) {
         stopWorkerThreads();
+
+        //
+        //  Pickup the best thread based on eval/depth
+        //
+
+        std::map<Move, int64_t> votes;
+        auto minScore = m_score;
+        int64_t bestSoFar = (static_cast<int64_t>(m_score) - static_cast<int64_t>(minScore) + 20) * static_cast<int64_t>(m_depth);
+        votes[m_best] = bestSoFar;
+
+        //
+        //  Calculate worst score yet
+        //
+
+        for (unsigned int i = 0; i < m_thc; ++i)
+            minScore = std::min(minScore, m_threadParams[i].m_score);
+
+        //
+        //  Calculate the voting map
+        //
+
+        for (unsigned int i = 0; i < m_thc; ++i)
+            votes[m_threadParams[i].m_best] += (static_cast<int64_t>(m_threadParams[i].m_score) - static_cast<int64_t>(minScore) + 20) * static_cast<int64_t>(m_threadParams[i].m_depth);
+
+        //
+        //  Democracy in action
+        //
+
+        for (const auto & vote : votes) {
+            if (vote.second > bestSoFar) {
+                bestSoFar = vote.second;
+                m_best = vote.first;
+            }
+        }
+    }
 
     //
     //  In case we are pondering, wait until stop/ponderhit is issued
@@ -1156,7 +1195,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     m_ponderHit = false;
 
     if (!(m_flags & MODE_SILENT) && m_principalSearcher)
-        printBestMove(this, m_position, best, ponder);
+        printBestMove(this, m_position, m_best, m_ponder);
 
     return m_nodes;
 }
