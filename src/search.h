@@ -156,6 +156,9 @@ private:
     bool m_terminateSmp;
     int m_level;
     bool m_ponderHit;
+    EVAL m_score;
+    Move m_best,
+         m_ponder;
 };
 
 #endif
