@@ -46,10 +46,10 @@ The IGN networks comply with the following mandatory requirements:
 
 **Technical details**
 
-| Generation    | Architecture       | Source of data         | Quantity          | Type            | Best network   |
-| ------------- | ------------------ | ---------------------- | ----------------- |  -------------- | -------------- |
-| ign-0         | halfkp_256x2-32-32 | Igel 2.6.0             | 2.3b d8, 500m d12 | HCE             | ign-0-9b1937cc |
-| ign-1         | halfkp_256x2-32-32 | Igel 2.6.0, Igel 2.9.0 | 9.5b d8, 1b d12   | HCE, NNUE       | ign-1-139b702b |
+| Generation    | Architecture       | Source of data                     | Quantity          | Type            | Best network   |
+| ------------- | ------------------ | ---------------------------------- | ----------------- |  -------------- | -------------- |
+| ign-0         | halfkp_256x2-32-32 | Igel 2.6.0                         | 2.3b d8, 500m d12 | HCE             | ign-0-9b1937cc |
+| ign-1         | halfkp_256x2-32-32 | Igel 2.6.0, Igel 2.9.0, Igel 3.0.0 | 12b d8, 1b d12    | HCE, NNUE       | ign-1-d593efbd |
 
 ### Acknowledgements
 
@@ -87,7 +87,7 @@ Using cmake/gcc:
 git clone https://github.com/vshcherbyna/igel.git ./igel
 cd igel
 git submodule update --init --recursive
-wget https://github.com/vshcherbyna/igel/releases/download/3.0.0/ign-1-139b702b -O ./network_file
+wget https://github.com/vshcherbyna/igel/releases/download/3.0.5/ign-1-d593efbd -O ./network_file
 cmake -DEVALFILE=network_file -DEVAL_NNUE=1 -DUSE_PEXT=1 -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
 make -j
 ```
@@ -98,4 +98,4 @@ It is also possible to compile using gcc and a traditional makefile, please cons
 
 Consider supporting Igel development on [Patreon](https://www.patreon.com/igel).
 
-Igel is a hobby project, but it takes time and money to develop chess engine and train networks. Data generation session takes around 1 month of time for 3 billion depth 12 data set and I am currently renting expensive dedicated servers to help with that.
+Igel is a hobby project, but it takes time and money to develop chess engine and train networks. Currently I am renting dedicated server hardware at OVH and I appreciate any help/donation to help pay the server bills.

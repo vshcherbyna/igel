@@ -9,7 +9,7 @@ SRC = *.cpp nnue/*.cpp nnue/features/*.cpp fathom/tbprobe.c
 
 GCCDEFINES = $(shell echo | $(CC) -m64 -march=native -E -dM -)
 
-EVALFILE = weights/ign-1-139b702b
+EVALFILE = weights/ign-1-d593efbd
 NNFLAGS  = -DEVALFILE=\"$(EVALFILE)\"
 
 LIBS   = -std=c++17 -mpopcnt -pthread
