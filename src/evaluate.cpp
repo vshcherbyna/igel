@@ -151,7 +151,7 @@ EVAL Evaluator::evaluate(Position & pos)
     nnueEval = static_cast<EVAL>(Eval::NNUE::evaluate(pos));
     pawns    = pos.Count(PAWN | WHITE) + pos.Count(PAWN | BLACK);
     material = pos.nonPawnMaterial() + (pawns * VAL_P);
-    return nnueEval * (600 + material / 32) / 1024 + Tempo;
+    return nnueEval * (600 + material / 32) / 1280 + Tempo;
 #endif
 
     memset(m_pieceAttacks,         0, sizeof(m_pieceAttacks));

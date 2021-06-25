@@ -54,10 +54,10 @@ int main(int argc, const char* argv[])
 #if defined(_MSC_VER)
 
     //
-    //  for debugging purposes load official network file ign-0-9b1937cc
+    //  for debugging purposes load official network file
     //
 
-    if (!Eval::NNUE::load_eval_file("ign-1-139b702b")) {
+    if (!Eval::NNUE::load_eval_file("ign-1-d593efbd")) {
         std::cout << "Unable to set EvalFile. Aborting" << std::endl;
         abort();
     }
