@@ -30,7 +30,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "3.0.6";
+const std::string VERSION = "3.0.7";
 
 #if defined(ENV64BIT)
     #if defined(_BTYPE)
