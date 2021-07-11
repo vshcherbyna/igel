@@ -179,7 +179,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         if (ttScore < -CHECKMATE_SCORE + 50 && ttScore >= -CHECKMATE_SCORE)
             ttScore += ply;
         if (hEntry.m_data.depth >= depth && (depth == 0 || !onPV)) {
-            if (!onPV && (hEntry.m_data.type == HASH_EXACT
+            if (!onPV && (m_position.Fifty() < 90) && (hEntry.m_data.type == HASH_EXACT
                 || (hEntry.m_data.type == HASH_BETA && ttScore >= beta)
                 || (hEntry.m_data.type == HASH_ALPHA && ttScore <= alpha)))
                 return ttScore;
