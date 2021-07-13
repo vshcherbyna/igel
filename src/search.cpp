@@ -599,7 +599,7 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
     for (size_t i = 0; i < mvSize; ++i) {
         Move mv = MoveEval::getNextBest(mvlist, i);
 
-        if (!inCheck && MoveEval::SEE(this, mv) < 0)
+        if (!inCheck && MoveEval::SEE(this, mv) < 10)
             continue;
 
         if (m_position.MakeMove(mv)) {
