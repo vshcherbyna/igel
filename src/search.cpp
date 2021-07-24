@@ -1188,6 +1188,17 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
                 m_ponder = vote.second.second;   // store the best ponder
             }
         }
+
+        //
+        //  In case bestmove changes, print pv/depth/score from a better thread
+        //
+
+        for (unsigned int i = 1; i < m_thc; ++i) {
+            if (m_best == m_threadParams[i].m_best && m_ponder == m_threadParams[i].m_ponder) {
+                printPV(m_position, std::max(m_depth, m_threadParams[i].m_depth), std::max(m_selDepth, m_threadParams[i].m_selDepth), m_threadParams[i].m_score, m_threadParams[i].m_pv[0], m_threadParams[i].m_pvSize[0], m_threadParams[i].m_best, sumNodes, sumHits, nps);
+                break;
+            }
+        }
     }
 
     //
