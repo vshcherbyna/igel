@@ -1208,8 +1208,11 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     waitUntilCompletion();
     m_ponderHit = false;
 
-    if (!(m_flags & MODE_SILENT) && m_principalSearcher)
+    if (!(m_flags & MODE_SILENT) && m_principalSearcher) {
+        if (!m_thc)
+            printPV(m_position, m_depth, m_selDepth, m_score, m_pv[0], m_pvSize[0], m_best, sumNodes, sumHits, nps);
         printBestMove(this, m_position, m_best, m_ponder);
+    }
 
     return m_nodes;
 }
