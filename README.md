@@ -49,7 +49,7 @@ The IGN networks comply with the following mandatory requirements:
 | Generation    | Architecture       | Source of data                     | Quantity          | Type            | Best network   |
 | ------------- | ------------------ | ---------------------------------- | ----------------- |  -------------- | -------------- |
 | ign-0         | halfkp_256x2-32-32 | Igel 2.6.0                         | 2.3b d8, 500m d12 | HCE             | ign-0-9b1937cc |
-| ign-1         | halfkp_256x2-32-32 | Igel 2.6.0, Igel 2.9.0, Igel 3.0.0 | 12b d8, 1b d12    | HCE, NNUE       | ign-1-d593efbd |
+| ign-1         | halfkp_256x2-32-32 | Igel 2.6.0, Igel 2.9.0, Igel 3.0.0 | 12b d8, 1b d12    | HCE, NNUE       | ign-1-3e998e78 |
 
 ### Acknowledgements
 
@@ -87,10 +87,24 @@ Using cmake/gcc:
 git clone https://github.com/vshcherbyna/igel.git ./igel
 cd igel
 git submodule update --init --recursive
-wget https://github.com/vshcherbyna/igel/releases/download/3.0.5/ign-1-d593efbd -O ./network_file
+wget https://github.com/vshcherbyna/igel/releases/download/3.1.0/ign-1-3e998e78 -O ./network_file
 cmake -DEVALFILE=network_file -DEVAL_NNUE=1 -DUSE_PEXT=1 -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
 make -j
 ```
+
+Important! If you make a custom build of Igel you need to validate the bench using command:
+
+```
+igel.exe bench
+```
+
+or if you are running Linux:
+
+```
+./igel bench
+```
+
+The Nodes must be 5027881 for Igel 3.1.0 using official network ign-1-3e998e78.
 
 It is also possible to compile using gcc and a traditional makefile, please consult ./src/makefile for more details.
 
