@@ -2,7 +2,7 @@
 *  Igel - a UCI chess playing engine derived from GreKo 2018.01
 *
 *  Copyright (C) 2002-2018 Vladimir Medvedev <vrm@bk.ru> (GreKo author)
-*  Copyright (C) 2018-2021 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+*  Copyright (C) 2018-2022 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 *
 *  Igel is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -57,7 +57,7 @@ int main(int argc, const char* argv[])
     //  for debugging purposes load official network file
     //
 
-    if (!Eval::NNUE::load_eval_file("ign-1-d593efbd")) {
+    if (!Eval::NNUE::load_eval_file("ign-1-3e998e78")) {
         std::cout << "Unable to set EvalFile. Aborting" << std::endl;
         abort();
     }

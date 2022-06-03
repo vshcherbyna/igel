@@ -1,7 +1,18 @@
 Igel - open source chess engine forked from GreKo 2018.01.
 
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru> (GreKo author)
-(c) 2018-2021 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+(c) 2018-2022 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+
+Igel 3.1.0
+-------------
+03-Jun-2022
+
+- Scale eval at 1280
+- More aggressive prunning of quiets when not improving
+- Use 150 cp when razoring
+- Avoid tt cutoff for rule50
+- Improve statistics in SMP mode
+- New network trained using 16B of d5-d8 data from Igel HCE/ign-1-139b702b with d16 validation using ign-1-139b702b
 
 Igel 3.0.5
 -------------
