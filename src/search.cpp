@@ -395,8 +395,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
                 int seeMargin[2];
 
-                static const int SEEQuietMargin = -80;
-                static const int SEENoisyMargin = -18;
+                static const int SEEQuietMargin = -60;
+                static const int SEENoisyMargin = -10;
 
                 seeMargin[0] = SEENoisyMargin * depth * depth;
                 seeMargin[1] = SEEQuietMargin * depth;
