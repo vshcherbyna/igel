@@ -104,7 +104,7 @@ or if you are running Linux:
 ./igel bench
 ```
 
-The Nodes must be 5027881 for Igel 3.1.0 using official network ign-1-3e998e78.
+The 'Nodes' must match the 'BENCH :' value from the last commit message.
 
 It is also possible to compile using gcc and a traditional makefile, please consult ./src/makefile for more details.
 
@@ -112,4 +112,4 @@ It is also possible to compile using gcc and a traditional makefile, please cons
 
 Consider supporting Igel development on [Patreon](https://www.patreon.com/igel).
 
-Igel is a hobby project, but it takes time and money to develop chess engine and train networks. Currently I am renting dedicated server hardware at OVH and I appreciate any help/donation to help pay the server bills.
+Igel is a hobby project, but it takes time and money to develop chess engine and train Igel networks. I am in need of renting a dedicated server hardware to train Igel networks and I appreciate any help/donation to help paying the server bills.
