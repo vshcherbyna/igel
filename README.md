@@ -110,6 +110,6 @@ It is also possible to compile using gcc and a traditional makefile, please cons
 
 ### Donation
 
-Consider supporting Igel development on [Patreon](https://www.patreon.com/igel).
+Consider supporting Igel development via [PayPal](https://www.paypal.com/donate/?hosted_button_id=37NPEAY9XLRJE).
 
 Igel is a hobby project, but it takes time and money to develop chess engine and train Igel networks. I am in need of renting a dedicated server hardware to train Igel networks and I appreciate any help/donation to help paying the server bills.
