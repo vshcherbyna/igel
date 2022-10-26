@@ -145,7 +145,7 @@ private:
     static constexpr int m_lmpDepth = 8;
     static constexpr int m_lmpPruningTable[2][9] =
     {
-        {  0,  2,  3,  5,  9, 13, 18, 24, 30 },
+        {  0,  1,  2,  3,  5, 9, 13, 18,  25 },
         {  0,  5,  7, 11, 17, 26, 36, 48, 63 },
     };
     static constexpr int m_cmpDepth[]        = { 3, 2           };
