@@ -406,7 +406,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             }
         }
 
-        int newDepth = depth - 1;
+        int newDepth  = depth - 1;
+        int extension = 0;
 
         //
         //  singular extensions
@@ -417,9 +418,11 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             auto score = abSearch(betaCut - 1, betaCut, depth / 2, ply + 1, false, false, mv);
 
             if (score < betaCut)
-                ++newDepth;
+                extension = 1;
             else if (betaCut >= beta)
                 return betaCut;
+            else if (ttHit && ttScore >= beta)
+                extension = -2; // negative extension
         }
 
         if (quietMove) {
@@ -437,7 +440,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             //   extensions
             //
 
-            newDepth += extensionRequired(m_position.InCheck(), onPV, history.cmhistory, history.fmhistory);
+            newDepth += extensionRequired(m_position.InCheck(), onPV, history.cmhistory, history.fmhistory) + extension;
 
             EVAL e;
             if (legalMoves == 1)
