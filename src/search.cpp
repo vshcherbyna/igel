@@ -619,9 +619,6 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
                     alpha = e;
                     bestMove = mv;
                     type = HASH_EXACT;
-                    m_pv[ply][0] = mv;
-                    memcpy(m_pv[ply] + 1, m_pv[ply + 1], m_pvSize[ply + 1] * sizeof(Move));
-                    m_pvSize[ply] = 1 + m_pvSize[ply + 1];
                 }
             }
 
