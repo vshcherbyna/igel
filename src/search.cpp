@@ -266,6 +266,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             bestScore = ttScore;
     }
 
+    auto improving = ply >= 2 && staticEval > m_evalStack[ply - 2];
+
     //
     //  apply prunning when we are not in check and not on PV
     //
@@ -283,7 +285,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //  static null move pruning
         //
 
-        if (depth <= 8 && bestScore - 85 * depth > beta)
+        if (depth <= 8 && bestScore - 85 * (depth - improving) >= beta)
             return bestScore;
 
         //
@@ -351,7 +353,6 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     auto mvSize = mvlist.Size();
 
     std::vector<Move> quietMoves;
-    auto improving = ply >= 2 && staticEval > m_evalStack[ply - 2];
     m_killerMoves[ply + 1][0] = m_killerMoves[ply + 1][1] = 0;
     auto quietsTried = 0;
     auto skipQuiets = false;
