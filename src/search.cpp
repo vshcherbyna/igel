@@ -127,7 +127,7 @@ bool Search::isDraw()
     return false;
 }
 
-EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool rootNode, Move skipMove/*= 0*/)
+EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool rootNode, bool cutNode, Move skipMove/*= 0*/)
 {
     //
     //   qsearch
@@ -296,7 +296,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             int R = 5 + depth / 6 + std::min(3, (bestScore - beta) / 100);
 
             m_position.MakeNullMove();
-            EVAL nullScore = -abSearch(-beta, -beta + 1, depth - R, ply + 1, true, false);
+            EVAL nullScore = -abSearch(-beta, -beta + 1, depth - R, ply + 1, true, false, !cutNode);
             m_position.UnmakeNullMove();
 
             if (nullScore >= beta)
@@ -327,7 +327,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                     auto score = -qSearch(-betaCut, -betaCut + 1, ply, 0);
 
                     if (score >= betaCut)
-                        score = -abSearch(-betaCut, -betaCut + 1, depth - 4, ply + 1, false, false);
+                        score = -abSearch(-betaCut, -betaCut + 1, depth - 4, ply + 1, false, false, !cutNode);
 
                     m_position.UnmakeMove();
 
@@ -416,7 +416,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
         if (depth >= 8 && !skipMove && hashMove == mv && !rootNode && !isCheckMateScore(hEntry.m_data.score) && (hEntry.m_data.type == HASH_BETA || hEntry.m_data.type == HASH_EXACT) && hEntry.m_data.depth >= depth - 3) {
             auto betaCut = hEntry.m_data.score - depth;
-            auto score = abSearch(betaCut - 1, betaCut, depth / 2, ply + 1, false, false, mv);
+            auto score = abSearch(betaCut - 1, betaCut, depth / 2, ply + 1, false, false, cutNode, mv);
 
             if (score < betaCut)
                 extension = 1;
@@ -443,41 +443,44 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
             newDepth += extensionRequired(m_position.InCheck(), onPV, history.cmhistory, history.fmhistory) + extension;
 
-            EVAL e;
-            if (legalMoves == 1)
-                e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, false);
-            else
-            {
-                //
-                //   lmr
-                //
+            //
+            //   lmr
+            //
 
-                int reduction = 0;
+            int reduction = 0;
 
-                if (depth >= 3 && quietMove && legalMoves > 1 + 2 * rootNode) {
-                    reduction = m_logLMRTable[std::min(depth, 63)][std::min(legalMoves, 63)];
+            if (depth >= 3 && quietMove && legalMoves > 1 + 2 * rootNode) {
+                reduction = m_logLMRTable[std::min(depth, 63)][std::min(legalMoves, 63)];
 
-                    if (onPV)
-                        reduction -= 2;
+                reduction += cutNode;
 
-                    reduction -= mv == m_killerMoves[ply][0]
-                              || mv == m_killerMoves[ply][1];
+                if (onPV)
+                    reduction -= 2;
 
-                    reduction -= std::max(-2, std::min(2, (history.history + history.cmhistory + history.fmhistory) / 5000));
+                reduction -= mv == m_killerMoves[ply][0]
+                    || mv == m_killerMoves[ply][1];
 
-                    if (reduction >= newDepth)
-                        reduction = newDepth - 1;
-                    else if (reduction < 0)
-                        reduction = 0;
-                }
+                reduction -= std::max(-2, std::min(2, (history.history + history.cmhistory + history.fmhistory) / 5000));
 
-                e = -abSearch(-alpha - 1, -alpha, newDepth - reduction, ply + 1, false, false);
-
-                if (e > alpha && reduction > 0)
-                    e = -abSearch(-alpha - 1, -alpha, newDepth, ply + 1, false, false);
-                if (e > alpha && e < beta)
-                    e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, false);
+                if (reduction >= newDepth)
+                    reduction = newDepth - 1;
+                else if (reduction < 0)
+                    reduction = 0;
             }
+
+            EVAL e;
+
+            if (reduction) {
+                e = -abSearch(-alpha - 1, -alpha, newDepth - reduction, ply + 1, false, false, true);
+
+                if (e > alpha)
+                    e = -abSearch(-alpha - 1, -alpha, newDepth, ply + 1, false, false, !cutNode);
+            }
+            else if (!onPV || legalMoves > 1)
+                e = -abSearch(-alpha - 1, -alpha, newDepth, ply + 1, false, false, !cutNode);
+
+            if (onPV && (legalMoves == 1 || e > alpha))
+                e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, false, false);
 
             m_position.UnmakeMove();
 
@@ -1076,7 +1079,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         EVAL beta  = std::min(m_score + aspiration, CHECKMATE_SCORE);
 
         while (aspiration <= CHECKMATE_SCORE) {
-            auto score = abSearch(alpha, beta, m_depth, 0, false, true);
+            auto score = abSearch(alpha, beta, m_depth, 0, false, true, false);
 
             if (m_flags & SEARCH_TERMINATED)
                 break;
