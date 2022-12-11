@@ -44,20 +44,6 @@
 /* #define TB_CUSTOM_LSB(x) <DEFINITION> */
 
 /*
- * Define TB_CUSTOM_BSWAP32 to override the internal bswap32
- * implementation. To do this supply a macro or function definition
- * here:
- */
-/* #define TB_CUSTOM_BSWAP32(x) <DEFINITION> */
-
-/*
- * Define TB_CUSTOM_BSWAP64 to override the internal bswap64
- * implementation. To do this supply a macro or function definition
- * here:
- */
-/* #define TB_CUSTOM_BSWAP64(x) <DEFINITION> */
-
-/*
  * Define TB_NO_STDINT if you do not want to use <stdint.h> or it is not
  * available.
  */
@@ -92,15 +78,20 @@
  */
 /* #define TB_NO_HW_POP_COUNT */
 
-#if !defined (_BTYPE)
-#define TB_NO_HW_POP_COUNT
-#endif
-
-/**
- * Define TB_USE_ATOMIC to use C++ 11 (or higher) <atomic> feature 
- * (recommended if using C++ and compiler supports it).
+/***************************************************************************/
+/* SCORING CONSTANTS                                                       */
+/***************************************************************************/
+/*
+ * Fathom can produce scores for tablebase moves. These depend on the
+ * value of a pawn, and the magnitude of mate scores. The following
+ * constants are representative values but will likely need
+ * modification to adapt to an engine's own internal score values.
  */
-/* #define TB_USE_ATOMIC */
+#define TB_VALUE_PAWN 100  /* value of pawn in endgame */
+#define TB_VALUE_MATE 32000
+#define TB_VALUE_INFINITE 32767 /* value above all normal score values */
+#define TB_VALUE_DRAW 0
+#define TB_MAX_MATE_PLY 255
 
 /***************************************************************************/
 /* ENGINE INTEGRATION CONFIG                                               */

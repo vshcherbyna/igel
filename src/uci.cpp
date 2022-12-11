@@ -31,7 +31,11 @@
 #include <iostream>
 #include <sstream>
 
+<<<<<<< HEAD
 const std::string VERSION = "3.2.0";
+=======
+const std::string VERSION = "3.1.10";
+>>>>>>> d7e44c5 (3.1.10: update to latest fathom to support 7 men tablebases)
 
 #if defined(ENV64BIT)
     #if defined(_BTYPE)
