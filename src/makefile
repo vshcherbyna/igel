@@ -5,7 +5,7 @@
 
 CC  = g++
 EXE = igel
-SRC = *.cpp nnue/*.cpp nnue/features/*.cpp fathom/tbprobe.c
+SRC = *.cpp nnue/*.cpp nnue/features/*.cpp fathom/tbprobe.cpp
 
 GCCDEFINES = $(shell echo | $(CC) -m64 -march=native -E -dM -)
 

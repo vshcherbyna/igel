@@ -1098,8 +1098,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
             }
 
             aspiration += 2 + aspiration / 2;
-            if (m_score <= alpha)
-            {
+            if (m_score <= alpha) {
                 beta = (alpha + beta) / 2;
                 alpha = std::max(m_score - aspiration, -CHECKMATE_SCORE);
             }
@@ -1186,23 +1185,14 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         //
 
         for (const auto & vote : votes) {
-            if (vote.second.first > bestSoFar) { // select move with highest score
+            if ((vote.first && vote.second.second) && (vote.second.first > bestSoFar)) { // select move with highest score
                 bestSoFar = vote.second.first;   // memorize highest score so far
                 m_best = vote.first;             // store the best move
                 m_ponder = vote.second.second;   // store the best ponder
             }
         }
 
-        //
-        //  In case bestmove changes, print pv/depth/score from a better thread
-        //
-
-        for (unsigned int i = 1; i < m_thc; ++i) {
-            if (m_best == m_threadParams[i].m_best && m_ponder == m_threadParams[i].m_ponder) {
-                printPV(m_position, std::max(m_depth, m_threadParams[i].m_depth), std::max(m_selDepth, m_threadParams[i].m_selDepth), m_threadParams[i].m_score, m_threadParams[i].m_pv[0], m_threadParams[i].m_pvSize[0], m_threadParams[i].m_best, sumNodes, sumHits, nps);
-                break;
-            }
-        }
+        printPV(m_position, m_depth, m_selDepth, bestSoFar, m_pv[0], m_pvSize[0], m_best, sumNodes, sumHits, nps);
     }
 
     //
