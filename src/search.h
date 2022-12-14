@@ -95,9 +95,8 @@ private:
     EVAL qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull = false);
     inline int extensionRequired(bool inCheck, bool onPV, int cmhistory, int fmhistory);
     bool ProbeHash(TEntry & hentry);
-    void printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv, uint64_t sumNodes, uint64_t sumHits, uint64_t nps);
+    void printPV(const Position & pos, int iter, int selDepth, EVAL score, const Move * pv, int pvSize, Move mv, uint64_t sumNodes, uint64_t sumHits, uint64_t nps);
     bool isDraw();
-
     bool checkLimits();
     void releaseHelperThreads();
     void waitUntilCompletion();
@@ -111,11 +110,11 @@ private:
     int m_depth;
     int m_syzygyDepth;
     int m_selDepth;
-    int m_iterPVSize;
     MoveList m_lists[MAX_PLY];
     Move m_pv[MAX_PLY][MAX_PLY];
     int m_pvSize[MAX_PLY];
-    Move m_iterPV[MAX_PLY];
+    Move m_pvPrev[MAX_PLY][MAX_PLY];
+    int m_pvSizePrev[MAX_PLY];
     Move m_killerMoves[MAX_PLY][2];
     int m_history[2][64][64];
     Move m_moveStack[MAX_PLY + 4];
