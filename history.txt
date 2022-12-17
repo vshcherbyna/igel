@@ -1,7 +1,21 @@
 Igel - open source chess engine forked from GreKo 2018.01.
 
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru> (GreKo author)
-(c) 2018-2022 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+(c) 2018-2023 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+
+Igel 3.2.0
+-------------
+17-Dec-2022
+
+- smaller margin for prunning quiets
+- scale down eval to 1000
+- history extensions only on non pv moves
+- adjust scale formula
+- less reductions in lmp when not improving
+- negative extensions
+- futility pruning improvements
+- implement cutnode
+- new network ign-1-9a48854b created by using prev network (ign-1-3e998e78) and re-trained with a different lambda
 
 Igel 3.1.0
 -------------

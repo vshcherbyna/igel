@@ -87,7 +87,7 @@ Using cmake/gcc:
 git clone https://github.com/vshcherbyna/igel.git ./igel
 cd igel
 git submodule update --init --recursive
-wget https://github.com/vshcherbyna/igel/releases/download/3.1.0/ign-1-3e998e78 -O ./network_file
+wget https://github.com/vshcherbyna/igel/releases/download/3.2.0/ign-1-9a48854b -O ./network_file
 cmake -DEVALFILE=network_file -DEVAL_NNUE=1 -DUSE_PEXT=1 -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
 make -j
 ```

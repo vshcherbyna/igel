@@ -1,7 +1,7 @@
 /*
 *  Igel - a UCI chess playing engine derived from GreKo 2018.01
 *
-*  Copyright (C) 2019-2022 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+*  Copyright (C) 2019-2023 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
 *
 *  Igel is free software: you can redistribute it and/or modify
 *  it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "3.1.9";
+const std::string VERSION = "3.2.0";
 
 #if defined(ENV64BIT)
     #if defined(_BTYPE)
@@ -61,7 +61,7 @@ const int MAX_THREADS     = 1024;
 
 int Uci::handleCommands()
 {
-    std::cout << "Igel " << VERSION << ARCHITECTURE << " by V. Medvedev, V. Shcherbyna" << std::endl;
+    std::cout << "Igel " << VERSION << ARCHITECTURE << " by V. Shcherbyna (Igel author 2018-2023), V. Medvedev (GreKo author 2002-2018)" << std::endl;
 
     if (!TTable::instance().setHashSize(DEFAULT_HASH_SIZE, DEFAULT_THREADS)) {
         std::cout << "Fatal error: unable to allocate memory for transposition table" << std::endl;
@@ -131,7 +131,7 @@ void Uci::onUci()
     std::cout << "option name Ponder type check" <<
         " default false" << std::endl;
 
-    std::cout << "option name Skill Level type spin" <<
+    std::cout << "option name Skill type spin" <<
         " default " << DEFAULT_LEVEL <<
         " min "		<< MIN_LEVEL	<<
         " max "		<< MAX_LEVEL << std::endl;
@@ -302,7 +302,7 @@ void Uci::onSetOption(commandParams params)
         m_searcher.setThreadCount(threads - 1);
         onUciNewGame(); // reset internal state of each thread
     }
-    else if (name == "Skill Level") {
+    else if (name == "Skill") {
         auto level = atoi(value.c_str());
 
         if (level > MAX_LEVEL || MIN_LEVEL < 0)
