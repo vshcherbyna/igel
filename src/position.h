@@ -166,6 +166,7 @@ public:
     static void  InitHashNumbers();
     bool NonPawnMaterial();
     EVAL nonPawnMaterial();
+    Move getRandomMove();
 
 #if defined(EVAL_NNUE)
     Undo * state() const { return m_state; }

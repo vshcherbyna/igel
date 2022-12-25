@@ -975,6 +975,25 @@ EVAL Position::nonPawnMaterial(COLOR side)
         +  (Count(QUEEN  | side) * VAL_Q);
 }
 
+Move Position::getRandomMove()
+{
+    MoveList pseudo;
+    GenAllMoves(*this, pseudo);
+    std::vector<Move> moves;
+
+    for (size_t i = 0; i < pseudo.Size(); ++i) {
+        if (MakeMove(pseudo[i].m_mv)) {
+            moves.push_back(pseudo[i].m_mv);
+            UnmakeMove();
+        }
+    }
+
+    if (moves.empty())
+        return 0;
+    else
+        return moves[Rand32() % moves.size()];
+}
+
 #if defined(EVAL_NNUE)
 const EvalList * Position::eval_list() const {
     return &evalList;
