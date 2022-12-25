@@ -69,6 +69,7 @@ private:
     void onSetOption(commandParams params);
     void onEval();
     bool startsWith(const std::string & str, const std::string & ptrn);
+    void onGenerate(commandParams params);
 
 private:
     Search & m_searcher;

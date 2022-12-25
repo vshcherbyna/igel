@@ -2,9 +2,7 @@
 
 ![Logo](https://raw.githubusercontent.com/vshcherbyna/igel/master/igel.bmp)
 
-[![Build Status](https://api.travis-ci.org/vshcherbyna/igel.svg?branch=master)](https://travis-ci.org/vshcherbyna/igel)
 [![Build Status](https://ci.appveyor.com/api/projects/status/github/vshcherbyna/igel?svg=true)](https://ci.appveyor.com/project/vshcherbyna/igel)
-[![Total alerts](https://img.shields.io/lgtm/alerts/g/vshcherbyna/igel.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/vshcherbyna/igel/alerts/)
 
 Igel is a free UCI chess engine forked from GreKo 2018.01. It is not a complete chess program and requires some UCI compatible GUI software in order to be used.
 
@@ -72,13 +70,13 @@ I would like to thank the authors and the community involved in the creation of 
 
 Official compilation method involves cmake and gcc/Visual Studio 2019 and assumes a modern CPU with AVX2 support (most of the computers produced in last 8 years).
 
-Using cmake/Visual Studio:
+Using cmake/Visual Studio 2022:
 
 ```
 git clone https://github.com/vshcherbyna/igel.git ./igel
 cd igel
 git submodule update --init --recursive
-cmake -DEVAL_NNUE=1 -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE -G "Visual Studio 16 2019" -A x64 .
+cmake -DEVAL_NNUE=1 -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE -G "Visual Studio 17 2022" -A x64 .
 ```
 
 Using cmake/gcc:

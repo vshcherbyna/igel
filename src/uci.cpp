@@ -22,6 +22,7 @@
 #include "notation.h"
 #include "evaluate.h"
 #include "utils.h"
+#include "gen.h"
 
 #if defined (SYZYGY_SUPPORT)
 #include "fathom/tbprobe.h"
@@ -95,6 +96,8 @@ int Uci::handleCommands()
             onUci();
         else if (startsWith(cmd, "eval"))
             onEval();
+        else if (startsWith(cmd, "gen"))
+            onGenerate(split(cmd));
         else {
             std::cout << "Unknown command. Good bye." << std::endl;
             exit(0); // important to exit when stdin is gone to prevent issues in OpenBench
@@ -370,4 +373,11 @@ void Uci::onNewGame()
 bool Uci::startsWith(const std::string & str, const std::string & ptrn)
 {
     return !str.find(ptrn);
+}
+
+void Uci::onGenerate(commandParams params)
+{
+    RandSeed(time(0));
+    std::unique_ptr<Generator> generator(new Generator(std::stoi(params[1]), std::stoi(params[2]), std::stoi(params[3])));
+    generator->onGenerate();
 }

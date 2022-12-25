@@ -135,6 +135,7 @@ enum
 const EVAL CHECKMATE_SCORE  = 32767;
 const EVAL TBBASE_SCORE     = 22767;
 const EVAL DRAW_SCORE       = 0;
+const EVAL UNKNOWN_SCORE    = CHECKMATE_SCORE + /*MAX_PLY*/ 129;
 
 struct Pair
 {
