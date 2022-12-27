@@ -55,7 +55,6 @@ Search::Search() :
     m_depth(0),
     m_syzygyDepth(0),
     m_selDepth(0),
-    m_iterPVSize(0),
     m_principalSearcher(false),
     m_thc(0),
     m_threads(nullptr),
@@ -964,7 +963,6 @@ void Search::startPrincipalSearch(Time time, bool ponder)
 
 uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench)
 {
-    m_iterPVSize = 0;
     m_nodes = 0;
     m_selDepth = 0;
     m_tbHits = 0;
@@ -989,6 +987,8 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         }
     }
 
+    memset(m_pvPrev, 0, sizeof(m_pvPrev));
+    memset(m_pvSizePrev, 0, sizeof(m_pvSizePrev));
     memset(&m_pv, 0, sizeof(m_pv));
     m_time.resetAdjustment();
 
@@ -1067,8 +1067,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     uint64_t sumHits = 0;
     uint64_t nps = 0;
 
-    for (m_depth = depth; m_depth < maxDepth; ++m_depth)
-    {
+    for (m_depth = depth; m_depth < maxDepth; ++m_depth) {
         //
         //  Make a search
         //
@@ -1085,14 +1084,15 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
                 break;
 
             m_score = score;
-            memcpy(m_iterPV, m_pv[0], m_pvSize[0] * sizeof(Move));
-            m_iterPVSize = m_pvSize[0];
 
-            if (m_iterPVSize && m_pv[0][0]) {
+            if (m_pvSize[0] && m_pv[0][0]) {
                 m_best = m_pv[0][0];
 
-                if (m_iterPVSize > 1 && m_pv[0][1])
+                if (m_pvSize[0] > 1 && m_pv[0][1]) {
                     m_ponder = m_pv[0][1];
+                    memcpy(m_pvPrev, m_pv, sizeof(m_pv));
+                    memcpy(m_pvSizePrev, m_pvSize, sizeof(m_pvSize));
+                }
                 else
                     m_ponder = 0;
             }
@@ -1160,10 +1160,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         //  Pickup the best thread based on eval/depth
         //
 
-        std::map<Move, std::pair<int64_t, Move>> votes;
         auto worst = m_score;
-        int64_t bestSoFar = (static_cast<int64_t>(m_score) - static_cast<int64_t>(worst) + 20) * static_cast<int64_t>(m_depth);
-        votes[m_best] = std::make_pair(bestSoFar, m_ponder);
 
         //
         //  Calculate worst score yet
@@ -1172,13 +1169,43 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         for (unsigned int i = 0; i < m_thc; ++i)
             worst = std::min(worst, m_threadParams[i].m_score);
 
+        int64_t bestSoFar = (static_cast<int64_t>(m_score) - static_cast<int64_t>(worst) + 20) * static_cast<int64_t>(m_depth);
+
+        typedef struct tagStat {
+            tagStat(Move p, EVAL s, int d, int sd, const Move* pv_, int pvSize_) {
+                ponder = p;
+                score = s;
+                depth = d;
+                selDepth = sd;
+                pvSize = pvSize_;
+                memcpy(pv, pv_, pvSize * sizeof(Move));
+            }
+            tagStat() {
+                ponder = 0;
+                score = 0;
+                depth = 0;
+                selDepth = 0;
+                pvSize = 0;
+                memset(pv, 0, sizeof(pv));
+            }
+            Move ponder;
+            EVAL score;
+            int depth;
+            int selDepth;
+            Move pv[MAX_PLY];
+            int  pvSize;
+        }Stat;
+
+        std::map<Move, std::pair<int64_t, Stat>> votes;
+        votes[m_best] = std::make_pair(bestSoFar, Stat{ m_ponder, m_score, m_depth, m_selDepth, m_pvPrev[0], m_pvSizePrev[0] });
+
         //
         //  Calculate the voting map
         //
 
         for (unsigned int i = 0; i < m_thc; ++i) {
             votes[m_threadParams[i].m_best].first  += (static_cast<int64_t>(m_threadParams[i].m_score) - static_cast<int64_t>(worst) + 20) * static_cast<int64_t>(m_threadParams[i].m_depth);
-            votes[m_threadParams[i].m_best].second  = m_threadParams[i].m_ponder;
+            votes[m_threadParams[i].m_best].second = Stat{ m_threadParams[i].m_ponder , m_threadParams[i].m_score, m_threadParams[i].m_depth, m_threadParams[i].m_selDepth, m_threadParams[i].m_pvPrev[0], m_threadParams[i].m_pvSizePrev[0] };
         }
 
         //
@@ -1186,23 +1213,19 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         //
 
         for (const auto & vote : votes) {
-            if (vote.second.first > bestSoFar) { // select move with highest score
-                bestSoFar = vote.second.first;   // memorize highest score so far
-                m_best = vote.first;             // store the best move
-                m_ponder = vote.second.second;   // store the best ponder
+            if (vote.first && (vote.second.first > bestSoFar)) { // select move with highest score
+                bestSoFar = vote.second.first;                   // memorize highest score so far
+                m_best = vote.first;                             // store the best move
+                m_ponder = vote.second.second.ponder;            // store the best ponder
+                m_score = vote.second.second.score;              // store statistics
+                m_depth = std::max(m_depth, vote.second.second.depth);
+                m_selDepth = std::max(m_selDepth, vote.second.second.selDepth);
+                m_pvSizePrev[0] = vote.second.second.pvSize;
+                memcpy(m_pvPrev[0], vote.second.second.pv, m_pvSizePrev[0] * sizeof(Move));
             }
         }
 
-        //
-        //  In case bestmove changes, print pv/depth/score from a better thread
-        //
-
-        for (unsigned int i = 1; i < m_thc; ++i) {
-            if (m_best == m_threadParams[i].m_best && m_ponder == m_threadParams[i].m_ponder) {
-                printPV(m_position, std::max(m_depth, m_threadParams[i].m_depth), std::max(m_selDepth, m_threadParams[i].m_selDepth), m_threadParams[i].m_score, m_threadParams[i].m_pv[0], m_threadParams[i].m_pvSize[0], m_threadParams[i].m_best, sumNodes, sumHits, nps);
-                break;
-            }
-        }
+        printPV(m_position, m_depth, m_selDepth, m_score, m_pvPrev[0], m_pvSizePrev[0], m_best, sumNodes, sumHits, nps);
     }
 
     //
