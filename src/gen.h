@@ -203,7 +203,7 @@ new_game:
                     m_pMutex->lock();
 
                     for (auto const& i : entries) {
-                        if (i.quiet && std::abs(i.score) <= 10000) {
+                        if (i.quiet && std::abs(i.score) <= 32000) {
                             int res = 0;
                             if (result == "1-0")
                                 res = 1;
@@ -244,9 +244,10 @@ new_game:
                     abort();
                 }
 
-                auto ply  = m_search->m_position.Ply();
-                auto fen  = m_search->m_position.FEN();
-                auto move = MoveToStrLong(m_search->m_best);
+                auto ply   = m_search->m_position.Ply();
+                auto fen   = m_search->m_position.FEN();
+                auto move  = MoveToStrLong(m_search->m_best);
+                auto check = m_search->m_position.InCheck();
 
                 //
                 // make a move, it must be legal
@@ -275,7 +276,7 @@ new_game:
                     entry.move = move;
                     entry.score = m_search->m_score;
                     entry.ply = ply;
-                    entry.quiet = MoveEval::isTacticalMove(m_search->m_best) == false;
+                    entry.quiet = !check && !m_search->m_position.InCheck() && !MoveEval::isTacticalMove(m_search->m_best);
 
                     FenHashTT::instance(0).record(m_search->m_best, m_search->m_score, m_search->m_depth, ply, 0, hash);
                 }
