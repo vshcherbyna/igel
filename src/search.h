@@ -111,11 +111,11 @@ private:
     int m_depth;
     int m_syzygyDepth;
     int m_selDepth;
-    int m_iterPVSize;
     MoveList m_lists[MAX_PLY];
     Move m_pv[MAX_PLY][MAX_PLY];
     int m_pvSize[MAX_PLY];
-    Move m_iterPV[MAX_PLY];
+    Move m_pvPrev[MAX_PLY][MAX_PLY];
+    int m_pvSizePrev[MAX_PLY];
     Move m_killerMoves[MAX_PLY][2];
     int m_history[2][64][64];
     Move m_moveStack[MAX_PLY + 4];
