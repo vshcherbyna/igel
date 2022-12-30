@@ -143,7 +143,7 @@ void Generator::onGenerate()
             before_skipped   += m_workers[i].m_skipped;
         }
 
-        std::this_thread::sleep_for(60s);
+        std::this_thread::sleep_for(15s);
 
         uint64_t after_processed = 0;
         uint64_t after_skipped   = 0;
@@ -153,8 +153,8 @@ void Generator::onGenerate()
             after_skipped   += m_workers[i].m_skipped;
         }
 
-        std::cout << "[Processed " << after_processed << " FENs, " << ((after_processed - before_processed) / 60) << " per sec] [" ;
-        std::cout << "Skipped " << after_skipped << " FENs, " << ((after_skipped - before_skipped) / 60) << " per sec]" << std::endl;
+        std::cout << "[Processed " << after_processed << " FENs, " << ((after_processed - before_processed) / 15) << " per sec] [" ;
+        std::cout << "Skipped " << after_skipped << " FENs, " << ((after_skipped - before_skipped) / 15) << " per sec]" << std::endl;
 
         //
         // every epoch create a new data file
