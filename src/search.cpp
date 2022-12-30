@@ -1186,7 +1186,6 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
                 depth = 0;
                 selDepth = 0;
                 pvSize = 0;
-                memset(pv, 0, sizeof(pv));
             }
             Move ponder;
             EVAL score;
