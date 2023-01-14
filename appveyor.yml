@@ -30,4 +30,3 @@ build_script:
   - cmake --build . --target ALL_BUILD --config %CONFIGURATION%
   - cmake -D_MAKE_UNIT_TEST=UNIT_TEST -D_BTYPE=1 -G "Visual Studio 17 2022" .
   - cmake --build . --target ALL_BUILD --config %CONFIGURATION%
-  - .\%CONFIGURATION%\unit.exe

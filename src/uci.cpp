@@ -31,14 +31,14 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "3.2.3";
+const std::string VERSION = "3.3.0";
 
 #if defined(ENV64BIT)
     #if defined(_BTYPE)
         #if _BTYPE==0
-            const std::string ARCHITECTURE = " 64 POPCNT";
+            const std::string ARCHITECTURE = " 64 POPCNT AVX2";
         #else
-            const std::string ARCHITECTURE = " 64 BMI2";
+            const std::string ARCHITECTURE = " 64 BMI2 AVX2";
     #endif
     #else
         const std::string ARCHITECTURE = " 64";

@@ -38,6 +38,27 @@ U32 Position::s_pawnHash[64][14];
 
 const int Position::s_matIndexDelta[14] = { 0, 0, 0, 0, 3, 3, 3, 3, 5, 5, 10, 10, 0, 0 };
 
+ExtPieceSquare kpp_board_index[PIECE_NB] = {
+    // convention: W - us, B - them
+    // viewed from other side, W and B are reversed
+       { PS_NONE,     PS_NONE     },
+       { PS_W_PAWN,   PS_B_PAWN   },
+       { PS_W_KNIGHT, PS_B_KNIGHT },
+       { PS_W_BISHOP, PS_B_BISHOP },
+       { PS_W_ROOK,   PS_B_ROOK   },
+       { PS_W_QUEEN,  PS_B_QUEEN  },
+       { PS_KING,     PS_KING     },
+       { PS_NONE,     PS_NONE     },
+       { PS_NONE,     PS_NONE     },
+       { PS_B_PAWN,   PS_W_PAWN   },
+       { PS_B_KNIGHT, PS_W_KNIGHT },
+       { PS_B_BISHOP, PS_W_BISHOP },
+       { PS_B_ROOK,   PS_W_ROOK   },
+       { PS_B_QUEEN,  PS_W_QUEEN  },
+       { PS_KING,     PS_KING     },
+       { PS_NONE,     PS_NONE     }
+};
+
 bool Position::CanCastle(COLOR side, U8 flank) const
 {
     if (InCheck())
@@ -60,17 +81,14 @@ bool Position::CanCastle(COLOR side, U8 flank) const
 
 void Position::Clear()
 {
-#if defined(EVAL_NNUE)
     std::memset(evalList.piece_id_list, 0, sizeof(evalList.piece_id_list));
-    std::memset(evalList.pieceListFw, 0, sizeof(evalList.pieceListFw));
-    std::memset(evalList.pieceListFb, 0, sizeof(evalList.pieceListFb));
+    std::memset(evalList.pieceListFw,   0, sizeof(evalList.pieceListFw));
+    std::memset(evalList.pieceListFb,   0, sizeof(evalList.pieceListFb));
 
     for (unsigned int i = 0; i < sizeof(m_undos) / sizeof(Undo); ++i)
         m_undos->reset();
 
     m_state = &m_undos[0];
-
-#endif
 
     for (FLD f = 0; f < 64; ++f)
         m_board[f] = NOPIECE;
@@ -88,7 +106,6 @@ void Position::Clear()
     m_hash = 0;
     m_Kings[WHITE] = m_Kings[BLACK] = NF;
     m_matIndex[WHITE] = m_matIndex[BLACK] = 0;
-    m_pawnHash = 1;
     m_ply = 0;
     m_score = Pair();
     m_side = WHITE;
@@ -227,7 +244,6 @@ bool Position::IsAttacked(FLD f, COLOR side) const
     return false;
 }
 
-#if defined(EVAL_NNUE)
 inline PieceId Position::piece_id_on(Square sq) const
 {
     Square flipped = FLIP[BLACK][sq];
@@ -236,7 +252,6 @@ inline PieceId Position::piece_id_on(Square sq) const
 
     return pid;
 }
-#endif
 
 bool Position::MakeMove(Move mv)
 {
@@ -249,7 +264,6 @@ bool Position::MakeMove(Move mv)
     undo.m_hash = Hash();
     undo.m_mv = mv;
 
-#if defined(EVAL_NNUE)
     undo.previous = m_undoSize == 1 ? nullptr : m_state;
     m_state = &undo;
 
@@ -259,7 +273,6 @@ bool Position::MakeMove(Move mv)
     PieceId dp1 = PIECE_ID_NONE;
     auto & dp = m_state->dirtyPiece;
     dp.dirty_num = 1;
-#endif
 
     FLD from = mv.From();
     FLD to = mv.To();
@@ -278,26 +291,21 @@ bool Position::MakeMove(Move mv)
 
     ++m_fifty;
     if (captured) {
-#if defined(EVAL_NNUE)
         auto nnueTo = to == m_ep ? to + 8 - 16 * side : to;
-#endif
         m_fifty = 0;
         if (to == m_ep)
             Remove(to + 8 - 16 * side);
         else
             Remove(to);
 
-#if defined(EVAL_NNUE)
         dp.dirty_num = 2; // 2 pieces moved
         dp1 = piece_id_on(nnueTo);
         dp.pieceId[1] = dp1;
         dp.old_piece[1] = evalList.piece_with_id(dp1);
         evalList.put_piece(dp1, to, NO_PIECE);
         dp.new_piece[1] = evalList.piece_with_id(dp1);
-#endif
     }
 
-#if defined(EVAL_NNUE)
     auto castling = (mv == MOVE_O_O[side]) || (mv == MOVE_O_O_O[side]);
 
     // handle non-castling moves
@@ -308,7 +316,6 @@ bool Position::MakeMove(Move mv)
         evalList.put_piece(dp0, to, NNUEPieceAdaptor(piece));
         dp.new_piece[0] = evalList.piece_with_id(dp0);
     }
-#endif
 
     MovePiece(piece, from, to);
 
@@ -325,38 +332,29 @@ bool Position::MakeMove(Move mv)
             {
                 Remove(to);
                 Put(to, promotion);
-#if defined(EVAL_NNUE)
                 dp0 = piece_id_on(to);
                 evalList.put_piece(dp0, to, NNUEPieceAdaptor(promotion));
                 dp.new_piece[0] = evalList.piece_with_id(dp0);
-#endif
             }
             break;
         case KW:
         case KB:
             m_Kings[side] = to;
-#if defined(EVAL_NNUE)
             FLD rfrom, rto;
-#endif
             if (mv == MOVE_O_O[side]) {
-#if defined(EVAL_NNUE)
                 assert(castling);
                 rfrom = HX[side];
                 rto = FX[side];
-#endif
                 Remove(HX[side]);
                 Put(FX[side], ROOK | side);
             }
             else if (mv == MOVE_O_O_O[side]) {
-#if defined(EVAL_NNUE)
                 assert(castling);
                 rfrom = AX[side];
                 rto = DX[side];
-#endif
                 Remove(AX[side]);
                 Put(DX[side], ROOK | side);
             }
-#if defined(EVAL_NNUE)
             if (castling) {
                 dp.dirty_num = 2; // 2 pieces moved
                 dp0 = piece_id_on(from);
@@ -370,7 +368,6 @@ bool Position::MakeMove(Move mv)
                 evalList.put_piece(dp1, rto, side == WHITE ? W_ROOK : B_ROOK);
                 dp.new_piece[1] = evalList.piece_with_id(dp1);
             }
-#endif
             break;
         default:
             break;
@@ -424,32 +421,26 @@ void Position::UnmakeMove()
     COLOR opp = m_side;
     COLOR side = opp ^ 1;
 
-#if defined(EVAL_NNUE)
     auto castling = (mv == MOVE_O_O[side]) || (mv == MOVE_O_O_O[side]);
 
     if (!castling) {
         PieceId dp0 = m_state->dirtyPiece.pieceId[0];
         evalList.put_piece(dp0, from, NNUEPieceAdaptor(piece));
     }
-#endif
 
     Remove(to);
 
     if (captured) {
-#if defined(EVAL_NNUE)
         assert(castling == false);
         auto nnueTo = to == m_ep ? to + 8 - 16 * side : to;
-#endif
         if (to == m_ep)
             Put(to + 8 - 16 * side, captured);
         else
             Put(to, captured);
-#if defined(EVAL_NNUE)
         PieceId dp1 = m_state->dirtyPiece.pieceId[1];
         assert(evalList.piece_with_id(dp1).from[WHITE] == PS_NONE);
         assert(evalList.piece_with_id(dp1).from[BLACK] == PS_NONE);
         evalList.put_piece(dp1, nnueTo, NNUEPieceAdaptor(captured));
-#endif
     }
 
     Put(from, piece);
@@ -459,29 +450,22 @@ void Position::UnmakeMove()
     case KW:
     case KB:
         m_Kings[side] = from;
-#if defined(EVAL_NNUE)
         FLD rfrom, rto;
-#endif
         if (mv == MOVE_O_O[side]) {
-#if defined(EVAL_NNUE)
             assert(castling);
             rto = FX[side];
             rfrom = HX[side];
-#endif
             Remove(FX[side]);
             Put(HX[side], ROOK | side);
         }
         else if (mv == MOVE_O_O_O[side]) {
-#if defined(EVAL_NNUE)
             assert(castling);
             rto = DX[side];
             rfrom = AX[side];
-#endif
             Remove(DX[side]);
             Put(AX[side], ROOK | side);
         }
 
-#if defined(EVAL_NNUE)
         if (castling) {
             auto & dp = m_state->dirtyPiece;
             PieceId dp0, dp1;
@@ -492,7 +476,6 @@ void Position::UnmakeMove()
             evalList.put_piece(dp0, from, side == WHITE ? W_KING : B_KING);
             evalList.put_piece(dp1, rfrom, side == WHITE ? W_ROOK : B_ROOK);
         }
-#endif
         break;
     default:
         break;
@@ -501,11 +484,9 @@ void Position::UnmakeMove()
     --m_ply;
     m_side ^= 1;
 
-#if defined(EVAL_NNUE)
     m_state = undo.previous;
     if (!m_state)
         m_state = &m_undos[0];
-#endif
 }
 
 void Position::MakeNullMove()
@@ -517,11 +498,9 @@ void Position::MakeNullMove()
     undo.m_hash = Hash();
     undo.m_mv = 0;
 
-#if defined(EVAL_NNUE)
     undo.previous = m_undoSize == 1 ? nullptr : m_state;
     m_state = &undo;
     m_state->accumulator.computed_score = false;
-#endif
 
     m_ep = NF;
 
@@ -542,12 +521,10 @@ void Position::UnmakeNullMove()
     --m_ply;
     m_side ^= 1;
 
-#if defined(EVAL_NNUE)
     m_state = undo.previous;
 
     if (!m_state)
         m_state = &m_undos[0];
-#endif
 }
 
 void Position::MovePiece(PIECE p, FLD from, FLD to)
@@ -569,9 +546,6 @@ void Position::MovePiece(PIECE p, FLD from, FLD to)
 
     m_hash ^= s_hash[from][p];
     m_hash ^= s_hash[to][p];
-
-    m_pawnHash ^= s_pawnHash[from][p];
-    m_pawnHash ^= s_pawnHash[to][p];
 
     m_score += pieceSquareTables[p][to];
     m_score -= pieceSquareTables[p][from];
@@ -601,7 +575,6 @@ void Position::Print() const
     }
 }
 
-#if defined(EVAL_NNUE)
 inline Piece Position::NNUEPieceAdaptor(PIECE p)
 {
     Piece t = NO_PIECE;
@@ -648,7 +621,6 @@ inline Piece Position::NNUEPieceAdaptor(PIECE p)
 
     return t;
 }
-#endif
 
 void Position::Put(FLD f, PIECE p)
 {
@@ -661,14 +633,12 @@ void Position::Put(FLD f, PIECE p)
     m_board[f] = p;
 
     m_hash ^= s_hash[f][p];
-    m_pawnHash ^= s_pawnHash[f][p];
     m_matIndex[side] += s_matIndexDelta[p];
     ++m_count[p];
 
     m_score += pieceSquareTables[p][f];
 }
 
-#if defined(EVAL_NNUE)
 void Position::Put(FLD f, PIECE p, PieceId & next_piece_id)
 {
     assert(f >= 0 && f < 64);
@@ -680,7 +650,6 @@ void Position::Put(FLD f, PIECE p, PieceId & next_piece_id)
     m_board[f] = p;
 
     m_hash ^= s_hash[f][p];
-    m_pawnHash ^= s_pawnHash[f][p];
     m_matIndex[side] += s_matIndexDelta[p];
     ++m_count[p];
 
@@ -737,7 +706,6 @@ void Position::Put(FLD f, PIECE p, PieceId & next_piece_id)
 
     evalList.put_piece(piece_id, f, t);
 }
-#endif
 
 void Position::Remove(FLD f)
 {
@@ -751,7 +719,6 @@ void Position::Remove(FLD f)
     m_board[f] = NOPIECE;
 
     m_hash ^= s_hash[f][p];
-    m_pawnHash ^= s_pawnHash[f][p];
     m_matIndex[side] -= s_matIndexDelta[p];
     --m_count[p];
 
@@ -794,9 +761,7 @@ bool Position::SetFEN(const std::string& fen)
     Split(fen, tokens);
 
     FLD f = A8;
-#if defined(EVAL_NNUE)
     PieceId next_piece_id = PIECE_ID_ZERO;
-#endif
 
     for (size_t i = 0; i < tokens[0].length(); ++i)
     {
@@ -840,11 +805,7 @@ bool Position::SetFEN(const std::string& fen)
                 m_Kings[WHITE] = f;
             else if (p == KB)
                 m_Kings[BLACK] = f;
-#if defined(EVAL_NNUE)
             Put(f++, p, next_piece_id);
-#else
-            Put(f++, p);
-#endif
         }
     }
 
@@ -994,8 +955,48 @@ Move Position::getRandomMove()
         return moves[Rand32() % moves.size()];
 }
 
-#if defined(EVAL_NNUE)
 const EvalList * Position::eval_list() const {
     return &evalList;
 }
-#endif
+
+std::uint32_t Position::getActiveIndexes(COLOR c, std::uint32_t indexes[]) {
+    const PieceId target = static_cast<PieceId>(PIECE_ID_KING + c);
+    auto pieces = c == WHITE ? evalList.piece_list_fw() : evalList.piece_list_fb();
+    Square kingSq = static_cast<Square>((pieces[target] - PS_KING) % SQUARE_NB);
+    std::uint32_t count = 0;
+
+    for (PieceId i = PIECE_ID_ZERO; i <= PIECE_ID_BKING; i++)
+        if (pieces[i] != PS_NONE)
+            indexes[count++] = makeIndex(kingSq, pieces[i]);
+
+    return count;
+}
+
+std::pair<std::uint32_t, std::uint32_t> Position::getChangedIndexes(COLOR c, std::uint32_t added[], std::uint32_t removed[]) {
+    const PieceId target = static_cast<PieceId>(PIECE_ID_KING + c);
+    auto pieces = c == WHITE ? evalList.piece_list_fw() : evalList.piece_list_fb();
+    Square kingSq = static_cast<Square>((pieces[target] - PS_KING) % SQUARE_NB);
+
+    const auto & dp = state()->dirtyPiece;
+
+    std::uint32_t ca = 0; 
+    std::uint32_t cr = 0;
+
+    for (int i = 0; i < dp.dirty_num; ++i) {
+        const auto old_p = static_cast<PieceSquare>(dp.old_piece[i].from[c]);
+
+        if (old_p != PS_NONE)
+            removed[cr++] = makeIndex(kingSq, old_p);
+
+        const auto new_p = static_cast<PieceSquare>(dp.new_piece[i].from[c]);
+
+        if (new_p != PS_NONE)
+            added[ca++] = makeIndex(kingSq, new_p);
+    }
+
+    return { ca, cr };
+}
+
+inline std::uint32_t Position::makeIndex(Square sq_k, PieceSquare p) {
+    return static_cast<std::uint32_t>(PS_END) * static_cast<std::uint32_t>(sq_k) + p;
+}

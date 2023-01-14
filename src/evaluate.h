@@ -22,6 +22,9 @@
 #define EVAL_H
 
 #include <string>
+#include <memory>
+#include <immintrin.h>
+
 #include "eval_params.h"
 
 class Position;
@@ -34,80 +37,85 @@ const EVAL VAL_R = 500;
 const EVAL VAL_Q = 1000;
 const EVAL VAL_K = 20000;
 
+#define CACHE_LINE       64
+#define PSQT_BUCKETS     8
+#define LAYERED_NETWORKS 8
+#define WEIGHTS_SCALE    16
+#define PSQT_THRESHOLD   1400
+
+#if defined(USE_AVX2)
+#define SIMD_WIDTH       32
+#endif
+
+class Transformer
+{
+public:
+    Transformer(std::istream & s);
+
+public:
+    std::pair<std::int32_t, bool> transform(Position & pos, std::uint8_t * outBuffer, const std::size_t bucket);
+    inline void refresh(Position & pos);
+    inline void incremental(Position & pos);
+
+public:
+    static constexpr int HalfDimensions  = 512;
+    static constexpr int InputDimensions = 45056;
+
+public:
+    alignas(CACHE_LINE) int16_t biases[HalfDimensions];
+    alignas(CACHE_LINE) int16_t weights[HalfDimensions * InputDimensions];
+    alignas(CACHE_LINE) int32_t psqts[InputDimensions  * PSQT_BUCKETS];
+};
+
+template <std::int32_t WeightScaleBits, std::int32_t InputDimensions> class ClippedReLU {
+
+public:
+    inline static std::uint8_t * propagate(std::int32_t* features, char* outBuffer);
+};
+
+template <std::int32_t OutputDimensions, std::int32_t InputDimensions> class Layer {
+public:
+    Layer(std::istream & s);
+
+public:
+    inline std::int32_t * propagate(std::uint8_t * features, char * outBuffer);
+
+private:
+    alignas(CACHE_LINE) std::int32_t biases[OutputDimensions];
+    alignas(CACHE_LINE) std::int8_t  weights[OutputDimensions * InputDimensions];
+};
+
+class LayeredNetwork
+{
+public:
+    LayeredNetwork(std::istream & s);
+
+public:
+    inline std::int32_t* propagate(std::uint8_t * features, char * outBuffer);
+
+public:
+    alignas(CACHE_LINE) Layer<16, 1024> inputLayer;
+    alignas(CACHE_LINE) Layer<32, 32> hiddenLayer1;
+    alignas(CACHE_LINE) Layer<1, 32> hiddenLayer2;
+};
+
 class Evaluator
 {
 public:
     static void initEval();
     static void initEval(const std::vector<int> & x);
+    static void initEval(std::istream & stream);
     EVAL evaluate(Position & pos);
 
 private:
-    inline Pair evaluatePawns(Position & pos, U64 occ, PawnHashEntry ** pps);
-    inline Pair evaluatePawnsAttacks(Position & pos);
-    inline Pair evaluateKnights(Position & pos, U64 kingZone[], int attackers[], PawnHashEntry * ps);
-    inline Pair evaluateBishops(Position & pos, U64 occ, U64 kingZone[], int attackers[], PawnHashEntry * ps);
-    inline Pair evaluateRooks(Position & pos, U64 occ, U64 kingZone[], int attackers[], PawnHashEntry * ps);
-    inline Pair evaluateQueens(Position & pos, U64 occ, U64 kingZone[], int attackers[]);
-    inline Pair evaluateKings(Position & pos, U64 occ, PawnHashEntry * ps, int attackers[]);
-    inline Pair evaluateKingsAttackers(Position & pos, int attackers[]);
-    inline Pair evaluatePiecesPairs(Position & pos);
-    inline Pair evaluateThreats(Position & pos);
+    int NnueEvaluate(Position & pos);
 
 private:
-    inline Pair evaluatePawn(Position & pos, COLOR side, U64 occ, PawnHashEntry * ps);
-    inline Pair evaluatePawnAttacks(Position & pos, COLOR side);
-    inline Pair evaluateKnight(Position & pos, COLOR side, U64 kingZone[], int attackers[], PawnHashEntry * ps);
-    inline Pair evaluateBishop(Position & pos, COLOR side, U64 occ, U64 kingZone[], int attackers[], PawnHashEntry * ps);
-    inline Pair evaluateRook(Position & pos, COLOR side, U64 occ, U64 kingZone[], int attackers[], PawnHashEntry * ps);
-    inline Pair evaluateQueen(Position & pos, COLOR side, U64 occ, U64 kingZone[], int attackers[]);
-    inline Pair evaluateKing(Position & pos, COLOR side, U64 occ, PawnHashEntry * ps, int attackers[]);
-    inline Pair evaluateKingAttackers(Position & pos, COLOR side, int attackers[]);
-    inline Pair evaluatePiecePairs(Position & pos, COLOR side);
-    inline Pair evaluateThreat(Position & pos, COLOR side);
-
-private:
-    int distance(FLD f1, FLD f2);
-    int pawnShieldPenalty(const PawnHashEntry *ps, int fileK, COLOR side);
-    int pawnStormPenalty(const PawnHashEntry *ps, int fileK, COLOR side);
-    void showPsq(const char * stable, Pair* table, EVAL mid_w = 0, EVAL end_w = 0);
-
-private:
-    static constexpr int WhiteAttacks = WHITE;
-    static constexpr int BlackAttacks = BLACK;
-
-    U64 m_pieceAttacks        [KB + 1];
-    U64 m_pieceAttacks2       [COLORS];
-    U32 m_lesserAttacksOnRooks[COLORS];
-    U32 m_lesserAttacksOnQueen[COLORS];
-    U32 m_majorAttacksOnMinors[COLORS];
-    U32 m_minorAttacksOnMinors[COLORS];
-    U32 m_kingAttackersWeight [COLORS];
-    U32 m_kingAttackers       [COLORS];
+    static std::unique_ptr<Transformer> m_transformer;
+    static std::vector<std::unique_ptr<LayeredNetwork>> m_networks;
 
 public:
     static constexpr int Tempo = 20;
 };
-
-namespace Eval {
-
-    std::string trace(const Position& pos);
-    Value evaluate(const Position& pos);
-
-    extern bool useNNUE;
-    extern std::string eval_file_loaded;
-    void init_NNUE();
-    void verify_NNUE();
-
-    namespace NNUE {
-
-        Value evaluate(const Position& pos);
-        Value compute_eval(const Position& pos);
-        void  update_eval(const Position& pos);
-        bool  load_eval_file(const std::string& evalFile);
-        bool  load_eval(std::string name, std::istream& stream);
-
-    } // namespace NNUE
-
-} // namespace Eval
 
 #endif

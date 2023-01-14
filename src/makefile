@@ -5,22 +5,17 @@
 
 CC  = g++
 EXE = igel
-SRC = *.cpp nnue/*.cpp nnue/features/*.cpp fathom/tbprobe.cpp
+SRC = *.cpp fathom/tbprobe.cpp
 
 GCCDEFINES = $(shell echo | $(CC) -m64 -march=native -E -dM -)
 
-EVALFILE = weights/ign-1-9a48854b
+EVALFILE = weights/ign-2-51ba2968
 NNFLAGS  = -DEVALFILE=\"$(EVALFILE)\"
 
 LIBS   = -std=c++17 -mpopcnt -pthread
 WARN   = -Wall
 OPTIM  = -O3 -march=native -flto
 DEFS   = -DNDEBUG -DEVAL_NNUE=1 -D_BTYPE=0 -DSYZYGY_SUPPORT=TRUE
-
-ifneq ($(findstring __SSE4_1__, $(GCCDEFINES)),)
-    LIBS += -msse -msse2 -msse3 -msse4.1
-    DEFS += -DUSE_SSE2=1 -DUSE_SSSE3=1 -DUSE_SSE41=1
-endif
 
 ifneq ($(findstring __AVX2__, $(GCCDEFINES)),)
     LIBS += -mavx2

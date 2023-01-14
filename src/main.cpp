@@ -21,20 +21,11 @@
 #include "evaluate.h"
 #include "uci.h"
 
-#if defined(EVAL_NNUE)
-#include "incbin/incbin.h"
-
-#if !defined(_MSC_VER)
-INCBIN(EmbeddedNNUE, EVALFILE);
-#endif // _MSC_VER
-
-#include <streambuf>
-using namespace std;
-#endif // EVAL_NNUE
-
 #if !defined(UNIT_TEST)
 int main(int argc, const char* argv[])
 {
+    static_assert(USE_AVX2 == 1, "AVX2 is currently the only supported build type");
+
     //
     //  initialize igel
     //
@@ -42,47 +33,6 @@ int main(int argc, const char* argv[])
     InitBitboards();
     Position::InitHashNumbers();
     Evaluator::initEval();
-
-#if defined(EVAL_NNUE)
-
-    //
-    //  initialize nnue
-    //
-
-    Eval::init_NNUE();
-
-#if defined(_MSC_VER)
-
-    //
-    //  for debugging purposes load official network file
-    //
-
-    if (!Eval::NNUE::load_eval_file("ign-1-9a48854b")) {
-        std::cout << "Unable to set EvalFile. Aborting" << std::endl;
-        abort();
-    }
-#else
-
-    //
-    //  load network file from resources
-    //
-
-    class MemoryBuffer : public basic_streambuf<char> {
-    public: MemoryBuffer(char* p, size_t n) { setg(p, p, p + n); setp(p, p + n); }
-    };
-
-    MemoryBuffer buffer(const_cast<char*>(reinterpret_cast<const char*>(gEmbeddedNNUEData)),
-        size_t(gEmbeddedNNUESize));
-
-    istream stream(&buffer);
-
-    if (!Eval::NNUE::load_eval(EVALFILE, stream)) {
-        std::cout << "Unable to set EvalFile. Aborting" << std::endl;
-        abort();
-    }
-
-#endif // _MSC_VER
-#endif // EVAL_NNUE
 
     std::unique_ptr<Search> searcher(new Search);
 

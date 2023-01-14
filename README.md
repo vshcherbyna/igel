@@ -76,7 +76,7 @@ Using cmake/Visual Studio 2022:
 git clone https://github.com/vshcherbyna/igel.git ./igel
 cd igel
 git submodule update --init --recursive
-cmake -DEVAL_NNUE=1 -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE -G "Visual Studio 17 2022" -A x64 .
+cmake -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE -G "Visual Studio 17 2022" -A x64 .
 ```
 
 Using cmake/gcc:
@@ -85,8 +85,8 @@ Using cmake/gcc:
 git clone https://github.com/vshcherbyna/igel.git ./igel
 cd igel
 git submodule update --init --recursive
-wget https://github.com/vshcherbyna/igel/releases/download/3.2.0/ign-1-9a48854b -O ./network_file
-cmake -DEVALFILE=network_file -DEVAL_NNUE=1 -DUSE_PEXT=1 -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
+wget https://github.com/vshcherbyna/igel/releases/download/3.3.0/ign-2-51ba2968 -O ./network_file
+cmake -DEVALFILE=network_file -DUSE_PEXT=1 -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
 make -j
 ```
 
@@ -108,4 +108,4 @@ It is also possible to compile using gcc and a traditional makefile, please cons
 
 ### Donation
 
-Thank you so much for supporting Igel's development and training via [PayPal](https://www.paypal.com/donate/?hosted_button_id=37NPEAY9XLRJE).
+Thank you so much for supporting Igel's development and training via [![Paypal](https://raw.githubusercontent.com/vshcherbyna/igel/master/paypal3.jpg)](https://www.paypal.com/donate/?hosted_button_id=37NPEAY9XLRJE).
