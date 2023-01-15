@@ -23,7 +23,6 @@
 
 #include "bitboards.h"
 #include "evaluate.h"
-#include "nnue/nnue_accumulator.h"
 
 #define STD_POSITION "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
@@ -65,21 +64,12 @@ private:
     U32 m_data;
 };
 
-class Position;
-
-struct PawnHashEntry
-{
-    PawnHashEntry() : m_pawnHash(0) {}
-    void Read(const Position& pos);
-
-    U32 m_pawnHash;
-    I8  m_ranks[10][2];
-
-    U64 m_passedPawns[2];
-    U64 m_doubledPawns[2];
-    U64 m_isolatedPawns[2];
-    U64 m_strongFields[2];
-    U64 m_backwardPawns;
+struct alignas(CACHE_LINE) Accumulator {
+    std::int16_t accumulation[2][1][512];
+    std::int32_t psqtAccumulation[2][8];
+    int score;
+    bool computed_accumulation;
+    bool computed_score;
 };
 
 struct Undo
@@ -90,11 +80,9 @@ struct Undo
     U64  m_hash;
     Move m_mv;
 
-#if defined(EVAL_NNUE)
-    Eval::NNUE::Accumulator accumulator;
+    Accumulator accumulator;
     DirtyPiece dirtyPiece;
     Undo* previous;
-#endif
 
     void reset() 
     {
@@ -105,10 +93,10 @@ struct Undo
 
         m_mv.reset();
 
-#if defined(EVAL_NNUE)
-        std::memset(&accumulator.accumulation, 0, sizeof(accumulator.accumulation));
+        std::memset(&accumulator.accumulation,     0, sizeof(accumulator.accumulation));
+        std::memset(&accumulator.psqtAccumulation, 0, sizeof(accumulator.psqtAccumulation));
 
-        accumulator.score                   = VALUE_ZERO;
+        accumulator.score                   = 0;
         accumulator.computed_accumulation   = false;
         accumulator.computed_score          = false;
 
@@ -125,7 +113,6 @@ struct Undo
                 dirtyPiece.new_piece[i].from[j] = PS_NONE;
 
         previous = nullptr;
-#endif
     }
 };
 
@@ -150,7 +137,6 @@ public:
     bool   MakeMove(Move mv);
     void   MakeNullMove();
     int    MatIndex(COLOR side) const { return m_matIndex[side]; }
-    U32    PawnHash() const { return m_pawnHash; }
     int    Ply() const { return m_ply; }
     void   Print() const;
     int    Repetitions() const;
@@ -168,13 +154,14 @@ public:
     EVAL nonPawnMaterial();
     Move getRandomMove();
 
-#if defined(EVAL_NNUE)
     Undo * state() const { return m_state; }
     const EvalList * eval_list() const;
     inline PieceId piece_id_on(Square sq) const;
     Undo * m_state;
     inline Piece NNUEPieceAdaptor(PIECE p);
-#endif
+    std::uint32_t getActiveIndexes(COLOR c, std::uint32_t indexes[]);
+    std::pair<std::uint32_t, std::uint32_t> getChangedIndexes(COLOR c, std::uint32_t added[], std::uint32_t removed[]);
+    inline std::uint32_t makeIndex(Square sq_k, PieceSquare p);
 
 private:
     void Clear();
@@ -202,7 +189,6 @@ private:
     U64   m_hash;
     FLD   m_Kings[2];
     int   m_matIndex[2];
-    U32   m_pawnHash;
     int   m_ply;
     Pair  m_score;
     COLOR m_side;
@@ -212,10 +198,6 @@ private:
     int m_undoSize;
     bool m_initialPosition;
     EvalList evalList;
-
-public:
-    static const int m_pawnHashSize = 131072;
-    PawnHashEntry m_pawnHashTable[m_pawnHashSize];
 };
 
 const FLD AX[2] = { A1, A8 };

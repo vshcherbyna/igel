@@ -22,6 +22,8 @@ In June 2020 Igel was invited by Andrew Grant to participate in OpenBench testin
 
 In October 2020 first Igel Generation Networks were introduced seeing participation of Igel in TCEC Cup7 and TCEC Season 20 and released later with Igel 2.9.0.
 
+In January 2023 last bits of HCE code were removed from Igel and the evaluation is mostly based on NNUE as of Igel 3.3.0.
+
 ### Igel Generation Networks (IGN)
 
 In late 2020 there have been a lot of discussions in the chess community about NNUE techology in general and NNUE networks in particular raising important questions about authenticity of networks. 
@@ -40,14 +42,13 @@ The IGN networks comply with the following mandatory requirements:
 
 5. Each generation of network must contain information (on github page) on training parameters for clarity of the source of data
 
-6. Complete source data of network may be given to tournament organizers for validation purposes and it must be possible for external parties to train the network from scratch using the provided data to the same strength as submitted network (margin of +-10 elo)
-
 **Technical details**
 
-| Generation    | Architecture       | Source of data                     | Quantity          | Type            | Best network   |
-| ------------- | ------------------ | ---------------------------------- | ----------------- |  -------------- | -------------- |
-| ign-0         | halfkp_256x2-32-32 | Igel 2.6.0                         | 2.3b d8, 500m d12 | HCE             | ign-0-9b1937cc |
-| ign-1         | halfkp_256x2-32-32 | Igel 2.6.0, Igel 2.9.0, Igel 3.0.0 | 12b d8, 1b d12    | HCE, NNUE       | ign-1-3e998e78 |
+| Generation    | Architecture         | Source of data                     | Quantity          | Type            | Best network   |
+| ------------- | ---------------------| ---------------------------------- | ----------------- |  -------------- | -------------- |
+| ign-0         | halfkp_256x2-32-32   | Igel 2.6.0                         | 2.3b d8, 500m d12 | HCE             | ign-0-9b1937cc |
+| ign-1         | halfkp_256x2-32-32   | Igel 2.6.0, Igel 2.9.0, Igel 3.0.0 | 12b d8, 1b d12    | HCE, NNUE       | ign-1-9a48854b |
+| ign-2         | halfkav2_512x2-16-32 | Igels as of 2.9.0                  | d5+d8+d16 >30b    | NNUE            | ign-2-51ba2968 |
 
 ### Acknowledgements
 
@@ -76,7 +77,7 @@ Using cmake/Visual Studio 2022:
 git clone https://github.com/vshcherbyna/igel.git ./igel
 cd igel
 git submodule update --init --recursive
-cmake -DEVAL_NNUE=1 -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE -G "Visual Studio 17 2022" -A x64 .
+cmake -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE -G "Visual Studio 17 2022" -A x64 .
 ```
 
 Using cmake/gcc:
@@ -85,8 +86,8 @@ Using cmake/gcc:
 git clone https://github.com/vshcherbyna/igel.git ./igel
 cd igel
 git submodule update --init --recursive
-wget https://github.com/vshcherbyna/igel/releases/download/3.2.0/ign-1-9a48854b -O ./network_file
-cmake -DEVALFILE=network_file -DEVAL_NNUE=1 -DUSE_PEXT=1 -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
+wget https://github.com/vshcherbyna/igel/releases/download/3.3.0/ign-2-51ba2968 -O ./network_file
+cmake -DEVALFILE=network_file -DUSE_PEXT=1 -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
 make -j
 ```
 
@@ -108,4 +109,4 @@ It is also possible to compile using gcc and a traditional makefile, please cons
 
 ### Donation
 
-Thank you so much for supporting Igel's development and training via [PayPal](https://www.paypal.com/donate/?hosted_button_id=37NPEAY9XLRJE).
+Thank you so much for supporting Igel's development and training via [![Paypal](https://raw.githubusercontent.com/vshcherbyna/igel/master/paypal3.jpg)](https://www.paypal.com/donate/?hosted_button_id=37NPEAY9XLRJE).

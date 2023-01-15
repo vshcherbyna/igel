@@ -202,8 +202,8 @@ new_game:
 
                     m_pMutex->lock();
 
-                    for (auto const& i : entries) {
-                        if (i.quiet && std::abs(i.score) <= 32000) {
+                    for (auto const & i : entries) {
+                        if (i.ply > 6 && i.quiet && std::abs(i.score) <= (CHECKMATE_SCORE + MAX_PLY)) {
                             int res = 0;
                             if (result == "1-0")
                                 res = 1;

@@ -67,6 +67,16 @@ typedef U8 Square;
 typedef I32 EVAL;
 typedef I64 NODES;
 
+#if defined(USE_AVX2)
+#if defined(__GNUC__ ) && (__GNUC__ < 9) && defined(_WIN32)
+#define _mm256_loadA_si256  _mm256_loadu_si256
+#define _mm256_storeA_si256 _mm256_storeu_si256
+#else
+#define _mm256_loadA_si256  _mm256_load_si256
+#define _mm256_storeA_si256 _mm256_store_si256
+#endif
+#endif
+
 enum
 {
     NOPIECE = 0,
@@ -92,6 +102,11 @@ enum
     ROOK   = 8,
     QUEEN  = 10,
     KING   = 12
+};
+
+enum
+{
+    PIECES = 6
 };
 
 enum
@@ -164,30 +179,27 @@ inline Pair operator*(int x, const Pair& p) { return Pair(x * p.mid, x * p.end);
 
 // unique number for each piece type on each square
 enum PieceSquare : uint32_t {
-    PS_NONE = 0,
-    PS_W_PAWN = 1,
-    PS_B_PAWN = 1 * SQUARE_NB + 1,
-    PS_W_KNIGHT = 2 * SQUARE_NB + 1,
-    PS_B_KNIGHT = 3 * SQUARE_NB + 1,
-    PS_W_BISHOP = 4 * SQUARE_NB + 1,
-    PS_B_BISHOP = 5 * SQUARE_NB + 1,
-    PS_W_ROOK = 6 * SQUARE_NB + 1,
-    PS_B_ROOK = 7 * SQUARE_NB + 1,
-    PS_W_QUEEN = 8 * SQUARE_NB + 1,
-    PS_B_QUEEN = 9 * SQUARE_NB + 1,
-    PS_W_KING = 10 * SQUARE_NB + 1,
-    PS_END = PS_W_KING, // pieces without kings (pawns included)
-    PS_B_KING = 11 * SQUARE_NB + 1,
-    PS_END2 = 12 * SQUARE_NB + 1
+    PS_NONE     = 0,
+    PS_W_PAWN   = 0,
+    PS_B_PAWN   = 1  * SQUARE_NB,
+    PS_W_KNIGHT = 2  * SQUARE_NB,
+    PS_B_KNIGHT = 3  * SQUARE_NB,
+    PS_W_BISHOP = 4  * SQUARE_NB,
+    PS_B_BISHOP = 5  * SQUARE_NB,
+    PS_W_ROOK   = 6  * SQUARE_NB,
+    PS_B_ROOK   = 7  * SQUARE_NB,
+    PS_W_QUEEN  = 8  * SQUARE_NB,
+    PS_B_QUEEN  = 9  * SQUARE_NB,
+    PS_KING     = 10 * SQUARE_NB,
+    PS_END      = 11 * SQUARE_NB
 };
 
-// An ID used to track the pieces. Max. 32 pieces on board.
 enum PieceId {
-    PIECE_ID_ZERO = 0,
-    PIECE_ID_KING = 30,
+    PIECE_ID_ZERO  =  0,
+    PIECE_ID_KING  = 30,
     PIECE_ID_WKING = 30,
     PIECE_ID_BKING = 31,
-    PIECE_ID_NONE = 32
+    PIECE_ID_NONE  = 33
 };
 
 inline PieceId operator++(PieceId& d, int) {
@@ -196,29 +208,6 @@ inline PieceId operator++(PieceId& d, int) {
     d = PieceId(int(d) + 1);
     return x;
 }
-
-enum Value : int {
-    VALUE_ZERO = 0,
-    VALUE_DRAW = 0,
-    VALUE_KNOWN_WIN = 10000,
-    VALUE_MATE = 32000,
-    VALUE_INFINITE = 32001,
-    VALUE_NONE = 32002,
-
-    VALUE_TB_WIN_IN_MAX_PLY = VALUE_MATE - 2 * 128,
-    VALUE_TB_LOSS_IN_MAX_PLY = -VALUE_TB_WIN_IN_MAX_PLY,
-    VALUE_MATE_IN_MAX_PLY = VALUE_MATE - 128,
-    VALUE_MATED_IN_MAX_PLY = -VALUE_MATE_IN_MAX_PLY,
-
-    PawnValueMg = 124, PawnValueEg = 206,
-    KnightValueMg = 781, KnightValueEg = 854,
-    BishopValueMg = 825, BishopValueEg = 915,
-    RookValueMg = 1276, RookValueEg = 1380,
-    QueenValueMg = 2538, QueenValueEg = 2682,
-    Tempo = 28,
-
-    MidgameLimit = 15258, EndgameLimit = 3915
-};
 
 #define COLOR_NB 2
 
@@ -268,8 +257,8 @@ public:
     PieceSquare* piece_list_fw() const { return const_cast<PieceSquare*>(pieceListFw); }
     PieceSquare* piece_list_fb() const { return const_cast<PieceSquare*>(pieceListFb); }
 
-    constexpr Square rotate180(Square sq) {
-        return (Square)(sq ^ 0x3F);
+    constexpr Square flipSq(Square sq) {
+        return (Square)(sq ^ 56);
     }
 
     // Place the piece pc with piece_id on the square sq on the board
@@ -301,7 +290,7 @@ public:
         };
 
         sq = FLIP[BLACK][sq];
-        Square rev = rotate180(sq);
+        Square rev = flipSq(sq);
 
         assert(is_ok(piece_id));
         if (pc != NO_PIECE)
