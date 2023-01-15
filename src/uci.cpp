@@ -32,7 +32,25 @@
 #include <sstream>
 
 const std::string VERSION = "3.3.0";
+const std::string ARCHITECTURE = " 64 "
 
+#if _BTYPE==0
+"POPCNT "
+#else
+"BMI2 "
+#endif
+
+#if defined(USE_AVX512)
+"AVX512"
+#if defined(USE_VNNI)
+" VNNI512"
+#endif
+#elif defined(USE_AVX2)
+"AVX2"
+#endif
+;
+
+/*
 #if defined(ENV64BIT)
     #if defined(_BTYPE)
         #if _BTYPE==0
@@ -46,6 +64,7 @@ const std::string VERSION = "3.3.0";
 #else
     const std::string ARCHITECTURE = " CUSTOM";
 #endif
+*/
 
 #if defined(__linux__) && !defined(__ANDROID__)
 const int MIN_HASH_SIZE = 2;

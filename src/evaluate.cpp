@@ -231,7 +231,12 @@ std::pair<std::int32_t, bool> Transformer::transform(Position & pos, std::uint8_
     if (abs(pt) > PSQT_THRESHOLD * WEIGHTS_SCALE)
         return { pt, true };
 
-#if defined(USE_AVX2)
+#if defined(USE_AVX512)
+    std::uint32_t chunks = HalfDimensions / (SIMD_WIDTH * 2);
+    static_assert(HalfDimensions % (SIMD_WIDTH * 2) == 0);
+    const __m512i control = _mm512_setr_epi64(0, 2, 4, 6, 1, 3, 5, 7);
+    const __m512i zero = _mm512_setzero_si512();
+#elif defined(USE_AVX2)
     std::uint32_t chunks = HalfDimensions / SIMD_WIDTH;
     constexpr int control = 0b11011000;
     const __m256i zero = _mm256_setzero_si256();
@@ -240,7 +245,15 @@ std::pair<std::int32_t, bool> Transformer::transform(Position & pos, std::uint8_
     for (auto side : sides) {
         std::uint32_t offset = HalfDimensions * side;
 
-#if defined(USE_AVX2)
+#if defined(USE_AVX512)
+        auto out = reinterpret_cast<__m512i*>(&outBuffer[offset]);
+        for (std::uint32_t j = 0; j < chunks; ++j) {
+            __m512i sum0 = _mm512_load_si512(&reinterpret_cast<const __m512i*>(acc[sides[side]])[j * 2 + 0]);
+            __m512i sum1 = _mm512_load_si512(&reinterpret_cast<const __m512i*>(acc[sides[side]])[j * 2 + 1]);
+            _mm512_store_si512(&out[j], _mm512_permutexvar_epi64(control,_mm512_max_epi8(_mm512_packs_epi16(sum0, sum1), zero)));
+        }
+
+#elif defined(USE_AVX2)
         auto out = reinterpret_cast<__m256i*>(&outBuffer[offset]);
         for (std::uint32_t j = 0; j < chunks; ++j) {
             __m256i sum0 = _mm256_loadA_si256(&reinterpret_cast<const __m256i*>(acc[sides[side]][0])[j * 2 + 0]);
@@ -339,7 +352,13 @@ inline void Transformer::refresh(Position & pos) {
             for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
                 accumulator.psqtAccumulation[c][k] += psqts[indexes[index] * PSQT_BUCKETS + k];
 
-#if defined(USE_AVX2)
+#if defined(USE_AVX512)
+            auto accumulation = reinterpret_cast<__m512i*>(&accumulator.accumulation[c][0][0]);
+            auto column = reinterpret_cast<const __m512i*>(&weights[offset]);
+            constexpr std::uint32_t chunks = HalfDimensions / SIMD_WIDTH;
+            for (std::uint32_t j = 0; j < chunks; ++j)
+                _mm512_storeA_si512(&accumulation[j], _mm512_add_epi16(_mm512_loadA_si512(&accumulation[j]), column[j]));
+#elif defined(USE_AVX2)
             auto accumulation = reinterpret_cast<__m256i*>(&accumulator.accumulation[c][0][0]);
             auto column = reinterpret_cast<const __m256i*>(&weights[offset]);
 
@@ -362,7 +381,13 @@ inline std::int32_t * Layer<OutputDimensions, InputDimensions>::propagate(std::u
 
     auto output = reinterpret_cast<std::int32_t*>(outBuffer);
 
-#if defined(USE_AVX2)
+#if defined(USE_AVX512)
+    std::uint32_t chunks = InputDimensions / (SIMD_WIDTH * 2);
+    const auto input_vector = reinterpret_cast<const __m512i*>(features);
+#if !defined(USE_VNNI)
+    const __m512i ones = _mm512_set1_epi16(1);
+#endif
+#elif defined(USE_AVX2)
     std::uint32_t chunks = InputDimensions / SIMD_WIDTH;
     const __m256i ones = _mm256_set1_epi16(1);
     const auto input_vector = reinterpret_cast<const __m256i*>(features);
@@ -371,7 +396,34 @@ inline std::int32_t * Layer<OutputDimensions, InputDimensions>::propagate(std::u
     for (std::uint32_t i = 0; i < OutputDimensions; ++i) {
         const std::uint32_t offset = i * InputDimensions;
 
-#if defined(USE_AVX2)
+#if defined(USE_AVX512)
+        __m512i sum = _mm512_setzero_si512();
+        const auto row = reinterpret_cast<const __m512i*>(&weights[offset]);
+        for (std::uint32_t j = 0; j < chunks; ++j) {
+#if defined(USE_VNNI)
+            sum = _mm512_dpbusd_epi32(sum, _mm512_loadA_si512(&input_vector[j]), _mm512_load_si512(&row[j]));
+#else
+            __m512i product = _mm512_maddubs_epi16(_mm512_loadA_si512(&input_vector[j]), _mm512_load_si512(&row[j]));
+            product = _mm512_madd_epi16(product, ones);
+            sum = _mm512_add_epi32(sum, product);
+#endif
+        }
+
+        if (InputDimensions != chunks * SIMD_WIDTH * 2) {
+            const auto iv256 = reinterpret_cast<const __m256i*>(&input_vector[chunks]);
+            const auto row256 = reinterpret_cast<const __m256i*>(&row[chunks]);
+#if defined(USE_VNNI)
+            __m256i product256 = _mm256_dpbusd_epi32(_mm512_castsi512_si256(sum), _mm256_loadA_si256(&iv256[0]), _mm256_load_si256(&row256[0]));
+            sum = _mm512_inserti32x8(sum, product256, 0);
+#else
+            __m256i product256 = _mm256_maddubs_epi16(_mm256_loadA_si256(&iv256[0]), _mm256_load_si256(&row256[0]));
+            sum = _mm512_add_epi32(sum, _mm512_cvtepi16_epi32(product256));
+#endif
+        }
+
+        output[i] = _mm512_reduce_add_epi32(sum) + biases[i];
+
+#elif defined(USE_AVX2)
         __m256i sum = _mm256_setzero_si256();
         const auto row = reinterpret_cast<const __m256i*>(&weights[offset]);
         for (std::uint32_t j = 0; j < chunks; ++j) {

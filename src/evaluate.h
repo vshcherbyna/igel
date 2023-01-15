@@ -42,10 +42,7 @@ const EVAL VAL_K = 20000;
 #define LAYERED_NETWORKS 8
 #define WEIGHTS_SCALE    16
 #define PSQT_THRESHOLD   1400
-
-#if defined(USE_AVX2)
 #define SIMD_WIDTH       32
-#endif
 
 class Transformer
 {
