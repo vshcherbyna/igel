@@ -23,8 +23,6 @@
 #include "history.h"
 #include "moves.h"
 
-#include <vector>
-
 class Search;
 
 class History
@@ -42,7 +40,7 @@ public:
     };
 
 public:
-    static void updateHistory(Search * pSearch, const std::vector<Move> & quetMoves, int ply, int bonus);
+    static void updateHistory(Search * pSearch, const MoveList & quetMoves, int ply, int bonus);
     static void setKillerMove(Search * pSearch, Move mv, int ply);
     static void fetchHistory(Search * pSearch, Move mv, int ply, HistoryHeuristics & hh);
 

@@ -19,7 +19,7 @@
 
 #include "../tt.h"
 #include "../moves.h"
-#include "../evaluate.h"
+#include "../nnue.h"
 #include <gtest/gtest.h>
 
 namespace unit

@@ -20,7 +20,7 @@
 #include "uci.h"
 #include "time.h"
 #include "notation.h"
-#include "evaluate.h"
+#include "nnue.h"
 #include "utils.h"
 #include "gen.h"
 
@@ -31,7 +31,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "3.3.0";
+const std::string VERSION = "3.4.0";
 const std::string ARCHITECTURE = " 64 "
 
 #if _BTYPE==0

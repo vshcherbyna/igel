@@ -26,11 +26,11 @@
 /*static */constexpr int History::s_historyMultiplier;
 /*static */constexpr int History::s_historyDivisor;
 
-/*static */void History::updateHistory(Search * pSearch, const std::vector<Move>& quetMoves, int ply, int bonus)
+/*static */void History::updateHistory(Search * pSearch, const MoveList & quetMoves, int ply, int bonus)
 {
     assert(ply < MAX_PLY);
 
-    if (ply < 2 || quetMoves.empty())
+    if (ply < 2 || !quetMoves.Size())
         return;
 
     auto counterMove = pSearch->m_moveStack[ply - 1];
@@ -43,9 +43,11 @@
 
     auto colour = pSearch->m_position.Side();
 
-    Move best = quetMoves[quetMoves.size() - 1];
+    auto s = quetMoves.Size();
+    auto best = quetMoves[s - 1].m_mv;
 
-    for (const Move & mv : quetMoves) {
+    for (size_t i = 0; i < s; ++i) {
+        Move mv = quetMoves[i].m_mv;
         auto delta = (mv == best) ? bonus : -bonus;
         auto from = mv.From();
         auto piece = mv.Piece();

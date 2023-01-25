@@ -18,7 +18,7 @@
 */
 
 #include "moveeval.h"
-#include "evaluate.h"
+#include "nnue.h"
 
 const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VAL_R, VAL_R, VAL_Q, VAL_Q, VAL_K, VAL_K };
 
