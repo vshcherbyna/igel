@@ -53,7 +53,7 @@ void Evaluator::initEval()
     MemoryBuffer buffer(const_cast<char*>(reinterpret_cast<const char*>(gEmbeddedNNUEData)), size_t(gEmbeddedNNUESize));
     std::istream stream(&buffer);
 #else
-    std::ifstream stream("network.nnue", std::ios::binary);
+    std::ifstream stream("ign-3-debc71a4", std::ios::binary);
 #endif
 
     initEval(stream);
