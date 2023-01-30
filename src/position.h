@@ -22,7 +22,7 @@
 #define POSITION_H
 
 #include "bitboards.h"
-#include "evaluate.h"
+#include "nnue.h"
 
 #define STD_POSITION "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
@@ -65,7 +65,7 @@ private:
 };
 
 struct alignas(CACHE_LINE) Accumulator {
-    std::int16_t accumulation[2][1][512];
+    std::int16_t accumulation[2][1024];
     std::int32_t psqtAccumulation[2][8];
     int score;
     bool computed_accumulation;
@@ -140,7 +140,6 @@ public:
     int    Ply() const { return m_ply; }
     void   Print() const;
     int    Repetitions() const;
-    Pair   Score() const { return m_score; }
     bool   SetFEN(const std::string& fen);
     void   SetInitial();
     COLOR  Side() const { return m_side; }
@@ -152,16 +151,16 @@ public:
     static void  InitHashNumbers();
     bool NonPawnMaterial();
     EVAL nonPawnMaterial();
+    EVAL nonPawnMaterial(COLOR side);
     Move getRandomMove();
 
     Undo * state() const { return m_state; }
     const EvalList * eval_list() const;
     inline PieceId piece_id_on(Square sq) const;
     Undo * m_state;
-    inline Piece NNUEPieceAdaptor(PIECE p);
     std::uint32_t getActiveIndexes(COLOR c, std::uint32_t indexes[]);
     std::pair<std::uint32_t, std::uint32_t> getChangedIndexes(COLOR c, std::uint32_t added[], std::uint32_t removed[]);
-    inline std::uint32_t makeIndex(Square sq_k, PieceSquare p);
+    inline std::uint32_t makeIndex(Square sq_k, Square sq, Piece p, COLOR c);
 
 private:
     void Clear();
@@ -169,13 +168,11 @@ private:
     void Put(FLD f, PIECE p, PieceId & next_piece_id);
     void Remove(FLD f);
     void MovePiece(PIECE p, FLD from, FLD to);
-    EVAL nonPawnMaterial(COLOR side);
 
     static U64 s_hash[64][14];
     static U64 s_hashSide[2];
     static U64 s_hashCastlings[256];
     static U64 s_hashEP[256];
-    static U32 s_pawnHash[64][14];
 
     static const int s_matIndexDelta[14];
 
@@ -190,7 +187,6 @@ private:
     FLD   m_Kings[2];
     int   m_matIndex[2];
     int   m_ply;
-    Pair  m_score;
     COLOR m_side;
 
     enum { MAX_UNDO = 1024 };

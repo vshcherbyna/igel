@@ -18,7 +18,7 @@
 *  along with Igel.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "evaluate.h"
+#include "nnue.h"
 #include "moves.h"
 #include "notation.h"
 #include "search.h"
@@ -351,7 +351,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     MoveEval::sortMoves(this, mvlist, hashMove, ply);
     auto mvSize = mvlist.Size();
 
-    std::vector<Move> quietMoves;
+    MoveList quietMoves;
     m_killerMoves[ply + 1][0] = m_killerMoves[ply + 1][1] = 0;
     auto quietsTried = 0;
     auto skipQuiets = false;
@@ -427,7 +427,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
         if (quietMove) {
             ++quietsTried;
-            quietMoves.emplace_back(mv);
+            quietMoves.Add(mv);
         }
 
         if (m_position.MakeMove(mv)) {

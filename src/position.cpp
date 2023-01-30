@@ -21,11 +21,9 @@
 #include "notation.h"
 #include "position.h"
 #include "utils.h"
-#include "evaluate.h"
+#include "nnue.h"
 
 #include <memory>
-
-extern Pair pieceSquareTables[14][64];
 
 const Move MOVE_O_O[2]   = { Move(E1, G1, KW), Move(E8, G8, KB) };
 const Move MOVE_O_O_O[2] = { Move(E1, C1, KW), Move(E8, C8, KB) };
@@ -34,30 +32,9 @@ U64 Position::s_hash[64][14];
 U64 Position::s_hashSide[2];
 U64 Position::s_hashCastlings[256];
 U64 Position::s_hashEP[256];
-U32 Position::s_pawnHash[64][14];
 
 const int Position::s_matIndexDelta[14] = { 0, 0, 0, 0, 3, 3, 3, 3, 5, 5, 10, 10, 0, 0 };
-
-ExtPieceSquare kpp_board_index[PIECE_NB] = {
-    // convention: W - us, B - them
-    // viewed from other side, W and B are reversed
-       { PS_NONE,     PS_NONE     },
-       { PS_W_PAWN,   PS_B_PAWN   },
-       { PS_W_KNIGHT, PS_B_KNIGHT },
-       { PS_W_BISHOP, PS_B_BISHOP },
-       { PS_W_ROOK,   PS_B_ROOK   },
-       { PS_W_QUEEN,  PS_B_QUEEN  },
-       { PS_KING,     PS_KING     },
-       { PS_NONE,     PS_NONE     },
-       { PS_NONE,     PS_NONE     },
-       { PS_B_PAWN,   PS_W_PAWN   },
-       { PS_B_KNIGHT, PS_W_KNIGHT },
-       { PS_B_BISHOP, PS_W_BISHOP },
-       { PS_B_ROOK,   PS_W_ROOK   },
-       { PS_B_QUEEN,  PS_W_QUEEN  },
-       { PS_KING,     PS_KING     },
-       { PS_NONE,     PS_NONE     }
-};
+static Piece PieceAdapter[] = { NO_PIECE, NO_PIECE, W_PAWN, B_PAWN, W_KNIGHT, B_KNIGHT, W_BISHOP, B_BISHOP, W_ROOK, B_ROOK, W_QUEEN, B_QUEEN, W_KING, B_KING };
 
 bool Position::CanCastle(COLOR side, U8 flank) const
 {
@@ -107,7 +84,6 @@ void Position::Clear()
     m_Kings[WHITE] = m_Kings[BLACK] = NF;
     m_matIndex[WHITE] = m_matIndex[BLACK] = 0;
     m_ply = 0;
-    m_score = Pair();
     m_side = WHITE;
     m_undoSize = 0;
 }
@@ -195,20 +171,16 @@ void Position::InitHashNumbers()
 {
     RandSeed(30147);
 
-    for (FLD f = 0; f < 64; ++f)
-    {
-        for (PIECE p = 0; p < 14; ++p)
-        {
+    for (FLD f = 0; f < 64; ++f) {
+        for (PIECE p = 0; p < 14; ++p) {
             s_hash[f][p] = Rand64();
-            s_pawnHash[f][p] = (p == PW || p == PB)? Rand32() : 0;
         }
     }
 
     s_hashSide[WHITE] = Rand64();
     s_hashSide[BLACK] = Rand64();
 
-    for (int i = 0; i < 256; ++i)
-    {
+    for (int i = 0; i < 256; ++i) {
         s_hashCastlings[i] = Rand64();
         s_hashEP[i] = Rand64();
     }
@@ -302,8 +274,10 @@ bool Position::MakeMove(Move mv)
         dp1 = piece_id_on(nnueTo);
         dp.pieceId[1] = dp1;
         dp.old_piece[1] = evalList.piece_with_id(dp1);
+        dp.old_piece[1].piece = PieceAdapter[captured];
         evalList.put_piece(dp1, to, NO_PIECE);
         dp.new_piece[1] = evalList.piece_with_id(dp1);
+        dp.new_piece[1].piece = NO_PIECE;
     }
 
     auto castling = (mv == MOVE_O_O[side]) || (mv == MOVE_O_O_O[side]);
@@ -313,8 +287,10 @@ bool Position::MakeMove(Move mv)
         dp0 = piece_id_on(from);
         dp.pieceId[0] = dp0;
         dp.old_piece[0] = evalList.piece_with_id(dp0);
-        evalList.put_piece(dp0, to, NNUEPieceAdaptor(piece));
+        dp.old_piece[0].piece = PieceAdapter[piece];
+        evalList.put_piece(dp0, to, PieceAdapter[piece]);
         dp.new_piece[0] = evalList.piece_with_id(dp0);
+        dp.new_piece[0].piece = PieceAdapter[piece];
     }
 
     MovePiece(piece, from, to);
@@ -333,8 +309,9 @@ bool Position::MakeMove(Move mv)
                 Remove(to);
                 Put(to, promotion);
                 dp0 = piece_id_on(to);
-                evalList.put_piece(dp0, to, NNUEPieceAdaptor(promotion));
+                evalList.put_piece(dp0, to, PieceAdapter[promotion]);
                 dp.new_piece[0] = evalList.piece_with_id(dp0);
+                dp.new_piece[0].piece = PieceAdapter[promotion];
             }
             break;
         case KW:
@@ -361,12 +338,16 @@ bool Position::MakeMove(Move mv)
                 dp1 = piece_id_on(rfrom);
                 dp.pieceId[0] = dp0;
                 dp.old_piece[0] = evalList.piece_with_id(dp0);
+                dp.old_piece[0].piece = side == WHITE ? W_KING : B_KING;
                 evalList.put_piece(dp0, to, side == WHITE ? W_KING : B_KING);
                 dp.new_piece[0] = evalList.piece_with_id(dp0);
+                dp.new_piece[0].piece = side == WHITE ? W_KING : B_KING;
                 dp.pieceId[1] = dp1;
                 dp.old_piece[1] = evalList.piece_with_id(dp1);
+                dp.old_piece[1].piece = side == WHITE ? W_ROOK : B_ROOK;
                 evalList.put_piece(dp1, rto, side == WHITE ? W_ROOK : B_ROOK);
                 dp.new_piece[1] = evalList.piece_with_id(dp1);
+                dp.new_piece[1].piece = side == WHITE ? W_ROOK : B_ROOK;
             }
             break;
         default:
@@ -425,7 +406,7 @@ void Position::UnmakeMove()
 
     if (!castling) {
         PieceId dp0 = m_state->dirtyPiece.pieceId[0];
-        evalList.put_piece(dp0, from, NNUEPieceAdaptor(piece));
+        evalList.put_piece(dp0, from, PieceAdapter[piece]);
     }
 
     Remove(to);
@@ -440,7 +421,7 @@ void Position::UnmakeMove()
         PieceId dp1 = m_state->dirtyPiece.pieceId[1];
         assert(evalList.piece_with_id(dp1).from[WHITE] == PS_NONE);
         assert(evalList.piece_with_id(dp1).from[BLACK] == PS_NONE);
-        evalList.put_piece(dp1, nnueTo, NNUEPieceAdaptor(captured));
+        evalList.put_piece(dp1, nnueTo, PieceAdapter[captured]);
     }
 
     Put(from, piece);
@@ -500,7 +481,11 @@ void Position::MakeNullMove()
 
     undo.previous = m_undoSize == 1 ? nullptr : m_state;
     m_state = &undo;
+
     m_state->accumulator.computed_score = false;
+    m_state->accumulator.computed_accumulation = false;
+    m_state->dirtyPiece.dirty_num = 0;
+    m_state->dirtyPiece.pieceId[0] = PIECE_ID_NONE;
 
     m_ep = NF;
 
@@ -546,9 +531,6 @@ void Position::MovePiece(PIECE p, FLD from, FLD to)
 
     m_hash ^= s_hash[from][p];
     m_hash ^= s_hash[to][p];
-
-    m_score += pieceSquareTables[p][to];
-    m_score -= pieceSquareTables[p][from];
 }
 
 void Position::Print() const
@@ -575,53 +557,6 @@ void Position::Print() const
     }
 }
 
-inline Piece Position::NNUEPieceAdaptor(PIECE p)
-{
-    Piece t = NO_PIECE;
-
-    switch (p)
-    {
-    case PW:
-        t = W_PAWN;
-        break;
-    case NW:
-        t = W_KNIGHT;
-        break;
-    case BW:
-        t = W_BISHOP;
-        break;
-    case RW:
-        t = W_ROOK;
-        break;
-    case QW:
-        t = W_QUEEN;
-        break;
-    case KW:
-        t = W_KING;
-        break;
-    case PB:
-        t = B_PAWN;
-        break;
-    case NB:
-        t = B_KNIGHT;
-        break;
-    case BB:
-        t = B_BISHOP;
-        break;
-    case RB:
-        t = B_ROOK;
-        break;
-    case QB:
-        t = B_QUEEN;
-        break;
-    case KB:
-        t = B_KING;
-        break;
-    }
-
-    return t;
-}
-
 void Position::Put(FLD f, PIECE p)
 {
     assert(f >= 0 && f < 64);
@@ -635,8 +570,6 @@ void Position::Put(FLD f, PIECE p)
     m_hash ^= s_hash[f][p];
     m_matIndex[side] += s_matIndexDelta[p];
     ++m_count[p];
-
-    m_score += pieceSquareTables[p][f];
 }
 
 void Position::Put(FLD f, PIECE p, PieceId & next_piece_id)
@@ -652,8 +585,6 @@ void Position::Put(FLD f, PIECE p, PieceId & next_piece_id)
     m_hash ^= s_hash[f][p];
     m_matIndex[side] += s_matIndexDelta[p];
     ++m_count[p];
-
-    m_score += pieceSquareTables[p][f];
 
     PieceId piece_id;
 
@@ -721,8 +652,6 @@ void Position::Remove(FLD f)
     m_hash ^= s_hash[f][p];
     m_matIndex[side] -= s_matIndexDelta[p];
     --m_count[p];
-
-    m_score -= pieceSquareTables[p][f];
 }
 
 int Position::Repetitions() const
@@ -965,9 +894,13 @@ std::uint32_t Position::getActiveIndexes(COLOR c, std::uint32_t indexes[]) {
     Square kingSq = static_cast<Square>((pieces[target] - PS_KING) % SQUARE_NB);
     std::uint32_t count = 0;
 
+    kingSq  = FLIP[c][kingSq];
+
     for (PieceId i = PIECE_ID_ZERO; i <= PIECE_ID_BKING; i++)
-        if (pieces[i] != PS_NONE)
-            indexes[count++] = makeIndex(kingSq, pieces[i]);
+        if (pieces[i] != PS_NONE) {
+            Square sq = static_cast<Square>((pieces[i] - PS_KING) % SQUARE_NB);
+            indexes[count++] = makeIndex(kingSq, FLIP[c][sq], PieceAdapter[m_board[FLIP[!c][sq]]], c);
+        }
 
     return count;
 }
@@ -977,6 +910,7 @@ std::pair<std::uint32_t, std::uint32_t> Position::getChangedIndexes(COLOR c, std
     auto pieces = c == WHITE ? evalList.piece_list_fw() : evalList.piece_list_fb();
     Square kingSq = static_cast<Square>((pieces[target] - PS_KING) % SQUARE_NB);
 
+    kingSq = FLIP[c][kingSq];
     const auto & dp = state()->dirtyPiece;
 
     std::uint32_t ca = 0; 
@@ -985,18 +919,28 @@ std::pair<std::uint32_t, std::uint32_t> Position::getChangedIndexes(COLOR c, std
     for (int i = 0; i < dp.dirty_num; ++i) {
         const auto old_p = static_cast<PieceSquare>(dp.old_piece[i].from[c]);
 
-        if (old_p != PS_NONE)
-            removed[cr++] = makeIndex(kingSq, old_p);
+        if (old_p != PS_NONE) {
+            Square sq = static_cast<Square>((old_p - PS_KING) % SQUARE_NB);
+            removed[cr++] = makeIndex(kingSq, FLIP[c][sq], dp.old_piece[i].piece, c);
+        }
 
         const auto new_p = static_cast<PieceSquare>(dp.new_piece[i].from[c]);
 
-        if (new_p != PS_NONE)
-            added[ca++] = makeIndex(kingSq, new_p);
+        if (new_p != PS_NONE) {
+            Square sq = static_cast<Square>((new_p - PS_KING) % SQUARE_NB);
+            added[ca++] = makeIndex(kingSq, FLIP[c][sq], dp.new_piece[i].piece, c);
+        }
     }
 
     return { ca, cr };
 }
 
-inline std::uint32_t Position::makeIndex(Square sq_k, PieceSquare p) {
-    return static_cast<std::uint32_t>(PS_END) * static_cast<std::uint32_t>(sq_k) + p;
+Square orient(Square kingSq, Square s, COLOR c) {
+    auto file = Col(kingSq);
+    return Square(int(s) ^ (bool(c) * SQ_A8) ^ ((file < FILE_E) * SQ_H1));
+}
+
+inline std::uint32_t Position::makeIndex(Square sq_k, Square sq, Piece p, COLOR c) {
+    Square o_ksq = orient(sq_k, sq_k, c);
+    return static_cast<std::uint32_t>(orient(sq_k, sq, c) + PieceSquareIndex[c][p] + PS_END * KingBuckets[o_ksq]);
 }

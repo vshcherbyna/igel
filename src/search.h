@@ -21,7 +21,7 @@
 #ifndef SEARCH_H
 #define SEARCH_H
 
-#include "evaluate.h"
+#include "nnue.h"
 #include "position.h"
 #include "time.h"
 #include "tt.h"

@@ -22,7 +22,7 @@ In June 2020 Igel was invited by Andrew Grant to participate in OpenBench testin
 
 In October 2020 first Igel Generation Networks were introduced seeing participation of Igel in TCEC Cup7 and TCEC Season 20 and released later with Igel 2.9.0.
 
-In January 2023 last bits of HCE code were removed from Igel and the evaluation is mostly based on NNUE as of Igel 3.3.0.
+In January 2023 last bits of HCE code were removed from Igel and the evaluation is fully based on NNUE as of Igel 3.4.0.
 
 ### Igel Generation Networks (IGN)
 
@@ -44,11 +44,12 @@ The IGN networks comply with the following mandatory requirements:
 
 **Technical details**
 
-| Generation    | Architecture         | Source of data                     | Quantity          | Type            | Best network   |
-| ------------- | ---------------------| ---------------------------------- | ----------------- |  -------------- | -------------- |
-| ign-0         | halfkp_256x2-32-32   | Igel 2.6.0                         | 2.3b d8, 500m d12 | HCE             | ign-0-9b1937cc |
-| ign-1         | halfkp_256x2-32-32   | Igel 2.6.0, Igel 2.9.0, Igel 3.0.0 | 12b d8, 1b d12    | HCE, NNUE       | ign-1-9a48854b |
-| ign-2         | halfkav2_512x2-16-32 | Igels as of 2.9.0                  | d5+d8+d16 >30b    | NNUE            | ign-2-51ba2968 |
+| Generation    | Architecture            | Source of data                     | Quantity          | Data Type       | Best network   |
+| ------------- | ------------------------| ---------------------------------- | ----------------- |  -------------- | -------------- |
+| ign-0         | halfkp_256x2-32-32      | Igel 2.6.0                         | 2.3b d8, 500m d12 | HCE             | ign-0-9b1937cc |
+| ign-1         | halfkp_256x2-32-32      | Igel 2.6.0, Igel 2.9.0, Igel 3.0.0 | 12b d8, 1b d12    | HCE, NNUE       | ign-1-9a48854b |
+| ign-2         | halfkav2_512x2-16-32    | Igels as of 2.9.0                  | d5+d8+d16 >30b    | Mostly NNUE     | ign-2-51ba2968 |
+| ign-3         | halfkav2_hm_1024x2-8-32 | Igels as of 2.9.0                  | d5+d8+d16 >30b    | Fully NNUE      | ign-3-debc71a4 |
 
 ### Acknowledgements
 
@@ -86,7 +87,7 @@ Using cmake/gcc:
 git clone https://github.com/vshcherbyna/igel.git ./igel
 cd igel
 git submodule update --init --recursive
-wget https://github.com/vshcherbyna/igel/releases/download/3.3.0/ign-2-51ba2968 -O ./network_file
+wget https://github.com/vshcherbyna/igel/releases/download/3.4.0/ign-3-debc71a4 -O ./network_file
 cmake -DEVALFILE=network_file -DUSE_PEXT=1 -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
 make -j
 ```

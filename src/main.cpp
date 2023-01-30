@@ -18,10 +18,11 @@
 *  along with Igel.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "evaluate.h"
+#include "nnue.h"
 #include "uci.h"
 
 #if !defined(UNIT_TEST)
+
 int main(int argc, const char* argv[])
 {
     static_assert(USE_AVX2 == 1, "AVX2 is the minimum supported build type");

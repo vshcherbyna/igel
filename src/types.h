@@ -162,28 +162,6 @@ const EVAL TBBASE_SCORE     = 22767;
 const EVAL DRAW_SCORE       = 0;
 const EVAL UNKNOWN_SCORE    = CHECKMATE_SCORE + /*MAX_PLY*/ 129;
 
-struct Pair
-{
-    Pair() : mid(0), end(0) {}
-    Pair(int m, int e) : mid(m), end(e) {}
-    Pair(const Pair& other) : mid(other.mid), end(other.end) {}
-
-    void operator=(const Pair& other) { mid = other.mid; end = other.end; }
-    void operator=(int x) { mid = x; end = x; }
-
-    void operator+=(const Pair& other) { mid += other.mid; end += other.end; }
-    void operator+=(int x) { mid += x; end += x; }
-    
-    void operator-=(const Pair& other) { mid -= other.mid; end -= other.end; }
-    
-    Pair operator-() const { return Pair(-mid, -end); }
-
-    int mid;
-    int end;
-};
-
-inline Pair operator*(int x, const Pair& p) { return Pair(x * p.mid, x * p.end); }
-
 #define SQUARE_ZERO 0
 #define SQUARE_NB   64
 
@@ -219,17 +197,18 @@ inline PieceId operator++(PieceId& d, int) {
     return x;
 }
 
-#define COLOR_NB 2
-
-struct ExtPieceSquare {
-    PieceSquare from[COLOR_NB];
-};
-
 enum Piece {
     NO_PIECE,
     W_PAWN = 1, W_KNIGHT, W_BISHOP, W_ROOK, W_QUEEN, W_KING,
     B_PAWN = 9, B_KNIGHT, B_BISHOP, B_ROOK, B_QUEEN, B_KING,
     PIECE_NB = 16
+};
+
+#define COLOR_NB 2
+
+struct ExtPieceSquare {
+    PieceSquare from[COLOR_NB];
+    Piece piece;
 };
 
 // For differential evaluation of pieces that changed since last turn
@@ -246,8 +225,28 @@ struct DirtyPiece {
     ExtPieceSquare new_piece[2];
 };
 
-// Array for finding the PieceSquare corresponding to the piece on the board
-extern ExtPieceSquare kpp_board_index[PIECE_NB];
+static constexpr std::uint32_t PieceSquareIndex[COLOR_NB][PIECE_NB] = {
+
+    { PS_NONE, PS_W_PAWN, PS_W_KNIGHT, PS_W_BISHOP, PS_W_ROOK, PS_W_QUEEN, PS_KING, PS_NONE,
+      PS_NONE, PS_B_PAWN, PS_B_KNIGHT, PS_B_BISHOP, PS_B_ROOK, PS_B_QUEEN, PS_KING, PS_NONE },
+    { PS_NONE, PS_B_PAWN, PS_B_KNIGHT, PS_B_BISHOP, PS_B_ROOK, PS_B_QUEEN, PS_KING, PS_NONE,
+      PS_NONE, PS_W_PAWN, PS_W_KNIGHT, PS_W_BISHOP, PS_W_ROOK, PS_W_QUEEN, PS_KING, PS_NONE }
+};
+
+static constexpr int KingBuckets[64] = {
+      -1, -1, -1, -1, 31, 30, 29, 28,
+      -1, -1, -1, -1, 27, 26, 25, 24,
+      -1, -1, -1, -1, 23, 22, 21, 20,
+      -1, -1, -1, -1, 19, 18, 17, 16,
+      -1, -1, -1, -1, 15, 14, 13, 12,
+      -1, -1, -1, -1, 11, 10, 9, 8,
+      -1, -1, -1, -1, 7, 6, 5, 4,
+      -1, -1, -1, -1, 3, 2, 1, 0
+};
+
+#define SQ_A8   56
+#define SQ_H1   7
+#define FILE_E  4
 
 constexpr bool is_ok(PieceId pid) {
     return pid < PIECE_ID_NONE;
@@ -267,8 +266,8 @@ public:
     PieceSquare* piece_list_fw() const { return const_cast<PieceSquare*>(pieceListFw); }
     PieceSquare* piece_list_fb() const { return const_cast<PieceSquare*>(pieceListFb); }
 
-    constexpr Square flipSq(Square sq) {
-        return (Square)(sq ^ 56);
+    static constexpr Square flipSq(Square sq) {
+        return (Square)(sq ^ SQ_A8);
     }
 
     // Place the piece pc with piece_id on the square sq on the board
@@ -303,14 +302,13 @@ public:
         Square rev = flipSq(sq);
 
         assert(is_ok(piece_id));
-        if (pc != NO_PIECE)
-        {
-            pieceListFw[piece_id] = PieceSquare(kpp_board_index[pc].from[WHITE] + sq);
-            pieceListFb[piece_id] = PieceSquare(kpp_board_index[pc].from[BLACK] + rev);
-            piece_id_list[sq] = piece_id;
+
+        if (pc != NO_PIECE) {
+            pieceListFw[piece_id] = PieceSquare(PieceSquareIndex[WHITE][pc] + sq);
+            pieceListFb[piece_id] = PieceSquare(PieceSquareIndex[BLACK][pc] + rev);
+            piece_id_list[sq]     = piece_id;
         }
-        else
-        {
+        else {
             pieceListFw[piece_id] = PS_NONE;
             pieceListFb[piece_id] = PS_NONE;
             piece_id_list[sq]     = piece_id;
