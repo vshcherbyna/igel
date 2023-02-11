@@ -159,6 +159,8 @@ public:
 new_game:
             m_search->m_position.SetInitial();
             m_search->clearStacks();
+            m_search->clearHistory();
+            m_search->clearKillers();
 
             //
             // pick up a book move
@@ -186,7 +188,7 @@ new_game:
                 std::string move;
                 EVAL score;
                 int ply;
-                bool quiet;
+                COLOR side;
             };
 
             std::list<genEntry> entries;
@@ -203,14 +205,22 @@ new_game:
                     m_pMutex->lock();
 
                     for (auto const & i : entries) {
-                        if (i.ply > 6 && i.quiet && std::abs(i.score) <= (CHECKMATE_SCORE + MAX_PLY)) {
+
+                        if (i.ply < 400) {
                             int res = 0;
-                            if (result == "1-0")
-                                res = 1;
-                            else if (result == "0-1")
-                                res = -1;
-                            else
-                                res = 0; // result is a draw
+
+                            if (result == "1-0") {
+                                if (i.side == WHITE)
+                                    res = 1;
+                                else
+                                    res = -1;
+                            }
+                            else if (result == "0-1") {
+                                if (i.side == BLACK)
+                                    res = 1;
+                                else
+                                    res = -1;
+                            }
 
                             *m_pFile << "fen " << i.fen << std::endl;
                             *m_pFile << "move " << i.move << std::endl;
@@ -247,7 +257,7 @@ new_game:
                 auto ply   = m_search->m_position.Ply();
                 auto fen   = m_search->m_position.FEN();
                 auto move  = MoveToStrLong(m_search->m_best);
-                auto check = m_search->m_position.InCheck();
+                auto side  = m_search->m_position.Side();
 
                 //
                 // make a move, it must be legal
@@ -258,13 +268,14 @@ new_game:
                     abort();
                 }
 
-                auto hash = m_search->m_position.Hash();
+                //auto hash = m_search->m_position.Hash();
 
                 //
                 // avoid duplicated fen entries
                 //
 
-                if (FenHashTT::instance(0).retrieve(hash) == false) {
+                /*if (FenHashTT::instance(0).retrieve(hash) == false)*/ 
+                {
 
                     //
                     // store the position
@@ -276,12 +287,12 @@ new_game:
                     entry.move = move;
                     entry.score = m_search->m_score;
                     entry.ply = ply;
-                    entry.quiet = !check && !m_search->m_position.InCheck() && !MoveEval::isTacticalMove(m_search->m_best);
+                    entry.side = side;
 
-                    FenHashTT::instance(0).record(m_search->m_best, m_search->m_score, m_search->m_depth, ply, 0, hash);
+                    //FenHashTT::instance(0).record(m_search->m_best, m_search->m_score, m_search->m_depth, ply, 0, hash);
                 }
-                else
-                    m_skipped++;
+                /*else
+                    m_skipped++;*/
 
                 if (m_exit)
                     return;

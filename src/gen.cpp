@@ -35,9 +35,9 @@ Generator::Generator(int depth, int threads, int fFash):
     std::cout << "Training threads:" << m_maxThreads << std::endl;
     std::cout << "Training fens hash:" << m_maxfHash << std::endl;
 
-    std::cout << "Allocating fen hash table (" << fFash << "GB) ..";
+    /*std::cout << "Allocating fen hash table (" << fFash << "GB) ..";
     FenHashTT::instance(fFash);
-    std::cout << ". Done" << std::endl;
+    std::cout << ". Done" << std::endl;*/
 }
 
 void Generator::onGenerate()
