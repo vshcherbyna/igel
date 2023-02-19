@@ -116,9 +116,9 @@ std::string MoveToStrLong(Move mv)
 
 std::string MoveToStrShort(Move mv, Position& pos, const MoveList& mvlist)
 {
-    if (mv == MOVE_O_O[WHITE] || mv == MOVE_O_O[BLACK])
+    if (mv == pos.MOVE_O_O(WHITE) || mv == pos.MOVE_O_O(BLACK))
         return "O-O";
-    if (mv == MOVE_O_O_O[WHITE] || mv == MOVE_O_O_O[BLACK])
+    if (mv == pos.MOVE_O_O_O(WHITE) || mv == pos.MOVE_O_O_O(BLACK))
         return "O-O-O";
 
     std::string strPiece, strCapture, strFrom, strTo, strPromotion;

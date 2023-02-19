@@ -31,7 +31,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "3.4.0";
+const std::string VERSION = "3.4.1";
 const std::string ARCHITECTURE = " 64 "
 
 #if _BTYPE==0
@@ -157,6 +157,9 @@ void Uci::onUci()
         " default " << DEFAULT_LEVEL <<
         " min "		<< MIN_LEVEL	<<
         " max "		<< MAX_LEVEL << std::endl;
+
+    std::cout << "option name UCI_Chess960 type check" <<
+        " default false" << std::endl;
 
     std::cout << "uciok" << std::endl;
 }
@@ -288,7 +291,10 @@ void Uci::onPosition(commandParams params)
 
     if (movesTag) {
         for (size_t i = movesTag + 1; i < params.size(); ++i) {
+            /*if (params[i] == "e8c8")
+                __debugbreak();*/
             Move mv = StrToMove(params[i], m_searcher.m_position);
+            assert(mv);
             m_searcher.makeMove(mv);
         }
     }
@@ -338,6 +344,8 @@ void Uci::onSetOption(commandParams params)
         m_searcher.setSyzygyDepth(atoi(value.c_str()));
 #endif
     else if (name == "Ponder")
+        ; // nothing to do, we are stateless here
+    else if (name == "UCI_Chess960")
         ; // nothing to do, we are stateless here
     else
         std::cout << "Unknown option " << name << std::endl;

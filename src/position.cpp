@@ -25,9 +25,6 @@
 
 #include <memory>
 
-const Move MOVE_O_O[2]   = { Move(E1, G1, KW), Move(E8, G8, KB) };
-const Move MOVE_O_O_O[2] = { Move(E1, C1, KW), Move(E8, C8, KB) };
-
 U64 Position::s_hash[64][14];
 U64 Position::s_hashSide[2];
 U64 Position::s_hashCastlings[256];
@@ -38,22 +35,32 @@ static Piece PieceAdapter[] = { NO_PIECE, NO_PIECE, W_PAWN, B_PAWN, W_KNIGHT, B_
 
 bool Position::CanCastle(COLOR side, U8 flank) const
 {
-    if (InCheck())
-        return false;
     if ((m_castlings & CASTLINGS[side][flank]) == 0)
         return false;
 
-    COLOR opp = side ^ 1;
-
-    switch (flank)
-    {
-    case KINGSIDE:
-        return !m_board[FX[side]] && !m_board[GX[side]] && !IsAttacked(FX[side], opp) && !IsAttacked(GX[side], opp);
-    case QUEENSIDE:
-        return !m_board[DX[side]] && !m_board[CX[side]] && !m_board[BX[side]] && !IsAttacked(DX[side], opp) && !IsAttacked(CX[side], opp);
-    default:
+    if (InCheck())
         return false;
+
+    COLOR opp = side ^ 1;
+    auto & castling = flank == KINGSIDE ? m_kingSideCastling[side] : m_queenSideCastling[side];
+
+    for (auto f : castling) {
+        if (f.occupied && m_board[f.field])
+            return false;
+
+        if (f.attacked && IsAttacked(f.field, opp))
+            return false;
     }
+
+    return true;
+}
+
+Move Position::MOVE_O_O(COLOR c) const {
+    return move_o_o[c];
+}
+
+Move Position::MOVE_O_O_O(COLOR c) const {
+    return move_o_o_o[c];
 }
 
 void Position::Clear()
@@ -70,14 +77,22 @@ void Position::Clear()
     for (FLD f = 0; f < 64; ++f)
         m_board[f] = NOPIECE;
 
-    for (PIECE p = 0; p < 14; ++p)
-    {
-        m_bits[p] = 0;
+    for (PIECE p = 0; p < 14; ++p) {
+        m_bits[p]  = 0;
         m_count[p] = 0;
     }
 
     m_bitsAll[WHITE] = m_bitsAll[BLACK] = 0;
     m_castlings = 0;
+    m_kingSideCastling[WHITE].clear();
+    m_kingSideCastling[BLACK].clear();
+    m_queenSideCastling[WHITE].clear();
+    m_queenSideCastling[BLACK].clear();
+    move_o_o[0].reset();
+    move_o_o[1].reset();
+    move_o_o_o[0].reset();
+    move_o_o_o[1].reset();
+    std::memset(m_castlingsDelta, 0xff, sizeof(m_castlingsDelta));
     m_ep = NF;
     m_fifty = 0;
     m_hash = 0;
@@ -280,7 +295,7 @@ bool Position::MakeMove(Move mv)
         dp.new_piece[1].piece = NO_PIECE;
     }
 
-    auto castling = (mv == MOVE_O_O[side]) || (mv == MOVE_O_O_O[side]);
+    auto castling = (mv == MOVE_O_O(side)) || (mv == MOVE_O_O_O(side));
 
     // handle non-castling moves
     if (!castling) {
@@ -318,14 +333,14 @@ bool Position::MakeMove(Move mv)
         case KB:
             m_Kings[side] = to;
             FLD rfrom, rto;
-            if (mv == MOVE_O_O[side]) {
+            if (mv == MOVE_O_O(side)) {
                 assert(castling);
                 rfrom = HX[side];
                 rto = FX[side];
                 Remove(HX[side]);
                 Put(FX[side], ROOK | side);
             }
-            else if (mv == MOVE_O_O_O[side]) {
+            else if (mv == MOVE_O_O_O(side)) {
                 assert(castling);
                 rfrom = AX[side];
                 rto = DX[side];
@@ -354,20 +369,8 @@ bool Position::MakeMove(Move mv)
             break;
     }
 
-    static const U8 castlingsDelta[64] =
-    {
-        0xdf, 0xff, 0xff, 0xff, 0xcf, 0xff, 0xff, 0xef,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xfd, 0xff, 0xff, 0xff, 0xfc, 0xff, 0xff, 0xfe
-    };
-
-    m_castlings &= castlingsDelta[from];
-    m_castlings &= castlingsDelta[to];
+    m_castlings &= m_castlingsDelta[from];
+    m_castlings &= m_castlingsDelta[to];
 
     ++m_ply;
     m_side ^= 1;
@@ -402,7 +405,7 @@ void Position::UnmakeMove()
     COLOR opp = m_side;
     COLOR side = opp ^ 1;
 
-    auto castling = (mv == MOVE_O_O[side]) || (mv == MOVE_O_O_O[side]);
+    auto castling = (mv == MOVE_O_O(side)) || (mv == MOVE_O_O_O(side));
 
     if (!castling) {
         PieceId dp0 = m_state->dirtyPiece.pieceId[0];
@@ -432,14 +435,14 @@ void Position::UnmakeMove()
     case KB:
         m_Kings[side] = from;
         FLD rfrom, rto;
-        if (mv == MOVE_O_O[side]) {
+        if (mv == MOVE_O_O(side)) {
             assert(castling);
             rto = FX[side];
             rfrom = HX[side];
             Remove(FX[side]);
             Put(HX[side], ROOK | side);
         }
-        else if (mv == MOVE_O_O_O[side]) {
+        else if (mv == MOVE_O_O_O(side)) {
             assert(castling);
             rto = DX[side];
             rfrom = AX[side];
@@ -675,7 +678,7 @@ int Position::Repetitions() const
     return r;
 }
 
-bool Position::SetFEN(const std::string& fen)
+bool Position::SetFEN(const std::string & fen)
 {
     m_initialPosition = (fen == STD_POSITION);
 
@@ -692,8 +695,7 @@ bool Position::SetFEN(const std::string& fen)
     FLD f = A8;
     PieceId next_piece_id = PIECE_ID_ZERO;
 
-    for (size_t i = 0; i < tokens[0].length(); ++i)
-    {
+    for (size_t i = 0; i < tokens[0].length(); ++i) {
         PIECE p = NOPIECE;
         char ch = tokens[0][i];
         switch (ch)
@@ -749,35 +751,75 @@ bool Position::SetFEN(const std::string& fen)
 
     if (tokens.size() < 3)
         goto FINAL_CHECK;
-    for (size_t i = 0; i < tokens[2].length(); ++i)
+
+    /*static const U8 m_castlingsDelta[64] =
     {
-        switch (tokens[2][i])
-        {
+        0xdf, 0xff, 0xff, 0xff, 0xcf, 0xff, 0xff, 0xef,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xfd, 0xff, 0xff, 0xff, 0xfc, 0xff, 0xff, 0xfe
+    };*/
+
+    // black castling mask
+    m_castlingsDelta[m_Kings[BLACK]] = 0xcf;
+    m_castlingsDelta[0] = 0xdf;
+    m_castlingsDelta[7] = 0xef;
+
+    m_castlingsDelta[m_Kings[WHITE]] = 0xfc;
+    m_castlingsDelta[56] = 0xfd;
+    m_castlingsDelta[63] = 0xfe;
+
+    for (size_t i = 0; i < tokens[2].length(); ++i) {
+        switch (tokens[2][i]) {
         case 'K':
-            if (m_board[E1] == KW && m_board[H1] == RW)
+            if (m_board[E1] == KW && m_board[H1] == RW) {
                 m_castlings |= CASTLINGS[WHITE][KINGSIDE];
+                m_kingSideCastling[WHITE] = { CFLD(FX[WHITE], true, true), CFLD(GX[WHITE], true, true) };
+                move_o_o[WHITE] = Move(E1, G1, KW);
+            }
             break;
         case 'Q':
-            if (m_board[E1] == KW && m_board[A1] == RW)
+            if (m_board[E1] == KW && m_board[A1] == RW) {
                 m_castlings |= CASTLINGS[WHITE][QUEENSIDE];
+                m_queenSideCastling[WHITE] = { CFLD(DX[WHITE], true, true), CFLD(CX[WHITE], true, true), CFLD(BX[WHITE], true, false) };
+                move_o_o_o[WHITE] = Move(E1, C1, KW);
+            }
             break;
         case 'k':
-            if (m_board[E8] == KB && m_board[H8] == RB)
+            if (m_board[E8] == KB && m_board[H8] == RB) {
                 m_castlings |= CASTLINGS[BLACK][KINGSIDE];
+                m_kingSideCastling[BLACK] = { CFLD(FX[BLACK], true, true), CFLD(GX[BLACK], true, true) };
+                move_o_o[BLACK] = Move(E8, G8, KB);
+            }
             break;
         case 'q':
-            if (m_board[E8] == KB && m_board[A8] == RB)
+            if (m_board[E8] == KB && m_board[A8] == RB) {
                 m_castlings |= CASTLINGS[BLACK][QUEENSIDE];
+                m_queenSideCastling[BLACK] = { CFLD(DX[BLACK], true, true), CFLD(CX[BLACK], true, true), CFLD(BX[BLACK], true, false) };
+                move_o_o_o[BLACK] = Move(E8, C8, KB);
+            }
             break;
         case '-': break;
-        default: goto ILLEGAL_FEN;
+        default: {
+                /*if (tokens[2][i] >= 'A' && tokens[2][i] <= 'H') {
+                    COLOR c = islower(tokens[2][i]) ? BLACK : WHITE;
+                    auto t = tokens[2][i] - 'A';
+                    ++t; 
+                }
+                else*/
+                    goto ILLEGAL_FEN;
+            }
         }
     }
 
     if (tokens.size() < 4)
         goto FINAL_CHECK;
-    if (tokens[3] != "-")
-    {
+
+    if (tokens[3] != "-") {
         m_ep = StrToFld(tokens[3]);
         if (m_ep == NF)
             goto ILLEGAL_FEN;
@@ -785,13 +827,17 @@ bool Position::SetFEN(const std::string& fen)
 
     if (tokens.size() < 5)
         goto FINAL_CHECK;
+
     m_fifty = atoi(tokens[4].c_str());
+
     if (m_fifty < 0)
         m_fifty = 0;
 
     if (tokens.size() < 6)
         goto FINAL_CHECK;
+
     m_ply = (atoi(tokens[5].c_str()) - 1) * 2 + m_side;
+
     if (m_ply < 0)
         m_ply = 0;
 
@@ -800,16 +846,17 @@ FINAL_CHECK:
     if (m_count[KW] != 1 || m_count[KB] != 1)
         goto ILLEGAL_FEN;
 
-    if (m_ep != NF)
-    {
+    if (m_ep != NF) {
         if (m_side == WHITE && Row(m_ep) != 2)
             goto ILLEGAL_FEN;
+
         if (m_side == BLACK && Row(m_ep) != 5)
             goto ILLEGAL_FEN;
     }
 
     if (m_bits[PW] & (BB_HORIZONTAL[0] | BB_HORIZONTAL[7]))
         goto ILLEGAL_FEN;
+
     if (m_bits[PB] & (BB_HORIZONTAL[0] | BB_HORIZONTAL[7]))
         goto ILLEGAL_FEN;
 
@@ -817,8 +864,8 @@ FINAL_CHECK:
 
 ILLEGAL_FEN:
 
-    //*this = *tmp.get();
     std::cout << "Invalid fen " << fen << std::endl;
+
     return false;
 }
 
