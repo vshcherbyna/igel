@@ -216,10 +216,10 @@ void GenAllMoves(const Position& pos, MoveList& mvlist)
 
     // castlings
     if (pos.CanCastle(side, KINGSIDE))
-        mvlist.Add(MOVE_O_O[side]);
+        mvlist.Add(pos.MOVE_O_O(side));
 
     if (pos.CanCastle(side, QUEENSIDE))
-        mvlist.Add(MOVE_O_O_O[side]);
+        mvlist.Add(pos.MOVE_O_O_O(side));
 }
 
 void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist)
