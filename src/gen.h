@@ -36,6 +36,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <chrono>
 
 #if defined(__linux__) && !defined(__ANDROID__)
 #include <sys/mman.h>
@@ -43,116 +44,19 @@
 
 extern std::vector<std::list<Move>> g_movesBook;
 
-class FenHashTableEntry
-{
-public:
-    typedef union {
-        struct {
-            U32 move : 24, age : 8, type : 2;
-            I32 score : 22, depth : 8;
-        };
-        U64 raw;
-    }FenHashEntry;
-    static_assert(sizeof(FenHashEntry) == 8, "FenHashEntry must be 8 bytes");
-
-    FenHashTableEntry()
-    {
-        m_data.raw = 0;
-        m_key = 0;
-    }
-
-    void store(Move mv, EVAL score, I8 depth, U8 type, U64 hash0, U8 age)
-    {
-        assert(type >= 0 && type <= 2);
-        assert(age >= 0 && age <= 255);
-        assert(depth >= -128 && depth <= 127);
-        assert(score >= -50000 && score <= 50000);
-        assert(mv >= 0 && mv <= 16777216);
-
-        m_data.age = age;
-        m_data.type = type;
-        m_data.move = mv;
-        m_data.depth = depth;
-        m_data.score = score;
-
-        m_key = hash0 ^ m_data.raw;
-
-        // when debugging a multi cpu configuration these may give you a trouble:
-        assert(age == m_data.age);
-        assert(type == m_data.type);
-        assert(mv == m_data.move);
-        assert(depth == m_data.depth);
-        assert(score == m_data.score);
-    }
-public:
-    FenHashEntry m_data;
-    U64  m_key;
-};
-static_assert(sizeof(FenHashTableEntry) == 16, "TEntry must be 16 bytes");
-
-class FenHashTT
-{
-public:
-    FenHashTT(int hSize) {
-        size_t fenHash = static_cast<size_t>(hSize) * 1024;
-        m_hashSize = static_cast<size_t>(static_cast<size_t>((1024 * 1024) * fenHash) / sizeof(FenHashTableEntry));
-
-#if defined(__linux__) && !defined(__ANDROID__)
-        // on linux systems we align on 2MB boundaries and request Huge Pages
-        // idea comes from Sami Kiminki as used in Ethereal
-        m_hash = reinterpret_cast<FenHashTableEntry*>(aligned_alloc(2 * MB, sizeof(FenHashTableEntry) * m_hashSize));
-        madvise(m_hash, sizeof(FenHashTableEntry) * m_hashSize, MADV_HUGEPAGE);
-#else
-        // otherwise, we simply allocate as usual and make no requests
-        m_hash = reinterpret_cast<FenHashTableEntry*>(malloc(sizeof(FenHashTableEntry) * m_hashSize));
-#endif
-        assert(m_hash);
-        memset(reinterpret_cast<void*>(m_hash), 0, sizeof(FenHashTableEntry) * m_hashSize);
-    }
-    static FenHashTT & instance(int hSize) {
-        static FenHashTT instance(hSize);
-        return instance;
-    }
-
-public:
-    void record(Move mv, EVAL score, I8 depth, int ply, U8 type, U64 hash0) {
-        assert(m_hash);
-        assert(m_hashSize);
-
-        size_t index = hash0 % m_hashSize;
-        FenHashTableEntry & cluster = m_hash[index];
-        cluster.store(mv, score, depth, type, hash0, 0);
-    }
-    bool retrieve(U64 hash) {
-        assert(m_hash);
-        assert(m_hashSize);
-
-        size_t index = hash % m_hashSize;
-        auto pCluster = m_hash + index;
-
-        if ((pCluster->m_key ^ pCluster->m_data.raw) == hash)
-            return true;
-
-        return false;
-    }
-private:
-    mutable FenHashTableEntry* m_hash;
-    mutable size_t m_hashSize;
-    static constexpr uint64_t MB = 1ull << 20;
-};
-
 class GenWorker
 {
     friend class Generator;
 
 public:
-    GenWorker() : m_exit(false), m_pFile(nullptr), m_pMutex(nullptr), m_counter(0), m_skipped(0), m_search(new Search), m_finished(true), m_maxDepth(1) {}
+    GenWorker() : m_exit(false), m_pFile(nullptr), m_pMutex(nullptr), m_counter(0), m_search(new Search), m_finished(true), m_maxDepth(1) {}
     bool isTaskReady() { return !m_tasks.empty(); }
     void workerRoutine()
     {
         std::vector<std::string> p = { "go", "depth", std::to_string(m_maxDepth) };
         Time time;
         time.parseTime(p, true);
+        RandSeed(std::chrono::high_resolution_clock::now().time_since_epoch().count());
 
         while (!m_exit) {
 
@@ -268,31 +172,17 @@ new_game:
                     abort();
                 }
 
-                //auto hash = m_search->m_position.Hash();
-
                 //
-                // avoid duplicated fen entries
+                // store the position
                 //
 
-                /*if (FenHashTT::instance(0).retrieve(hash) == false)*/ 
-                {
+                auto & entry = entries.emplace_back();
 
-                    //
-                    // store the position
-                    //
-
-                    auto & entry = entries.emplace_back();
-
-                    entry.fen = fen;
-                    entry.move = move;
-                    entry.score = m_search->m_score;
-                    entry.ply = ply;
-                    entry.side = side;
-
-                    //FenHashTT::instance(0).record(m_search->m_best, m_search->m_score, m_search->m_depth, ply, 0, hash);
-                }
-                /*else
-                    m_skipped++;*/
+                entry.fen = fen;
+                entry.move = move;
+                entry.score = m_search->m_score;
+                entry.ply = ply;
+                entry.side = side;
 
                 if (m_exit)
                     return;
@@ -304,7 +194,6 @@ private:
     std::ofstream * m_pFile;
     std::mutex * m_pMutex;
     uint64_t m_counter;
-    uint64_t m_skipped;
     std::unique_ptr<Search> m_search;
     bool m_finished;
     int m_maxDepth;
@@ -314,7 +203,7 @@ private:
 class Generator
 {
 public:
-    Generator(int depth, int threads, int fFash);
+    Generator(int depth, int threads);
 
 public:
     void onGenerate();

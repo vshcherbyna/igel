@@ -25,19 +25,13 @@
 using namespace std::chrono_literals;
 std::vector<std::list<Move>> g_movesBook;
 
-Generator::Generator(int depth, int threads, int fFash):
+Generator::Generator(int depth, int threads):
     m_maxDepth(depth),
-    m_maxThreads(threads),
-    m_maxfHash(fFash)
+    m_maxThreads(threads)
 {
     std::cout << "Igel training data generator" << std::endl;
     std::cout << "Training depth:" << m_maxDepth << std::endl;
     std::cout << "Training threads:" << m_maxThreads << std::endl;
-    std::cout << "Training fens hash:" << m_maxfHash << std::endl;
-
-    /*std::cout << "Allocating fen hash table (" << fFash << "GB) ..";
-    FenHashTT::instance(fFash);
-    std::cout << ". Done" << std::endl;*/
 }
 
 void Generator::onGenerate()
@@ -136,25 +130,19 @@ void Generator::onGenerate()
     while (true) {
 
         uint64_t before_processed = 0;
-        uint64_t before_skipped   = 0;
 
-        for (auto i = 0; i < m_maxThreads; ++i) {
+        for (auto i = 0; i < m_maxThreads; ++i)
             before_processed += m_workers[i].m_counter;
-            before_skipped   += m_workers[i].m_skipped;
-        }
 
         std::this_thread::sleep_for(15s);
 
         uint64_t after_processed = 0;
         uint64_t after_skipped   = 0;
 
-        for (auto i = 0; i < m_maxThreads; ++i) {
+        for (auto i = 0; i < m_maxThreads; ++i)
             after_processed += m_workers[i].m_counter;
-            after_skipped   += m_workers[i].m_skipped;
-        }
 
-        std::cout << "[Processed " << after_processed << " FENs, " << ((after_processed - before_processed) / 15) << " per sec] [" ;
-        std::cout << "Skipped " << after_skipped << " FENs, " << ((after_skipped - before_skipped) / 15) << " per sec]" << std::endl;
+        std::cout << "[Processed " << after_processed << " FENs, " << ((after_processed - before_processed) / 15) << " per sec]" << std::endl;
 
         //
         // every epoch create a new data file
