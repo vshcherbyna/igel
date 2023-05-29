@@ -481,7 +481,6 @@ void Position::MakeNullMove()
 
     undo.previous = m_undoSize == 1 ? nullptr : m_state;
     m_state = &undo;
-
     m_state->accumulator.computed_score = false;
     m_state->accumulator.computed_accumulation = false;
     m_state->dirtyPiece.dirty_num = 0;

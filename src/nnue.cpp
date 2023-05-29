@@ -21,6 +21,7 @@
 #include "position.h"
 #include "utils.h"
 #include <immintrin.h>
+
 #include <streambuf>
 
 #include "incbin/incbin.h"
@@ -34,13 +35,12 @@ INCBIN(EmbeddedNNUE, EVALFILE);
 
 EVAL Evaluator::evaluate(Position & pos)
 {
-    EVAL pawns, material, scale;
+    EVAL scale = 1136 + 20 * pos.nonPawnMaterial() / 1024;
+    EVAL v = static_cast<EVAL>(NnueEvaluate(pos) * scale / 1024);
 
-    pawns = pos.Count(PAWN | WHITE) + pos.Count(PAWN | BLACK);
-    material = pos.nonPawnMaterial() + (2 * pawns * VAL_P);
-    scale = 600 + material / 32 - 4 * pos.Fifty();
+    v = v * (208 - pos.Fifty()) / 208;
 
-    return static_cast<EVAL>(NnueEvaluate(pos)) * scale / 1024 + Tempo;
+    return v;
 }
 
 void Evaluator::initEval()
@@ -53,7 +53,7 @@ void Evaluator::initEval()
     MemoryBuffer buffer(const_cast<char*>(reinterpret_cast<const char*>(gEmbeddedNNUEData)), size_t(gEmbeddedNNUESize));
     std::istream stream(&buffer);
 #else
-    std::ifstream stream("ign-3-debc71a4", std::ios::binary);
+    std::ifstream stream("nn-epoch399.nnue", std::ios::binary);
 #endif
 
     initEval(stream);
@@ -84,9 +84,8 @@ int Evaluator::NnueEvaluate(Position & pos) {
 
     auto & accumulator = pos.state()->accumulator;
 
-    if (accumulator.computed_score) {
-        return accumulator.score;
-    }
+    //if (accumulator.computed_score)// - stronger on this net arch when disabled
+    //    return accumulator.score;
 
     //
     // transform the features
@@ -94,7 +93,7 @@ int Evaluator::NnueEvaluate(Position & pos) {
 
     const std::size_t bucket = (countBits(pos.BitsAll()) - 1) / 4;
 
-    alignas(CACHE_LINE) std::uint8_t features[2048];
+    alignas(CACHE_LINE) std::uint8_t features[1024];
     auto psqt = m_transformer->transform(pos, features, bucket);
 
     //
@@ -108,10 +107,10 @@ int Evaluator::NnueEvaluate(Position & pos) {
     // scale the result
     //
 
-    int imbalance = psqt;
     int eval      = output[0];
+    int delta     = 7;
 
-    accumulator.score = static_cast<int>((imbalance + eval) / WEIGHTS_SCALE);
+    accumulator.score = static_cast<int>(((128 - delta) * psqt + (128 + delta) * eval) / 128 / WEIGHTS_SCALE);
     accumulator.computed_score = true;
 
     return accumulator.score;
@@ -123,6 +122,11 @@ Transformer::Transformer(std::istream & s) {
     s.read(reinterpret_cast<char*>(biases), sizeof(biases));
     s.read(reinterpret_cast<char*>(weights), sizeof(weights));
     s.read(reinterpret_cast<char*>(psqts), sizeof(psqts));
+}
+
+inline __m256i vec_msb_pack_16(__m256i a, __m256i b) {
+    __m256i compacted = _mm256_packs_epi16(_mm256_srli_epi16(a, 7), _mm256_srli_epi16(b, 7));
+    return _mm256_permute4x64_epi64(compacted, 0b11011000);
 }
 
 std::int32_t Transformer::transform(Position & pos, std::uint8_t * outBuffer, const std::size_t bucket) {
@@ -145,34 +149,31 @@ std::int32_t Transformer::transform(Position & pos, std::uint8_t * outBuffer, co
     const Color sides[2] = { pos.Side(), !pos.Side() };
     const auto pt = (psqt[static_cast<int>(sides[0])][bucket] - psqt[static_cast<int>(sides[1])][bucket]) / 2;
 
-#if defined(USE_AVX512)
-    std::uint32_t chunks = HalfDimensions / (SIMD_WIDTH * 2);
-    static_assert(HalfDimensions % (SIMD_WIDTH * 2) == 0);
-    const __m512i control = _mm512_setr_epi64(0, 2, 4, 6, 1, 3, 5, 7);
-    const __m512i zero = _mm512_setzero_si512();
-#elif defined(USE_AVX2)
-    std::uint32_t chunks = HalfDimensions / SIMD_WIDTH;
-    constexpr int control = 0b11011000;
-    const __m256i zero = _mm256_setzero_si256();
-#endif
+    for (std::uint32_t side = 0; side < 2; ++side) {
+        std::uint32_t offset = (HalfDimensions / 2) * side;
 
-    for (auto side : sides) {
-        std::uint32_t offset = HalfDimensions * side;
+#if defined(USE_AVX2)
+        constexpr std::uint32_t OutputChunkSize = MAX_CHUNK_SIZE;
+        static_assert((HalfDimensions / 2) % OutputChunkSize == 0);
+        constexpr std::uint32_t NumOutputChunks = HalfDimensions / 2 / OutputChunkSize;
 
-#if defined(USE_AVX512)
-        auto out = reinterpret_cast<__m512i*>(&outBuffer[offset]);
-        for (std::uint32_t j = 0; j < chunks; ++j) {
-            __m512i sum0 = _mm512_load_si512(&reinterpret_cast<const __m512i*>(acc[sides[side]])[j * 2 + 0]);
-            __m512i sum1 = _mm512_load_si512(&reinterpret_cast<const __m512i*>(acc[sides[side]])[j * 2 + 1]);
-            _mm512_store_si512(&out[j], _mm512_permutexvar_epi64(control,_mm512_max_epi8(_mm512_packs_epi16(sum0, sum1), zero)));
-        }
+        __m256i Zero = _mm256_setzero_si256();
+        __m256i One = _mm256_set1_epi16(127);
 
-#elif defined(USE_AVX2)
-        auto out = reinterpret_cast<__m256i*>(&outBuffer[offset]);
-        for (std::uint32_t j = 0; j < chunks; ++j) {
-            __m256i sum0 = _mm256_loadA_si256(&reinterpret_cast<const __m256i*>(acc[sides[side]])[j * 2 + 0]);
-            __m256i sum1 = _mm256_loadA_si256(&reinterpret_cast<const __m256i*>(acc[sides[side]])[j * 2 + 1]);
-            _mm256_storeA_si256(&out[j], _mm256_permute4x64_epi64(_mm256_max_epi8(_mm256_packs_epi16(sum0, sum1), zero), control));
+        const __m256i* in0 = reinterpret_cast<const __m256i*>(&(acc[sides[side]][0]));
+        const __m256i* in1 = reinterpret_cast<const __m256i*>(&(acc[sides[side]][HalfDimensions / 2]));
+        __m256i* out = reinterpret_cast<__m256i*>(outBuffer + offset);
+
+        for (std::uint32_t j = 0; j < NumOutputChunks; j += 1) {
+            const __m256i sum0a = _mm256_max_epi16(_mm256_min_epi16(in0[j * 2 + 0], One), Zero);
+            const __m256i sum0b = _mm256_max_epi16(_mm256_min_epi16(in0[j * 2 + 1], One), Zero);
+            const __m256i sum1a = _mm256_max_epi16(_mm256_min_epi16(in1[j * 2 + 0], One), Zero);
+            const __m256i sum1b = _mm256_max_epi16(_mm256_min_epi16(in1[j * 2 + 1], One), Zero);
+
+            const __m256i pa = _mm256_mullo_epi16(sum0a, sum1a);
+            const __m256i pb = _mm256_mullo_epi16(sum0b, sum1b);
+
+            out[j] = vec_msb_pack_16(pa, pb);
         }
 #endif
     }
@@ -253,38 +254,56 @@ inline void Transformer::refresh(Position & pos) {
 
     for (COLOR c : { WHITE, BLACK }) {
 
-        std::memcpy(accumulator.accumulation[c], biases, HalfDimensions * sizeof(std::int16_t));
-
-        for (std::size_t k = 0; k < 8; ++k)
-            accumulator.psqtAccumulation[c][k] = 0;
-
         std::uint32_t ci = pos.getActiveIndexes(c, indexes);
 
-        for (std::uint32_t index = 0; index < ci; index++) {
-            const std::uint32_t offset = HalfDimensions * indexes[index];
+#if defined(USE_AVX2)
+        __m256i acc[NUM_REGS];
+        __m256i psqt[NUM_PSQT_REGS];
 
-#if defined(USE_AVX512)
-            auto accumulation = reinterpret_cast<__m512i*>(&accumulator.accumulation[c][0]);
-            auto column = reinterpret_cast<const __m512i*>(&weights[offset]);
-            constexpr std::uint32_t chunks = HalfDimensions / SIMD_WIDTH;
-            for (std::uint32_t j = 0; j < chunks; ++j)
-                _mm512_storeA_si512(&accumulation[j], _mm512_add_epi16(_mm512_loadA_si512(&accumulation[j]), column[j]));
-#elif defined(USE_AVX2)
-            auto accumulation = reinterpret_cast<__m256i*>(&accumulator.accumulation[c]);
-            auto column = reinterpret_cast<const __m256i*>(&weights[offset]);
+        for (std::uint32_t j = 0; j < HalfDimensions / TILE_HEIGHT; ++j) {
+            auto biasesTile = reinterpret_cast<const __m256i*>(&biases[j * TILE_HEIGHT]);
+            for (std::uint32_t k = 0; k < NUM_REGS; ++k)
+                acc[k] = biasesTile[k];
 
-            constexpr std::uint32_t chunks = HalfDimensions / (SIMD_WIDTH / 2);
-            for (std::uint32_t j = 0; j < chunks; ++j)
-                _mm256_storeA_si256(&accumulation[j], _mm256_add_epi16(_mm256_loadA_si256(&accumulation[j]), column[j]));
-#endif
-            for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
-                accumulator.psqtAccumulation[c][k] += psqts[indexes[index] * PSQT_BUCKETS + k];
+            for (std::uint32_t index = 0; index < ci; index++) {
+                const std::uint32_t offset = HalfDimensions * indexes[index] + j * TILE_HEIGHT;
+                auto column = reinterpret_cast<const __m256i*>(&weights[offset]);
+
+                for (unsigned k = 0; k < NUM_REGS; ++k)
+                    acc[k] = _mm256_add_epi16(acc[k], column[k]);
+            }
+
+            auto accTile = reinterpret_cast<__m256i*>(&accumulator.accumulation[c][j * TILE_HEIGHT]);
+            for (unsigned k = 0; k < NUM_REGS; k++)
+                _mm256_store_si256(&accTile[k], acc[k]);
         }
+
+        for (std::uint32_t j = 0; j < PSQT_BUCKETS / PSQT_TILE_HEIGHT; ++j) {
+            for (std::size_t k = 0; k < NUM_PSQT_REGS; ++k)
+                psqt[k] = _mm256_setzero_si256();
+
+            for (std::uint32_t index = 0; index < ci; index++) {
+                const std::uint32_t offset = PSQT_BUCKETS * indexes[index] + j * PSQT_TILE_HEIGHT;
+                auto columnPsqt = reinterpret_cast<const __m256i*>(&psqts[offset]);
+
+                for (std::size_t k = 0; k < NUM_PSQT_REGS; ++k)
+                    psqt[k] = _mm256_add_epi32(psqt[k], columnPsqt[k]);
+            }
+
+            auto accTilePsqt = reinterpret_cast<__m256i*>(&accumulator.psqtAccumulation[c][j * PSQT_TILE_HEIGHT]);
+
+            for (std::size_t k = 0; k < NUM_PSQT_REGS; ++k)
+                _mm256_store_si256(&accTilePsqt[k], psqt[k]);
+        }
+#endif
     }
 }
 
 template <std::int32_t OutputDimensions, std::int32_t InputDimensions>
 Layer<OutputDimensions, InputDimensions>::Layer(std::istream & s) {
+    memset(biases, 0, sizeof(biases));
+    memset(weights, 0, sizeof(weights));
+
     s.read(reinterpret_cast<char*>(biases), sizeof(biases));
     s.read(reinterpret_cast<char*>(weights), sizeof(weights));
 }
@@ -309,34 +328,7 @@ inline std::int32_t * Layer<OutputDimensions, InputDimensions>::propagate(std::u
     for (std::uint32_t i = 0; i < OutputDimensions; ++i) {
         const std::uint32_t offset = i * InputDimensions;
 
-#if defined(USE_AVX512)
-        __m512i sum = _mm512_setzero_si512();
-        const auto row = reinterpret_cast<const __m512i*>(&weights[offset]);
-        for (std::uint32_t j = 0; j < chunks; ++j) {
-#if defined(USE_VNNI)
-            sum = _mm512_dpbusd_epi32(sum, _mm512_loadA_si512(&input_vector[j]), _mm512_load_si512(&row[j]));
-#else
-            __m512i product = _mm512_maddubs_epi16(_mm512_loadA_si512(&input_vector[j]), _mm512_load_si512(&row[j]));
-            product = _mm512_madd_epi16(product, ones);
-            sum = _mm512_add_epi32(sum, product);
-#endif
-        }
-
-        if (InputDimensions != chunks * SIMD_WIDTH * 2) {
-            const auto iv256 = reinterpret_cast<const __m256i*>(&input_vector[chunks]);
-            const auto row256 = reinterpret_cast<const __m256i*>(&row[chunks]);
-#if defined(USE_VNNI)
-            __m256i product256 = _mm256_dpbusd_epi32(_mm512_castsi512_si256(sum), _mm256_loadA_si256(&iv256[0]), _mm256_load_si256(&row256[0]));
-            sum = _mm512_inserti32x8(sum, product256, 0);
-#else
-            __m256i product256 = _mm256_maddubs_epi16(_mm256_loadA_si256(&iv256[0]), _mm256_load_si256(&row256[0]));
-            sum = _mm512_add_epi32(sum, _mm512_cvtepi16_epi32(product256));
-#endif
-        }
-
-        output[i] = _mm512_reduce_add_epi32(sum) + biases[i];
-
-#elif defined(USE_AVX2)
+#if defined(USE_AVX2)
         __m256i sum = _mm256_setzero_si256();
         const auto row = reinterpret_cast<const __m256i*>(&weights[offset]);
         for (std::uint32_t j = 0; j < chunks; ++j) {
@@ -358,16 +350,26 @@ LayeredNetwork::LayeredNetwork(std::istream & s) : inputLayer(s), hiddenLayer1(s
 }
 
 inline std::int32_t * LayeredNetwork::propagate(std::uint8_t * features, char * outBuffer) {
-    auto ret = inputLayer.propagate(features, outBuffer + 320);         // forward propagation
-    auto clipped = ClippedReLU<6, 16>::propagate(ret, outBuffer + 256); // clip
-    ret = hiddenLayer1.propagate(clipped, outBuffer + 128);             // forward propagation
-    clipped = ClippedReLU<6, 32>::propagate(ret, outBuffer + 64);       // clip
-    ret = hiddenLayer2.propagate(clipped, outBuffer);                   // forward propagation
+    auto ret = inputLayer.propagate(features, outBuffer + 320);                 // forward propagation
+    auto fc_0_out = ret[15];
+    char ac_sqr_0_out[32] = { 0 };
+    ClippedReLU<6, 16>::propagateSqrt(ret, ac_sqr_0_out);                       // clip
+    char ac_out[32];
+    auto clipped = ClippedReLU<6, 16>::propagate(ret, ac_out);
+    std::memcpy(ac_sqr_0_out + 15, ac_out, 15);
+    ret = hiddenLayer1.propagate((std::uint8_t*)ac_sqr_0_out, outBuffer + 128); // forward propagation
+    clipped = ClippedReLU<6, 32>::propagate(ret, outBuffer + 64);               // clip
+    ret = hiddenLayer2.propagate(clipped, outBuffer);                           // forward propagation
+
+    std::int32_t fwdOut = int(fc_0_out) * (600 * 16) / (127 * (1 << 6));
+    std::int32_t outputValue = ret[0] + fwdOut;
+    ret[0] = outputValue;
+
     return ret;
 }
 
 template <std::int32_t WeightScaleBits, std::int32_t InputDimensions>
-inline std::uint8_t* ClippedReLU<WeightScaleBits, InputDimensions>::propagate(std::int32_t * features, char * outBuffer) {
+inline std::uint8_t* ClippedReLU<WeightScaleBits, InputDimensions>::propagate(std::int32_t* features, char* outBuffer) {
 
     auto output = reinterpret_cast<uint8_t*>(outBuffer);
 
@@ -389,6 +391,17 @@ inline std::uint8_t* ClippedReLU<WeightScaleBits, InputDimensions>::propagate(st
 
     for (std::uint32_t i = start; i < InputDimensions; ++i)
         output[i] = static_cast<std::uint8_t>(std::max(0, std::min(127, features[i] >> WeightScaleBits)));
+
+    return output;
+}
+
+template <std::int32_t WeightScaleBits, std::int32_t InputDimensions>
+inline std::uint8_t* ClippedReLU<WeightScaleBits, InputDimensions>::propagateSqrt(std::int32_t* features, char* outBuffer)
+{
+    auto output = reinterpret_cast<uint8_t*>(outBuffer);
+
+    for (std::uint32_t i = 0; i < InputDimensions; ++i)
+        output[i] = static_cast<std::uint8_t>(std::max(0ll, std::min(127ll, (((long long)features[i] * features[i]) >> (2 * WeightScaleBits)) / 128)));
 
     return output;
 }
