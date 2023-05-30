@@ -22,10 +22,12 @@ ifneq ($(findstring __AVX2__, $(GCCDEFINES)),)
     DEFS += -DUSE_AVX2=1
 endif
 
-ifneq ($(findstring __AVX512VNNI__, $(GCCDEFINES)),)
-    LIBS += -mavx512vnni
-    DEFS += -DUSE_AVX512=1 -DUSE_VNNI=1
-endif
+#
+#ifneq ($(findstring __AVX512VNNI__, $(GCCDEFINES)),)
+#    LIBS += -mavx512vnni
+#    DEFS += -DUSE_AVX512=1 -DUSE_VNNI=1
+#endif
+#
 
 CFLAGS = $(WARN) $(LIBS) $(OPTIM) $(NNFLAGS)
 
