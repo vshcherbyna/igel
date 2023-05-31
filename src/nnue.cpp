@@ -35,12 +35,12 @@ INCBIN(EmbeddedNNUE, EVALFILE);
 
 EVAL Evaluator::evaluate(Position & pos)
 {
-    EVAL scale = 1136 + 20 * pos.nonPawnMaterial() / 1024;
+    EVAL scale = 600 + 20 * pos.nonPawnMaterial() / 1024;
     EVAL v = static_cast<EVAL>(NnueEvaluate(pos) * scale / 1024);
 
     v = v * (208 - pos.Fifty()) / 208;
 
-    return v;
+    return v + Tempo;
 }
 
 void Evaluator::initEval()
