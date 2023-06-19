@@ -137,7 +137,6 @@ void Generator::onGenerate()
         std::this_thread::sleep_for(15s);
 
         uint64_t after_processed = 0;
-        uint64_t after_skipped   = 0;
 
         for (auto i = 0; i < m_maxThreads; ++i)
             after_processed += m_workers[i].m_counter;
