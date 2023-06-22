@@ -53,7 +53,7 @@ void Evaluator::initEval()
     MemoryBuffer buffer(const_cast<char*>(reinterpret_cast<const char*>(gEmbeddedNNUEData)), size_t(gEmbeddedNNUESize));
     std::istream stream(&buffer);
 #else
-    std::ifstream stream("nn-epoch399.nnue", std::ios::binary);
+    std::ifstream stream("c049c117", std::ios::binary);
 #endif
 
     initEval(stream);
