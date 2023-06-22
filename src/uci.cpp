@@ -31,7 +31,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "3.4.0";
+const std::string VERSION = "3.5.0";
 const std::string ARCHITECTURE = " 64 "
 
 #if _BTYPE==0
@@ -396,7 +396,6 @@ bool Uci::startsWith(const std::string & str, const std::string & ptrn)
 
 void Uci::onGenerate(commandParams params)
 {
-    RandSeed(time(0));
-    std::unique_ptr<Generator> generator(new Generator(std::stoi(params[1]), std::stoi(params[2]), std::stoi(params[3])));
+    std::unique_ptr<Generator> generator(new Generator(std::stoi(params[1]), std::stoi(params[2])));
     generator->onGenerate();
 }

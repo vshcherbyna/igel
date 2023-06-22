@@ -9,7 +9,7 @@ SRC = *.cpp fathom/tbprobe.cpp
 
 GCCDEFINES = $(shell echo | $(CC) -m64 -march=native -E -dM -)
 
-EVALFILE = weights/ign-3-debc71a4
+EVALFILE = weights/c049c117
 NNFLAGS  = -DEVALFILE=\"$(EVALFILE)\"
 
 LIBS   = -std=c++17 -mpopcnt -pthread
@@ -22,10 +22,12 @@ ifneq ($(findstring __AVX2__, $(GCCDEFINES)),)
     DEFS += -DUSE_AVX2=1
 endif
 
-ifneq ($(findstring __AVX512VNNI__, $(GCCDEFINES)),)
-    LIBS += -mavx512vnni
-    DEFS += -DUSE_AVX512=1 -DUSE_VNNI=1
-endif
+#
+#ifneq ($(findstring __AVX512VNNI__, $(GCCDEFINES)),)
+#    LIBS += -mavx512vnni
+#    DEFS += -DUSE_AVX512=1 -DUSE_VNNI=1
+#endif
+#
 
 CFLAGS = $(WARN) $(LIBS) $(OPTIM) $(NNFLAGS)
 

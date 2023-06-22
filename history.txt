@@ -3,6 +3,13 @@ Igel - open source chess engine forked from GreKo 2018.01.
 (c) 2018-2023 Volodymyr Shcherbyna <volodymyr@shcherbyna.com> (Igel author)
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru> (GreKo author)
 
+Igel 3.5.0
+-------------
+22-Jun-2023
+
+- new network architecture
+- new network c049c117
+
 Igel 3.4.0
 -------------
 30-Jan-2023

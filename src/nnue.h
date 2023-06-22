@@ -41,6 +41,11 @@ const EVAL VAL_K = 20000;
 #define WEIGHTS_SCALE    16
 #define PSQT_THRESHOLD   1400
 #define SIMD_WIDTH       32
+#define TILE_HEIGHT      256
+#define NUM_REGS         16
+#define NUM_PSQT_REGS    1
+#define PSQT_TILE_HEIGHT 8
+#define MAX_CHUNK_SIZE   32
 
 class Transformer
 {
@@ -65,7 +70,8 @@ public:
 template <std::int32_t WeightScaleBits, std::int32_t InputDimensions> class ClippedReLU {
 
 public:
-    inline static std::uint8_t * propagate(std::int32_t* features, char* outBuffer);
+    inline static std::uint8_t * propagate(std::int32_t * features, char * outBuffer);
+    inline static std::uint8_t * propagateSqrt(std::int32_t* features, char* outBuffer);
 };
 
 template <std::int32_t OutputDimensions, std::int32_t InputDimensions> class Layer {
@@ -89,7 +95,7 @@ public:
     inline std::int32_t* propagate(std::uint8_t * features, char * outBuffer);
 
 public:
-    alignas(CACHE_LINE) Layer<8, 2048> inputLayer;
+    alignas(CACHE_LINE) Layer<16, 1024> inputLayer;
     alignas(CACHE_LINE) Layer<32, 32> hiddenLayer1;
     alignas(CACHE_LINE) Layer<1, 32> hiddenLayer2;
 };

@@ -1068,6 +1068,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     uint64_t nps = 0;
 
     for (m_depth = depth; m_depth < maxDepth; ++m_depth) {
+
         //
         //  Make a search
         //
