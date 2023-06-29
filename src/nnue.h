@@ -59,7 +59,7 @@ public:
     inline void incremental(Position & pos);
 
 public:
-    static constexpr int HalfDimensions  = 1024;
+    static constexpr int HalfDimensions  = 1280;
     static constexpr int InputDimensions = 22528;
 
 public:
@@ -96,7 +96,7 @@ public:
     inline std::int32_t* propagate(std::uint8_t * features, char * outBuffer);
 
 public:
-    alignas(CACHE_LINE) Layer<16, 1024> inputLayer;
+    alignas(CACHE_LINE) Layer<16, 1280> inputLayer;
     alignas(CACHE_LINE) Layer<32, 32> hiddenLayer1;
     alignas(CACHE_LINE) Layer<1, 32> hiddenLayer2;
 };

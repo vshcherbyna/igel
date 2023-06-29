@@ -31,7 +31,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "3.5.5";
+const std::string VERSION = "3.6.0";
 const std::string ARCHITECTURE = " 64 "
 
 #if _BTYPE==0
@@ -158,6 +158,7 @@ void Uci::onUci()
         " min "		<< MIN_LEVEL	<<
         " max "		<< MAX_LEVEL << std::endl;
 
+    std::cout << "option name EvalFile type string default <empty>" << std::endl;
     std::cout << "uciok" << std::endl;
 }
 
@@ -337,6 +338,10 @@ void Uci::onSetOption(commandParams params)
     else if (name == "SyzygyProbeDepth")
         m_searcher.setSyzygyDepth(atoi(value.c_str()));
 #endif
+    else if (name == "EvalFile") {
+        std::ifstream stream(value, std::ios::binary);
+        Evaluator::initEval(stream);
+    }
     else if (name == "Ponder")
         ; // nothing to do, we are stateless here
     else

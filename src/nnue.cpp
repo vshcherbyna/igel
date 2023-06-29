@@ -94,7 +94,7 @@ int Evaluator::NnueEvaluate(Position & pos) {
 
     const std::size_t bucket = (countBits(pos.BitsAll()) - 1) / 4;
 
-    alignas(CACHE_LINE) std::uint8_t features[1024];
+    alignas(CACHE_LINE) std::uint8_t features[1280];
     auto psqt = m_transformer->transform(pos, features, bucket);
 
     //
