@@ -1022,16 +1022,6 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
             return 0;
         }
 
-        //
-        //  Check if only a single legal move possible at this position
-        //
-
-        if (legalMoves == 1 && time.chopperMove()) {
-            waitUntilCompletion();
-            printBestMove(this, m_position, onlyMove, m_ponder);
-            return 1;
-        }
-
 #if defined (SYZYGY_SUPPORT)
         //
         //  Probe tablebases/tt at root

@@ -45,7 +45,7 @@ I would like to thank the authors and the community involved in the creation of 
 
 ### Compiling
 
-Official compilation method involves cmake and gcc/Visual Studio 2019 and assumes a modern CPU with AVX2 support (most of the computers produced in last 8 years).
+Official compilation method involves cmake and gcc/Visual Studio 2019 and assumes a modern CPU with AVX2 support (most of the computers produced in last 9 years).
 
 Using cmake/Visual Studio 2022:
 
@@ -63,7 +63,7 @@ git clone https://github.com/vshcherbyna/igel.git ./igel
 cd igel
 git submodule update --init --recursive
 wget https://github.com/vshcherbyna/igel/releases/download/3.5.0/c049c117 -O ./network_file
-cmake -DEVALFILE=network_file -DUSE_PEXT=1 -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
+cmake -DEVALFILE=network_file -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
 make -j
 ```
 
