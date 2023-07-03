@@ -31,7 +31,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "3.5.2";
+const std::string VERSION = "3.5.3";
 const std::string ARCHITECTURE = " 64 "
 
 #if _BTYPE==0
@@ -129,7 +129,7 @@ int Uci::handleCommands()
 void Uci::onUci()
 {
     std::cout << "id name Igel " << VERSION << ARCHITECTURE << std::endl;
-    std::cout << "id author V. Medvedev, V. Shcherbyna" << std::endl;
+    std::cout << "id author V. Shcherbyna (Igel author 2018-2023), V. Medvedev (GreKo author 2002-2018)" << std::endl;
 
     std::cout << "option name Hash type spin"   <<
         " default " << DEFAULT_HASH_SIZE        <<

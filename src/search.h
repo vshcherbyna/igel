@@ -88,9 +88,6 @@ private:
     void stopWorkerThreads();
     void lazySmpSearcher();
     void indicateWorkersStop();
-#if defined (SYZYGY_SUPPORT)
-    Move tableBaseRootSearch();
-#endif
     EVAL abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool rootNode, bool cutNode, Move skipMove = 0);
     EVAL qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull = false);
     inline int extensionRequired(bool inCheck, bool onPV, int cmhistory, int fmhistory);
