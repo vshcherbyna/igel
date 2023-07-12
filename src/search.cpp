@@ -277,7 +277,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //   razoring
         //
 
-        if (depth <= 1 && staticEval + 150 < alpha)
+        if (depth <= 2 && staticEval + 150 < alpha)
             return qSearch(alpha, beta, ply, 0);
 
         //
