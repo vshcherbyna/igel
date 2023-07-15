@@ -291,7 +291,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //   null move
         //
 
-        if (!isNull && depth >= 2 && bestScore >= beta && (!ttHit || !(hEntry.m_data.type == HASH_BETA) || ttScore >= beta) && m_position.NonPawnMaterial()) {
+        if (!isNull && depth >= 3 && bestScore >= beta && (!ttHit || !(hEntry.m_data.type == HASH_BETA) || ttScore >= beta) && m_position.NonPawnMaterial()) {
             int R = 5 + depth / 6 + std::min(3, (bestScore - beta) / 100);
 
             m_position.MakeNullMove();
