@@ -23,6 +23,7 @@
 #include "utils.h"
 #include "nnue.h"
 
+#include <cstdint>
 #include <memory>
 
 const Move MOVE_O_O[2]   = { Move(E1, G1, KW), Move(E8, G8, KB) };

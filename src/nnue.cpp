@@ -20,6 +20,7 @@
 #include "nnue.h"
 #include "position.h"
 #include "utils.h"
+#include <cstdint>
 #include <immintrin.h>
 
 #include <streambuf>
