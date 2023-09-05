@@ -20,6 +20,7 @@
 #ifndef NNUE_H
 #define NNUE_H
 
+#include <cstdint>
 #include <string>
 #include <memory>
 #include <immintrin.h>

@@ -24,6 +24,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
+#include <cstdint>
 #include <cstring>
 #include <ctime>
 #include <deque>
@@ -35,7 +36,6 @@
 #include <vector>
 
 #ifndef _MSC_VER
-#include <stdint.h>
 typedef uint8_t U8;
 typedef uint16_t U16;
 typedef uint32_t U32;

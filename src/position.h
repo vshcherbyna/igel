@@ -24,6 +24,8 @@
 #include "bitboards.h"
 #include "nnue.h"
 
+#include <cstdint>
+
 #define STD_POSITION "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 enum
