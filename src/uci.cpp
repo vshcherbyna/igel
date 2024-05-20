@@ -229,7 +229,7 @@ int Uci::onBench()
 
     uint64_t sumNodes = 0;
     auto start = GetProcTime();
-    commandParams p = { "go", "depth", "15" };
+    commandParams p = { "go", "depth", "10" };
 
     for (auto i = 0; strcmp(benchmarkPositions[i], ""); i++) {
         if (!m_searcher.m_position.SetFEN(benchmarkPositions[i]))
