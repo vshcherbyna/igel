@@ -26,51 +26,51 @@
 /*static */constexpr int History::s_historyMultiplier;
 /*static */constexpr int History::s_historyDivisor;
 
-/*static */void History::updateHistory(Search * pSearch, const MoveList & quetMoves, int ply, int bonus)
-{
-    assert(ply < MAX_PLY);
+void History::updateHistory(Search* pSearch, const MoveList& quetMoves, int ply, int bonus) {
 
-    if (ply < 2 || !quetMoves.Size())
+    if (ply < 2 || !quetMoves.Size()) {
         return;
-
-    auto counterMove = pSearch->m_moveStack[ply - 1];
-    auto counterPiece = pSearch->m_pieceStack[ply - 1];
-    auto counterTo = counterMove.To();
-
-    auto followMove = pSearch->m_moveStack[ply - 2];
-    auto followPiece = pSearch->m_pieceStack[ply - 2];
-    auto followTo = followMove.To();
+    }
 
     auto colour = pSearch->m_position.Side();
-
-    auto s = quetMoves.Size();
-    auto best = quetMoves[s - 1].m_mv;
+    auto s      = quetMoves.Size();
+    auto best   = quetMoves[s - 1].m_mv;
+    bonus       = std::min(bonus, s_historyMax);
 
     for (size_t i = 0; i < s; ++i) {
-        Move mv = quetMoves[i].m_mv;
-        auto delta = (mv == best) ? bonus : -bonus;
-        auto from = mv.From();
-        auto piece = mv.Piece();
-        auto to = mv.To();
-        auto entry = pSearch->m_history[colour][from][to];
-        bonus = std::min(bonus, s_historyMax);
-        entry += s_historyMultiplier * delta - entry * abs(delta) / s_historyDivisor;
-        pSearch->m_history[colour][from][to] = entry;
 
-        if (counterMove) {
-            auto entry = pSearch->m_followTable[0][counterPiece][counterTo][piece][to];
-            entry += s_historyMultiplier * delta - entry * abs(delta) / s_historyDivisor;
-            pSearch->m_followTable[0][counterPiece][counterTo][piece][to] = entry;
+        Move mv     = quetMoves[i].m_mv;
+        auto delta  = (mv == best) ? bonus : -bonus;
+        auto from   = mv.From();
+        auto piece  = mv.Piece();
+        auto to     = mv.To();
+
+        auto & history = pSearch->m_history[colour][from][to];
+        history += s_historyMultiplier * delta - history * abs(delta) / s_historyDivisor;
+
+        if (ply >= 1) {
+            auto counterMove  = pSearch->m_moveStack[ply - 1];
+            auto counterPiece = pSearch->m_pieceStack[ply - 1];
+            auto counterTo    = counterMove.To();
+
+            if (counterMove) {
+                auto & followTable = pSearch->m_followTable[0][counterPiece][counterTo][piece][to];
+                followTable += s_historyMultiplier * delta - followTable * abs(delta) / s_historyDivisor;
+            }
         }
 
-        if (followMove) {
-            entry = pSearch->m_followTable[1][followPiece][followTo][mv.Piece()][to];
-            entry += s_historyMultiplier * delta - entry * abs(bonus) / s_historyDivisor;
-            pSearch->m_followTable[1][followPiece][followTo][piece][to] = entry;
+        if (ply >= 2) {
+            auto followMove     = pSearch->m_moveStack[ply - 2];
+            auto followPiece    = pSearch->m_pieceStack[ply - 2];
+            auto followTo       = followMove.To();
+
+            if (followMove) {
+                auto & followTable = pSearch->m_followTable[1][followPiece][followTo][mv.Piece()][to];
+                followTable += s_historyMultiplier * delta - followTable * abs(bonus) / s_historyDivisor;
+            }
         }
     }
 }
-
 /*static */void History::setKillerMove(Search * pSearch, Move mv, int ply)
 {
     if (pSearch->m_killerMoves[ply][0] != mv) {
