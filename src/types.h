@@ -21,6 +21,7 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+#include <cstdint>
 #include <cassert>
 #include <cmath>
 #include <cstdlib>

@@ -20,6 +20,7 @@
 #ifndef TIME_H
 #define TIME_H
 
+#include <cstdint>
 #include "types.h"
 
 class Time

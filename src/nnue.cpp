@@ -21,7 +21,6 @@
 #include "position.h"
 #include "utils.h"
 #include <immintrin.h>
-
 #include <streambuf>
 
 #include "incbin/incbin.h"
