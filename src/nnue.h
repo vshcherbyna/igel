@@ -22,6 +22,7 @@
 
 #include <string>
 #include <memory>
+#include <cstdint>
 #include <immintrin.h>
 
 #include "types.h"
