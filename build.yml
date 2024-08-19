@@ -1,0 +1,33 @@
+name: Igel Build with CMake
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, ubuntu-22.04, ubuntu-latest]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Install CMake
+      run: sudo apt-get install -y cmake
+
+    - name: Download network file
+      run: wget https://github.com/vshcherbyna/igel/releases/download/3.5.0/c049c117 -O ./network_file
+
+    - name: Configure CMake
+      run: cmake -DEVALFILE=network_file -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
+
+    - name: Build the project
+      run: make -j
