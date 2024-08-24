@@ -337,6 +337,13 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         }
     }
 
+    //
+    //  IID
+    //
+
+    if (depth >= 7 && (onPV || cutNode) && (!hashMove || hEntry.m_data.depth + 4 < depth))
+        --depth;
+
     auto legalMoves = 0;
     bestScore = -CHECKMATE_SCORE + ply;
     U8 type = HASH_ALPHA;
