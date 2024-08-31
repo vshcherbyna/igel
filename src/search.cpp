@@ -46,6 +46,15 @@ const U8 HASH_BETA = 2;
 /*static */constexpr int Search::m_fmpHistoryLimit[2];
 /*static */constexpr int Search::m_fpHistoryLimit[2];
 
+int g_razor_staticEval = 150;
+int g_snmp_bestScore   = 85;
+int g_nmp_div = 100;
+int g_pbc_add = 100;
+int g_hist_red = 5000;
+
+int SEEQuietMargin = -60;
+int SEENoisyMargin = -10;
+
 Search::Search() :
     m_nodes(0),
     m_tbHits(0),
@@ -277,14 +286,14 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //   razoring
         //
 
-        if (depth <= 2 && staticEval + 150 < alpha)
+        if (depth <= 2 && staticEval + g_razor_staticEval < alpha)
             return qSearch(alpha, beta, ply, 0);
 
         //
         //  static null move pruning
         //
 
-        if (depth <= 8 && bestScore - 85 * (depth - improving) >= beta)
+        if (depth <= 8 && bestScore - g_snmp_bestScore * (depth - improving) >= beta)
             return bestScore;
 
         //
@@ -292,7 +301,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //
 
         if (!isNull && depth >= 3 && bestScore >= beta && (!ttHit || !(hEntry.m_data.type == HASH_BETA) || ttScore >= beta) && m_position.NonPawnMaterial()) {
-            int R = 5 + depth / 6 + std::min(3, (bestScore - beta) / 100);
+            int R = 5 + depth / 6 + std::min(3, (bestScore - beta) / g_nmp_div);
 
             m_position.MakeNullMove();
             EVAL nullScore = -abSearch(-beta, -beta + 1, depth - R, ply + 1, true, false, !cutNode);
@@ -307,7 +316,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //
 
         if (depth >= 5) {
-            auto betaCut = beta + 100;
+            auto betaCut = beta + g_pbc_add/*100*/;
             MoveList captureMoves;
 
             GenCapturesAndPromotions(m_position, captureMoves);
@@ -402,9 +411,6 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
                 int seeMargin[2];
 
-                static const int SEEQuietMargin = -60;
-                static const int SEENoisyMargin = -10;
-
                 seeMargin[0] = SEENoisyMargin * depth * depth;
                 seeMargin[1] = SEEQuietMargin * depth;
 
@@ -466,7 +472,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                 reduction -= mv == m_killerMoves[ply][0]
                     || mv == m_killerMoves[ply][1];
 
-                reduction -= std::max(-2, std::min(2, (history.history + history.cmhistory + history.fmhistory) / 5000));
+                reduction -= std::max(-2, std::min(2, (history.history + history.cmhistory + history.fmhistory) / g_hist_red /*5000*/));
 
                 if (reduction >= newDepth)
                     reduction = newDepth - 1;

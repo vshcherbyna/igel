@@ -79,6 +79,14 @@ const int DEFAULT_THREADS = 1;
 const int MIN_THREADS     = 1;
 const int MAX_THREADS     = 1024;
 
+extern int g_razor_staticEval;
+extern int g_snmp_bestScore;
+extern int g_nmp_div;
+extern int g_pbc_add;
+extern int g_hist_red;
+extern int SEEQuietMargin;
+extern int SEENoisyMargin;
+
 int Uci::handleCommands()
 {
     std::cout << "Igel " << VERSION << ARCHITECTURE << " by V. Shcherbyna (Igel author 2018-2023), V. Medvedev (GreKo author 2002-2018)" << std::endl;
@@ -117,6 +125,45 @@ int Uci::handleCommands()
             onEval();
         else if (startsWith(cmd, "gen"))
             onGenerate(split(cmd));
+        else if (cmd.find(",") != std::string::npos) {  // SPSA
+            std::string variableName, type, value;
+            size_t pos = 0;
+
+            // variable name
+            pos = cmd.find(',');
+            variableName = cmd.substr(0, pos);
+
+            // type
+            size_t nextPos = cmd.find(',', pos + 1);
+            type = cmd.substr(pos + 1, nextPos - pos - 1);
+
+            // extract values
+            pos = nextPos;
+            auto iter = 0;
+            while ((nextPos = cmd.find(',', pos + 1)) != std::string::npos) {
+                value = cmd.substr(pos + 1, nextPos - pos - 1);
+                pos = nextPos;
+
+                if (!iter) {
+                    if (variableName == "g_razor_staticEval")
+                        g_razor_staticEval = std::atoi(value.c_str());
+                    else if (variableName == "g_snmp_bestScore")
+                        g_snmp_bestScore = std::atoi(value.c_str());
+                    else if (variableName == "g_nmp_div")
+                        g_nmp_div = std::atoi(value.c_str());
+                    else if (variableName == "g_pbc_add")
+                        g_pbc_add = std::atoi(value.c_str());
+                    else if (variableName == "g_hist_red")
+                        g_hist_red = std::atoi(value.c_str());
+                    else if (variableName == "SEEQuietMargin")
+                        SEEQuietMargin = std::atoi(value.c_str());
+                    else if (variableName == "SEENoisyMargin")
+                        SEENoisyMargin = std::atoi(value.c_str());
+                }
+
+                ++iter;
+            }
+        }
         else {
             std::cout << "Unknown command. Good bye." << std::endl;
             exit(0); // important to exit when stdin is gone to prevent issues in OpenBench
