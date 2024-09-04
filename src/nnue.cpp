@@ -32,12 +32,25 @@ INCBIN(EmbeddedNNUE, EVALFILE);
 /*static */std::unique_ptr<Transformer> Evaluator::m_transformer;
 /*static */std::vector<std::unique_ptr<LayeredNetwork>> Evaluator::m_networks;
 
+int g_delta_scale_1 = 7;
+int g_delta_scale_2 = 128;
+int g_delta_scale_3 = 128;
+int g_delta_scale_4 = 128;
+
+int g_delta_scale_5 = 600;
+int g_delta_scale_6 = 20;
+int g_delta_scale_7 = 1024;
+int g_delta_scale_8 = 1024;
+
+int g_delta_scale_9  = 208;
+int g_delta_scale_10 = 208;
+
 EVAL Evaluator::evaluate(Position & pos)
 {
-    EVAL scale = 600 + 20 * pos.nonPawnMaterial() / 1024;
-    EVAL v = static_cast<EVAL>(NnueEvaluate(pos) * scale / 1024);
+    EVAL scale = g_delta_scale_5 + g_delta_scale_6 * pos.nonPawnMaterial() / g_delta_scale_7;
+    EVAL v = static_cast<EVAL>(NnueEvaluate(pos) * scale / g_delta_scale_8);
 
-    v = v * (208 - pos.Fifty()) / 208;
+    v = v * (g_delta_scale_9 - pos.Fifty()) / g_delta_scale_10;
 
     return v + Tempo;
 }
@@ -107,9 +120,8 @@ int Evaluator::NnueEvaluate(Position & pos) {
     //
 
     int eval      = output[0];
-    int delta     = 7;
 
-    accumulator.score = static_cast<int>(((128 - delta) * psqt + (128 + delta) * eval) / 128 / WEIGHTS_SCALE);
+    accumulator.score = static_cast<int>(((g_delta_scale_2 - g_delta_scale_1) * psqt + (g_delta_scale_3 + g_delta_scale_1) * eval) / g_delta_scale_4 / WEIGHTS_SCALE);
     accumulator.computed_score = true;
 
     return accumulator.score;

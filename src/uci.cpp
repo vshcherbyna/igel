@@ -86,6 +86,16 @@ extern int g_pbc_add;
 extern int g_hist_red;
 extern int SEEQuietMargin;
 extern int SEENoisyMargin;
+extern int g_delta_scale_1;
+extern int g_delta_scale_2;
+extern int g_delta_scale_3;
+extern int g_delta_scale_4;
+extern int g_delta_scale_5;
+extern int g_delta_scale_6;
+extern int g_delta_scale_7;
+extern int g_delta_scale_8;
+extern int g_delta_scale_9;
+extern int g_delta_scale_10;
 
 int Uci::handleCommands()
 {
@@ -125,45 +135,6 @@ int Uci::handleCommands()
             onEval();
         else if (startsWith(cmd, "gen"))
             onGenerate(split(cmd));
-        else if (cmd.find(",") != std::string::npos) {  // SPSA
-            std::string variableName, type, value;
-            size_t pos = 0;
-
-            // variable name
-            pos = cmd.find(',');
-            variableName = cmd.substr(0, pos);
-
-            // type
-            size_t nextPos = cmd.find(',', pos + 1);
-            type = cmd.substr(pos + 1, nextPos - pos - 1);
-
-            // extract values
-            pos = nextPos;
-            auto iter = 0;
-            while ((nextPos = cmd.find(',', pos + 1)) != std::string::npos) {
-                value = cmd.substr(pos + 1, nextPos - pos - 1);
-                pos = nextPos;
-
-                if (!iter) {
-                    if (variableName == "g_razor_staticEval")
-                        g_razor_staticEval = std::atoi(value.c_str());
-                    else if (variableName == "g_snmp_bestScore")
-                        g_snmp_bestScore = std::atoi(value.c_str());
-                    else if (variableName == "g_nmp_div")
-                        g_nmp_div = std::atoi(value.c_str());
-                    else if (variableName == "g_pbc_add")
-                        g_pbc_add = std::atoi(value.c_str());
-                    else if (variableName == "g_hist_red")
-                        g_hist_red = std::atoi(value.c_str());
-                    else if (variableName == "SEEQuietMargin")
-                        SEEQuietMargin = std::atoi(value.c_str());
-                    else if (variableName == "SEENoisyMargin")
-                        SEENoisyMargin = std::atoi(value.c_str());
-                }
-
-                ++iter;
-            }
-        }
         else {
             std::cout << "Unknown command. Good bye." << std::endl;
             exit(0); // important to exit when stdin is gone to prevent issues in OpenBench
@@ -204,6 +175,108 @@ void Uci::onUci()
         " default " << DEFAULT_LEVEL <<
         " min "		<< MIN_LEVEL	<<
         " max "		<< MAX_LEVEL << std::endl;
+
+    std::cout << "option name g_razor_staticEval type spin"   <<
+        " default 150"                                          <<
+        " min 0"                                                <<
+        " max 500"                                              <<
+    std::endl;
+
+    std::cout << "option name g_snmp_bestScore type spin"     <<
+        " default 85"                                           <<
+        " min 0"                                                <<
+        " max 500"                                              <<
+    std::endl;
+
+    std::cout << "option name g_nmp_div type spin"            <<
+        " default 100"                                          <<
+        " min 0"                                                <<
+        " max 500"                                              <<
+    std::endl;
+
+    std::cout << "option name g_pbc_add type spin"            <<
+        " default 100"                                          <<
+        " min 0"                                                <<
+        " max 500"                                              <<
+    std::endl;
+
+    std::cout << "option name g_hist_red type spin"           <<
+        " default 5000"                                         <<
+        " min 0"                                                <<
+        " max 50000"                                            <<
+    std::endl;
+
+    std::cout << "option name SEEQuietMargin type spin"       <<
+        " default -60"                                          <<
+        " min -500"                                             <<
+        " max 0"                                                <<
+    std::endl;
+
+    std::cout << "option name SEENoisyMargin type spin"       <<
+        " default -10"                                          <<
+        " min -500"                                             <<
+        " max 0"                                                <<
+    std::endl;
+
+    std::cout << "option name g_delta_scale_1 type spin" <<
+        " default 7" <<
+        " min -256" <<
+        " max 256" <<
+    std::endl;
+
+    std::cout << "option name g_delta_scale_2 type spin" <<
+        " default 128" <<
+        " min -256" <<
+        " max 256" <<
+    std::endl;
+
+    std::cout << "option name g_delta_scale_3 type spin" <<
+        " default 128" <<
+        " min -256" <<
+        " max 256" <<
+    std::endl;
+
+    std::cout << "option name g_delta_scale_4 type spin" <<
+        " default 128" <<
+        " min 1" <<
+        " max 1024" <<
+    std::endl;
+
+    std::cout << "option name g_delta_scale_5 type spin" <<
+        " default 600" <<
+        " min 0" <<
+        " max 1024" <<
+    std::endl;
+
+    std::cout << "option name g_delta_scale_6 type spin" <<
+        " default 20" <<
+        " min 0" <<
+        " max 1024" <<
+        std::endl;
+
+    std::cout << "option name g_delta_scale_7 type spin" <<
+        " default 1024" <<
+        " min 1" <<
+        " max 2048" <<
+        std::endl;
+
+    std::cout << "option name g_delta_scale_8 type spin" <<
+        " default 1024" <<
+        " min 1" <<
+        " max 2048" <<
+        std::endl;
+
+    std::cout << "option name g_delta_scale_9 type spin" <<
+        " default 208" <<
+        " min 0" <<
+        " max 1024" <<
+        std::endl;
+
+    std::cout << "option name g_delta_scale_10 type spin" <<
+        " default 208" <<
+        " min 1" <<
+        " max 1024" <<
+        std::endl;
 
     std::cout << "uciok" << std::endl;
 }
@@ -386,6 +459,38 @@ void Uci::onSetOption(commandParams params)
 #endif
     else if (name == "Ponder")
         ; // nothing to do, we are stateless here
+    else if (name == "g_razor_staticEval")
+        g_razor_staticEval = std::atoi(value.c_str());
+    else if (name == "g_snmp_bestScore")
+        g_snmp_bestScore = std::atoi(value.c_str());
+    else if (name == "g_nmp_div")
+        g_nmp_div = std::atoi(value.c_str());
+    else if (name == "g_pbc_add")
+        g_pbc_add = std::atoi(value.c_str());
+    else if (name == "g_hist_red")
+        g_hist_red = std::atoi(value.c_str());
+    else if (name == "SEEQuietMargin")
+        SEEQuietMargin = std::atoi(value.c_str());
+    else if (name == "g_delta_scale_1")
+        g_delta_scale_1 = std::atoi(value.c_str());
+    else if (name == "g_delta_scale_2")
+        g_delta_scale_2 = std::atoi(value.c_str());
+    else if (name == "g_delta_scale_3")
+        g_delta_scale_3 = std::atoi(value.c_str());
+    else if (name == "g_delta_scale_4")
+        g_delta_scale_4 = std::atoi(value.c_str());
+    else if (name == "g_delta_scale_5")
+        g_delta_scale_5 = std::atoi(value.c_str());
+    else if (name == "g_delta_scale_6")
+        g_delta_scale_6 = std::atoi(value.c_str());
+    else if (name == "g_delta_scale_7")
+        g_delta_scale_7 = std::atoi(value.c_str());
+    else if (name == "g_delta_scale_8")
+        g_delta_scale_8 = std::atoi(value.c_str());
+    else if (name == "g_delta_scale_9")
+        g_delta_scale_9 = std::atoi(value.c_str());
+    else if (name == "g_delta_scale_10")
+        g_delta_scale_10 = std::atoi(value.c_str());
     else
         std::cout << "Unknown option " << name << std::endl;
 }
