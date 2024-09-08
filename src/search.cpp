@@ -429,7 +429,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             else if (betaCut >= beta)
                 return betaCut;
             else if (ttHit && ttScore >= beta)
-                extension = -2; // negative extension
+                extension = -3; // negative extension
         }
 
         if (quietMove) {
