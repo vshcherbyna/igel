@@ -1,4 +1,4 @@
-name: Igel Build with CMake
+name: Igel Linux Build with CMake
 
 on:
   push:
@@ -44,3 +44,6 @@ jobs:
 
     - name: Build the project
       run: make -j
+
+    - name: Run the bench
+      run: ./igel bench

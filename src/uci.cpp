@@ -248,7 +248,7 @@ int Uci::onBench()
     std::cout << "Nodes : " << sumNodes << std::endl;
     std::cout << "NPS   : " << static_cast<int>(sumNodes / ((GetProcTime() - start) / 1000.0)) << std::endl;
 
-    return static_cast<int>(sumNodes);
+    return 0; // ci pipelines expect retval 0 for success
 }
 
 void Uci::onPosition(commandParams params)

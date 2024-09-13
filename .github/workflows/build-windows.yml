@@ -1,0 +1,36 @@
+name: Igel Windows Build with CMake
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:  # Allow manual triggering of the workflow
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ windows-latest ]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Configure CMake
+      run: cmake -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
+
+    - name: Build the project
+      run: cmake --build . --config Release
+
+    - name: Download network file
+      run: curl -L -o Release/network_file https://github.com/vshcherbyna/igel/releases/download/3.5.0/c049c117
+
+    - name: Run the bench
+      run: igel.exe bench
+      working-directory: Release
+      shell: cmd
