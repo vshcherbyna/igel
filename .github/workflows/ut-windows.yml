@@ -1,0 +1,36 @@
+name: Igel Windows Unit Tests with CMake
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:  # Allow manual triggering of the workflow
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ windows-latest ]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Checkout submodules
+      run: git submodule update --init --recursive
+
+    - name: Configure CMake for the UTs
+      run: cmake -D_MAKE_UNIT_TEST=UNIT_TEST -D_BTYPE=1 -DUSE_AVX2=1 -G "Visual Studio 17 2022" .
+
+    - name: Build the UTs
+      run: cmake --build . --target ALL_BUILD --config Release
+
+    - name: Run the UTs
+      run: unit.exe
+      working-directory: Release
+      shell: cmd

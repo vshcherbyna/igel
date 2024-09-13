@@ -2,8 +2,6 @@
 
 ![Logo](https://raw.githubusercontent.com/vshcherbyna/igel/master/igel.bmp)
 
-[![Build Status](https://ci.appveyor.com/api/projects/status/github/vshcherbyna/igel?svg=true)](https://ci.appveyor.com/project/vshcherbyna/igel)
-
 Igel is a free UCI chess engine from Ukraine. It is not a complete chess program and requires some UCI compatible GUI software in order to be used.
 
 ### History
