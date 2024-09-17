@@ -591,8 +591,11 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
                 bestScore = ttScore;
         }
 
-        if (bestScore >= beta)
+        if (bestScore >= beta) {
+            if (!ttHit)
+                TTable::instance().record(0, bestScore, -5, ply, HASH_BETA, m_position.Hash());
             return bestScore;
+        }
 
         if (alpha < bestScore)
             alpha = bestScore;
