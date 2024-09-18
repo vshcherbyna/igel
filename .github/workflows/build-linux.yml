@@ -3,10 +3,10 @@ name: Igel Linux Build with CMake
 on:
   push:
     branches:
-      - master
+      - '**'
   pull_request:
     branches:
-      - master
+      - '**'
   workflow_dispatch:  # Allow manual triggering of the workflow
 
 jobs:
