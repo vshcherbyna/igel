@@ -31,5 +31,17 @@ endif
 
 CFLAGS = $(WARN) $(LIBS) $(OPTIM) $(NNFLAGS)
 
+pgo: download-network
+	ifeq ($(findstring gcc, $(CC)), gcc)
+		$(CC) $(CFLAGS) $(SRC) $(DEFS) PGOFLAGS="-fprofile-generate=pgo" -o $(EXE)
+		./$(EXE) bench > pgo.out 2>&1
+		$(CC) $(CFLAGS) $(SRC) $(DEFS) PGOFLAGS="-fprofile-use=pgo" -o $(EXE)
+		@rm -rf pgo pgo.out weights
+	endif
+
 basic:
 	$(CC) $(CFLAGS) $(SRC) $(DEFS) -o $(EXE)
+
+download-network:
+	mkdir weights; \
+	echo "Downloading latest Igel network with wget"; cd weights ; wget -qO- https://github.com/vshcherbyna/igel/releases/download/3.5.0/c049c117);
