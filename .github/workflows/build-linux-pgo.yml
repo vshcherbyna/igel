@@ -1,4 +1,4 @@
-name: Igel Linux Build PGO
+name: Igel Linux Clang PGO Build
 
 on:
   push:
@@ -21,17 +21,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Install GCC versions
-      run: |
-        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-        sudo apt-get update
-        sudo apt-get install -y gcc-12 g++-12 gcc-13 g++-13
-
-    - name: Set GCC version
-      run: |
-        # Set GCC 14 as the default version
-        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 60
-        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 60
+    - name: Install LLVM and Clang
+      uses: KyleMayes/install-llvm-action@v2
+      with:
+        version: "10.0"
 
     - name: Build the PGO build
       run: cd src&&make pgo
