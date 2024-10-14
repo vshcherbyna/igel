@@ -33,7 +33,7 @@ CFLAGS = $(WARN) $(LIBS) $(OPTIM) $(NNFLAGS)
 
 pgo: download-network
 	$(CC) $(CFLAGS) $(SRC) $(DEFS) -fprofile-generate=pgo -o $(EXE)
-	./$(EXE) bench > pgo.out 2>&1
+	./$(EXE) bench 13 > pgo.out 2>&1
 	$(CC) $(CFLAGS) $(SRC) $(DEFS) -fprofile-use=pgo -o $(EXE)
 	@rm -rf pgo pgo.out weights
 
