@@ -212,9 +212,12 @@ static const char* benchmarkPositions[] = {
     ""
 };
 
-int Uci::onBench()
+int Uci::onBench(const char * depth)
 {
     std::cout << "Running benchmark" << std::endl;
+
+    if (!depth)
+        depth = "10";
 
     auto & time = Time::instance();
 
@@ -229,7 +232,7 @@ int Uci::onBench()
 
     uint64_t sumNodes = 0;
     auto start = GetProcTime();
-    commandParams p = { "go", "depth", "10" };
+    commandParams p = { "go", "depth", depth };
 
     for (auto i = 0; strcmp(benchmarkPositions[i], ""); i++) {
         if (!m_searcher.m_position.SetFEN(benchmarkPositions[i]))
