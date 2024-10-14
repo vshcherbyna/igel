@@ -26,6 +26,9 @@ jobs:
       with:
         version: "16.0"
 
+    - name: Install LTO plugin
+      run: sudo apt-get install llvm-dev
+
     - name: Build the PGO build
       run: cd src&&make pgo
 
