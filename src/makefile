@@ -14,7 +14,7 @@ NNFLAGS  = -DEVALFILE=\"$(EVALFILE)\"
 
 LIBS   = -std=c++20 -mpopcnt -pthread -lstdc++ -lm
 WARN   = -Wall
-OPTIM  = -O3 -march=native -flto=auto
+OPTIM  = -O3 -march=native
 DEFS   = -DNDEBUG -D_BTYPE=0 -DSYZYGY_SUPPORT=TRUE
 
 ifneq ($(findstring __AVX2__, $(GCCDEFINES)),)
