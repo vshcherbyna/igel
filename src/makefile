@@ -3,7 +3,7 @@
 # Official build method for Igel still requires cmake
 #
 
-CC  = g++
+CC  = clang
 EXE = igel
 SRC = *.cpp fathom/tbprobe.cpp
 
@@ -12,7 +12,7 @@ GCCDEFINES = $(shell echo | $(CC) -m64 -march=native -E -dM -)
 EVALFILE = weights/c049c117
 NNFLAGS  = -DEVALFILE=\"$(EVALFILE)\"
 
-LIBS   = -std=c++17 -mpopcnt -pthread
+LIBS   = -std=c++20 -mpopcnt -pthread -lstdc++ -lm
 WARN   = -Wall
 OPTIM  = -O3 -march=native -flto=auto
 DEFS   = -DNDEBUG -D_BTYPE=0 -DSYZYGY_SUPPORT=TRUE
@@ -32,10 +32,18 @@ endif
 CFLAGS = $(WARN) $(LIBS) $(OPTIM) $(NNFLAGS)
 
 pgo: download-network
+ifeq ($(findstring g++, $(CC)), g++)
 	$(CC) $(CFLAGS) $(SRC) $(DEFS) -fprofile-generate=pgo -o $(EXE)
-	./$(EXE) bench 13 > pgo.out 2>&1
+	./$(EXE) bench 14 > pgo.out 2>&1
 	$(CC) $(CFLAGS) $(SRC) $(DEFS) -fprofile-use=pgo -o $(EXE)
-	@rm -rf pgo pgo.out weights
+	@rm -rf pgo pgo.out
+else ifeq ($(findstring clang, $(CC)), clang)
+	$(CC) $(CFLAGS) $(SRC) $(DEFS) -fprofile-instr-generate -o $(EXE)
+	./$(EXE) bench 14 > pgo.out 2>&1
+	llvm-profdata merge -output=igel.profdata *.profraw
+	$(CC) $(CFLAGS) $(SRC) $(DEFS) -fprofile-instr-use=igel.profdata -o $(EXE)
+	@rm -rf pgo pgo.out igel.profdata *.profraw
+endif
 
 basic:
 	$(CC) $(CFLAGS) $(SRC) $(DEFS) -o $(EXE)
