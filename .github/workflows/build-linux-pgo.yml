@@ -24,7 +24,7 @@ jobs:
     - name: Install LLVM and Clang
       uses: KyleMayes/install-llvm-action@v2
       with:
-        version: "16.0"
+        version: "14.0"
 
     - name: Build the PGO build
       run: cd src&&make pgo
