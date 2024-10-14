@@ -34,7 +34,7 @@ jobs:
         sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 60
 
     - name: Build the PGO build
-      run: cd src&&make -j
+      run: cd src&&make pgo
 
     - name: Run the bench
       run: cd src&&./igel bench
