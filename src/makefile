@@ -36,12 +36,12 @@ basic:
 pgo: download-network
 ifeq ($(findstring g++, $(CC)), g++)
 	$(CC) $(CFLAGS) $(SRC) $(DEFS) -fprofile-generate=pgo -o $(EXE)
-	./$(EXE) bench 14 > pgo.out 2>&1
+	./$(EXE) bench 15 > pgo.out 2>&1
 	$(CC) $(CFLAGS) $(SRC) $(DEFS) -fprofile-use=pgo -o $(EXE)
 	@rm -rf pgo pgo.out
 else ifeq ($(findstring clang, $(CC)), clang)
 	$(CC) $(CFLAGS) $(SRC) $(DEFS) -fprofile-instr-generate -o $(EXE)
-	./$(EXE) bench 14 > pgo.out 2>&1
+	./$(EXE) bench 15 > pgo.out 2>&1
 	llvm-profdata merge -output=igel.profdata *.profraw
 	$(CC) $(CFLAGS) $(SRC) $(DEFS) -fprofile-instr-use=igel.profdata -o $(EXE)
 	@rm -rf pgo pgo.out igel.profdata *.profraw
