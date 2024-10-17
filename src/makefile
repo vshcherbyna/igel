@@ -2,7 +2,7 @@
 # This makefile is used to compile Igel for OpenBench and TCEC
 #
 
-CC  = clang
+CC  = g++
 EXE = igel
 SRC = *.cpp fathom/tbprobe.cpp
 
@@ -13,7 +13,7 @@ NNFLAGS  = -DEVALFILE=\"$(EVALFILE)\"
 
 LIBS   = -std=c++20 -mpopcnt -pthread -lstdc++ -lm
 WARN   = -Wall
-OPTIM  = -O3 -march=native -flto=auto -fuse-ld=lld
+OPTIM  = -O3 -march=native -flto=auto
 DEFS   = -DNDEBUG -D_BTYPE=0 -DSYZYGY_SUPPORT=TRUE
 
 ifneq ($(findstring __AVX2__, $(GCCDEFINES)),)
