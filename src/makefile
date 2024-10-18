@@ -11,7 +11,7 @@ GCCDEFINES = $(shell echo | $(CC) -m64 -march=native -E -dM -)
 EVALFILE = weights/c049c117
 NNFLAGS  = -DEVALFILE=\"$(EVALFILE)\"
 
-LIBS   = -std=c++20 -mpopcnt -pthread -lstdc++ -lm
+LIBS   = -std=c++17 -mpopcnt -pthread -lstdc++ -lm
 WARN   = -Wall
 OPTIM  = -O3 -march=native -flto=auto
 DEFS   = -DNDEBUG -D_BTYPE=0 -DSYZYGY_SUPPORT=TRUE
