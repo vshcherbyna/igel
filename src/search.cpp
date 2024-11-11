@@ -425,8 +425,11 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             auto betaCut = hEntry.m_data.score - depth;
             auto score = abSearch(betaCut - 1, betaCut, depth / 2, ply + 1, false, false, cutNode, mv);
 
-            if (score < betaCut)
+            if (score < betaCut) {
                 extension = 1;
+                if (!onPV && score < betaCut - 50)
+                    extension = 2;
+            }
             else if (betaCut >= beta)
                 return betaCut;
             else if (ttHit && ttScore >= beta)
