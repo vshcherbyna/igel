@@ -1,7 +1,20 @@
 Igel - open source chess engine forked from GreKo 2018.01.
 
-(c) 2018-2023 Volodymyr Shcherbyna <volodymyr@shcherbyna.com> (Igel author)
+(c) 2018-2025 Volodymyr Shcherbyna <volodymyr@shcherbyna.com> (Igel author)
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru> (GreKo author)
+
+Igel 3.6.0
+-------------
+28-Jan-2024
+
+- extend by 2 in singular extension on non pv move
+- improve low bound condition in singular extension
+- check beta score in probcut condition
+- store in TT in standing pat in qsearch
+- implement iid
+- tune null move depth
+- tune razor depth
+- remove instant moves handling
 
 Igel 3.5.0
 -------------
