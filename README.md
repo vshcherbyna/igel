@@ -80,7 +80,3 @@ or if you are running Linux:
 The 'Nodes' must match the 'BENCH :' value from the last commit message.
 
 It is also possible to compile using gcc and a traditional makefile, please consult ./src/makefile for more details.
-
-### Donation
-
-Thank you so much for supporting Igel's development and training via [![Paypal](https://raw.githubusercontent.com/vshcherbyna/igel/master/paypal3.jpg)](https://www.paypal.com/donate/?hosted_button_id=37NPEAY9XLRJE).
