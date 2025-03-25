@@ -244,7 +244,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                 //
 
                 if ((type == HASH_EXACT) || (type == HASH_ALPHA ? (score <= alpha) : (score >= beta))) {
-                    TTable::instance().record(0, score, MAX_PLY, 0, type, m_position.Hash());
+                    TTable::instance().record(0, score, MAX_PLY-1, 0, type, m_position.Hash());
                     return score;
                 }
             }
