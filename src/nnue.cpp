@@ -191,28 +191,34 @@ inline void Transformer::incremental(Position & pos) {
     std::pair<std::uint32_t, std::uint32_t> pa;
 
     for (COLOR c : { WHITE, BLACK }) {
-        auto fullUpdate = false;
-
-        if (dp.dirty_num) { // a piece moved
-            fullUpdate = dp.pieceId[0] == PIECE_ID_KING + c;
-            if (fullUpdate)
-                pa.first = pos.getActiveIndexes(c, added);
-            else
-                pa = pos.getChangedIndexes(c, added, removed);
-        }
-
-#if defined(USE_AVX2)
-        std::uint32_t chunks = HalfDimensions / (SIMD_WIDTH / 2);
-        auto accumulation = reinterpret_cast<__m256i*>(&accumulator.accumulation[c][0]);
-#endif
+        auto fullUpdate = dp.dirty_num && dp.pieceId[0] == PIECE_ID_KING + c;
 
         if (fullUpdate) {
+            // Perform full update for king movement
+            pa.first = pos.getActiveIndexes(c, added);
+
             std::memcpy(accumulator.accumulation[c], biases, HalfDimensions * sizeof(std::int16_t));
 
             for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
                 accumulator.psqtAccumulation[c][k] = 0;
+
+            for (std::uint32_t index = 0; index < pa.first; index++) {
+                std::uint32_t offset = HalfDimensions * added[index];
+                for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
+                    accumulator.psqtAccumulation[c][k] += psqts[added[index] * PSQT_BUCKETS + k];
+
+#if defined(USE_AVX2)
+                auto column = reinterpret_cast<const __m256i*>(&weights[offset]);
+                auto accumulation = reinterpret_cast<__m256i*>(&accumulator.accumulation[c][0]);
+                for (std::uint32_t j = 0; j < HalfDimensions / (SIMD_WIDTH / 2); ++j)
+                    accumulation[j] = _mm256_add_epi16(accumulation[j], column[j]);
+#endif
+            }
         }
         else {
+            // Incremental update for other pieces
+            pa = pos.getChangedIndexes(c, added, removed);
+
             std::memcpy(accumulator.accumulation[c], prev_accumulator.accumulation[c], HalfDimensions * sizeof(std::int16_t));
 
             for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
@@ -220,29 +226,29 @@ inline void Transformer::incremental(Position & pos) {
 
             for (std::uint32_t index = 0; index < pa.second; index++) {
                 std::uint32_t offset = HalfDimensions * removed[index];
-
                 for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
                     accumulator.psqtAccumulation[c][k] -= psqts[removed[index] * PSQT_BUCKETS + k];
 
 #if defined(USE_AVX2)
                 auto column = reinterpret_cast<const __m256i*>(&weights[offset]);
-                for (std::uint32_t j = 0; j < chunks; ++j)
+                auto accumulation = reinterpret_cast<__m256i*>(&accumulator.accumulation[c][0]);
+                for (std::uint32_t j = 0; j < HalfDimensions / (SIMD_WIDTH / 2); ++j)
                     accumulation[j] = _mm256_sub_epi16(accumulation[j], column[j]);
 #endif
             }
-        }
 
-        for (std::uint32_t index = 0; index < pa.first; index++) {
-            std::uint32_t offset = HalfDimensions * added[index];
-
-            for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
-                accumulator.psqtAccumulation[c][k] += psqts[added[index] * PSQT_BUCKETS + k];
+            for (std::uint32_t index = 0; index < pa.first; index++) {
+                std::uint32_t offset = HalfDimensions * added[index];
+                for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
+                    accumulator.psqtAccumulation[c][k] += psqts[added[index] * PSQT_BUCKETS + k];
 
 #if defined(USE_AVX2)
-            auto column = reinterpret_cast<const __m256i*>(&weights[offset]);
-            for (std::uint32_t j = 0; j < chunks; ++j)
-                accumulation[j] = _mm256_add_epi16(accumulation[j], column[j]);
+                auto column = reinterpret_cast<const __m256i*>(&weights[offset]);
+                auto accumulation = reinterpret_cast<__m256i*>(&accumulator.accumulation[c][0]);
+                for (std::uint32_t j = 0; j < HalfDimensions / (SIMD_WIDTH / 2); ++j)
+                    accumulation[j] = _mm256_add_epi16(accumulation[j], column[j]);
 #endif
+            }
         }
     }
 }
