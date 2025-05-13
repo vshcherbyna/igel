@@ -38,9 +38,10 @@ public:
     static EVAL SEE(Search * pSearch, const Move & mv);
 
 private:
-    static constexpr int s_SortHash = 7000000;
-    static constexpr int s_SortCapture = 6000000;
-    static constexpr int s_SortKiller = 5000000;
+    static constexpr int s_SortHash       = 7000000;
+    static constexpr int s_SortCapture    = 6000000;
+    static constexpr int s_SortKiller     = 5000000;
+    static constexpr int s_SortBadCapture = 1000000;
 };
 
 #endif // MOVEVAL_H
