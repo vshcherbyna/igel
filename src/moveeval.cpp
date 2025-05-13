@@ -74,6 +74,12 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
             EVAL s_promotion = SORT_VALUE[mv.Promotion()];
 
             mvlist[j].m_score = s_SortCapture + 10 * (s_captured + s_promotion) - s_piece;
+
+            if (mv.Captured() && !mv.Promotion()) { // add SEE score for captures if it's negative (losing captures)
+                auto see = MoveEval::SEE(pSearch, mv);
+                if (see < 0)
+                    mvlist[j].m_score = s_SortBadCapture + see; // penalize bad captures, but still keep them above non-captures
+            }
         }
         else if (mv == pSearch->m_killerMoves[ply][0] || mv == pSearch->m_killerMoves[ply][1])
             mvlist[j].m_score = s_SortKiller;
