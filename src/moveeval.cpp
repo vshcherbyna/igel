@@ -100,12 +100,21 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
     if (i == 0 && mvlist[0].m_score == s_SortHash)
         return mvlist[0].m_mv;
 
-    auto mvSize = mvlist.Size();
-    for (size_t j = i + 1; j < mvSize; ++j)
-    {
-        if (mvlist[j].m_score > mvlist[i].m_score)
-            std::swap(mvlist[i], mvlist[j]);
+    size_t best_idx = i;
+    int best_score = mvlist[i].m_score;
+
+    // find the move with the highest score
+    for (size_t j = i + 1; j < mvlist.Size(); ++j) {
+        if (mvlist[j].m_score > best_score) {
+            best_idx = j;
+            best_score = mvlist[j].m_score;
+        }
     }
+
+    // if we found a better move, do a single swap
+    if (best_idx != i)
+        std::swap(mvlist[i], mvlist[best_idx]);
+
     return mvlist[i].m_mv;
 }
 
