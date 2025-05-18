@@ -544,9 +544,6 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
     m_pvSize[ply]   = 0;
     m_selDepth      = std::max(ply, m_selDepth);
 
-    if (checkLimits())
-        return DRAW_SCORE;
-
     TTable::instance().prefetchEntry(m_position.Hash());
 
     if ((ply > MAX_PLY - 2) || isDraw())
@@ -626,9 +623,6 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
 
             auto e = -qSearch(-beta, -alpha, ply + 1, depth - 1);
             m_position.UnmakeMove();
-
-            if (m_flags & SEARCH_TERMINATED)
-                return DRAW_SCORE;
 
             if (e > bestScore) {
                 bestScore = e;
