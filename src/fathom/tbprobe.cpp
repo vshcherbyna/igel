@@ -899,33 +899,33 @@ bool tb_init(const char *path)
   int i, j, k, l, m;
 
   for (i = 0; i < 5; i++) {
-    sprintf(str, "K%cvK", pchr(i));
+    snprintf(str, sizeof(str), "K%cvK", pchr(i));
     init_tb(str);
   }
 
   for (i = 0; i < 5; i++)
     for (j = i; j < 5; j++) {
-      sprintf(str, "K%cvK%c", pchr(i), pchr(j));
+      snprintf(str, sizeof(str), "K%cvK%c", pchr(i), pchr(j));
       init_tb(str);
     }
 
   for (i = 0; i < 5; i++)
     for (j = i; j < 5; j++) {
-      sprintf(str, "K%c%cvK", pchr(i), pchr(j));
+      snprintf(str, sizeof(str), "K%c%cvK", pchr(i), pchr(j));
       init_tb(str);
     }
 
   for (i = 0; i < 5; i++)
     for (j = i; j < 5; j++)
       for (k = 0; k < 5; k++) {
-        sprintf(str, "K%c%cvK%c", pchr(i), pchr(j), pchr(k));
+        snprintf(str, sizeof(str), "K%c%cvK%c", pchr(i), pchr(j), pchr(k));
         init_tb(str);
       }
 
   for (i = 0; i < 5; i++)
     for (j = i; j < 5; j++)
       for (k = j; k < 5; k++) {
-        sprintf(str, "K%c%c%cvK", pchr(i), pchr(j), pchr(k));
+        snprintf(str, sizeof(str), "K%c%c%cvK", pchr(i), pchr(j), pchr(k));
         init_tb(str);
       }
 
@@ -937,7 +937,7 @@ bool tb_init(const char *path)
     for (j = i; j < 5; j++)
       for (k = i; k < 5; k++)
         for (l = (i == k) ? j : k; l < 5; l++) {
-          sprintf(str, "K%c%cvK%c%c", pchr(i), pchr(j), pchr(k), pchr(l));
+          snprintf(str, sizeof(str), "K%c%cvK%c%c", pchr(i), pchr(j), pchr(k), pchr(l));
           init_tb(str);
         }
 
@@ -945,7 +945,7 @@ bool tb_init(const char *path)
     for (j = i; j < 5; j++)
       for (k = j; k < 5; k++)
         for (l = 0; l < 5; l++) {
-          sprintf(str, "K%c%c%cvK%c", pchr(i), pchr(j), pchr(k), pchr(l));
+          snprintf(str, sizeof(str), "K%c%c%cvK%c", pchr(i), pchr(j), pchr(k), pchr(l));
           init_tb(str);
         }
 
@@ -953,7 +953,7 @@ bool tb_init(const char *path)
     for (j = i; j < 5; j++)
       for (k = j; k < 5; k++)
         for (l = k; l < 5; l++) {
-          sprintf(str, "K%c%c%c%cvK", pchr(i), pchr(j), pchr(k), pchr(l));
+          snprintf(str, sizeof(str), "K%c%c%c%cvK", pchr(i), pchr(j), pchr(k), pchr(l));
           init_tb(str);
         }
 
@@ -965,7 +965,7 @@ bool tb_init(const char *path)
       for (k = j; k < 5; k++)
         for (l = k; l < 5; l++)
           for (m = l; m < 5; m++) {
-            sprintf(str, "K%c%c%c%c%cvK", pchr(i), pchr(j), pchr(k), pchr(l), pchr(m));
+            snprintf(str, sizeof(str), "K%c%c%c%c%cvK", pchr(i), pchr(j), pchr(k), pchr(l), pchr(m));
             init_tb(str);
           }
 
@@ -974,7 +974,7 @@ bool tb_init(const char *path)
       for (k = j; k < 5; k++)
         for (l = k; l < 5; l++)
           for (m = 0; m < 5; m++) {
-            sprintf(str, "K%c%c%c%cvK%c", pchr(i), pchr(j), pchr(k), pchr(l), pchr(m));
+            snprintf(str, sizeof(str), "K%c%c%c%cvK%c", pchr(i), pchr(j), pchr(k), pchr(l), pchr(m));
             init_tb(str);
           }
 
@@ -983,7 +983,7 @@ bool tb_init(const char *path)
       for (k = j; k < 5; k++)
         for (l = 0; l < 5; l++)
           for (m = l; m < 5; m++) {
-            sprintf(str, "K%c%c%cvK%c%c", pchr(i), pchr(j), pchr(k), pchr(l), pchr(m));
+            snprintf(str, sizeof(str), "K%c%c%cvK%c%c", pchr(i), pchr(j), pchr(k), pchr(l), pchr(m));
             init_tb(str);
           }
 
