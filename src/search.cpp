@@ -72,9 +72,19 @@ Search::Search() :
     m_evaluator.reset(new Evaluator);
     memset(&m_logLMRTable, 0, sizeof(m_logLMRTable));
 
-    for (int depth = 1; depth < 64; ++depth)
-        for (int moves = 1; moves < 64; ++moves)
-            m_logLMRTable[depth][moves] = 0.75 + log(depth) * log(moves) / 2.25;
+    for (int depth = 1; depth < 64; ++depth) {
+        for (int moves = 1; moves < 64; ++moves) {
+            double base = 0.33 + log(depth) * log(moves) / 1.95;
+
+            double moveNumberFactor = 1.0 + log(moves) / 6.0;
+
+            double depthFactor = depth >= 3 ? 1.0 + (depth - 3) * 0.08 : 1.0;
+
+            double reduction = base * moveNumberFactor * depthFactor;
+
+            m_logLMRTable[depth][moves] = static_cast<int>(reduction + 0.5);
+        }
+    }
 }
 
 Search::~Search()
