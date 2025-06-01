@@ -468,9 +468,12 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                     reduction -= 2;
 
                 reduction -= mv == m_killerMoves[ply][0]
-                    || mv == m_killerMoves[ply][1];
+                          || mv == m_killerMoves[ply][1];
 
                 reduction -= std::max(-2, std::min(2, (history.history + history.cmhistory + history.fmhistory) / 5000));
+
+                if (depth >= 8 && m_position.NonPawnMaterial() < 2500)
+                    reduction = (reduction * 3) / 4; // reduce less in endgame
 
                 if (reduction >= newDepth)
                     reduction = newDepth - 1;
