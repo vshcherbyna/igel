@@ -48,7 +48,7 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
     return passerPush;
 }
 
-/*static */void MoveEval::sortMoves(Search * pSearch, MoveList & mvlist, Move hashMove, int ply)
+/*static */void MoveEval::sortMoves(Search* pSearch, MoveList& mvlist, Move hashMove, int ply)
 {
     auto counterMove = ply >= 1 ? pSearch->m_moveStack[ply - 1] : Move{};
     auto counterPiece = ply >= 1 ? pSearch->m_pieceStack[ply - 1] : 0;
@@ -84,13 +84,42 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
         else if (mv == pSearch->m_killerMoves[ply][0] || mv == pSearch->m_killerMoves[ply][1])
             mvlist[j].m_score = s_SortKiller;
         else {
-            mvlist[j].m_score = pSearch->m_history[pSearch->m_position.Side()][mv.From()][mv.To()];
+
+            EVAL baseScore = pSearch->m_history[pSearch->m_position.Side()][mv.From()][mv.To()];
+
+            //
+            // Add counter-move and follow-up move bonuses
+            //
 
             if (counterMove)
-                mvlist[j].m_score += pSearch->m_followTable[0][counterPiece][counterTo][mv.Piece()][mv.To()];
+                baseScore += pSearch->m_followTable[0][counterPiece][counterTo][mv.Piece()][mv.To()];
 
             if (followMove)
-                mvlist[j].m_score += pSearch->m_followTable[1][followPiece][followTo][mv.Piece()][mv.To()];
+                baseScore += pSearch->m_followTable[1][followPiece][followTo][mv.Piece()][mv.To()];
+
+            //
+            // Add a small bonus for moves that improve piece mobility or control center
+            //
+
+            FLD from = mv.From();
+            FLD to = mv.To();
+            PIECE piece = mv.Piece();
+
+            //
+            // Bonus for central control
+            //
+
+            if ((to == D4 || to == E4 || to == D5 || to == E5) && piece != PW && piece != PB)
+                baseScore += 10;
+
+            //
+            // Bonus for piece mobility (moves to squares with more potential moves)
+            //
+
+            U64 attacks = pSearch->m_position.GetAttacks(to, pSearch->m_position.Side(), pSearch->m_position.BitsAll());
+            baseScore += countBits(attacks) * 2;
+
+            mvlist[j].m_score = baseScore;
         }
     }
 }
