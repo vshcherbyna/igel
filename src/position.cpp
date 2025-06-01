@@ -188,28 +188,50 @@ void Position::InitHashNumbers()
 
 bool Position::IsAttacked(FLD f, COLOR side) const
 {
+    //
+    // Check for pawn attacks
+    //
+
     if (BB_PAWN_ATTACKS[f][side ^ 1] & Bits(PAWN | side))
         return true;
+
+    //
+    // Check for knight attacks
+    //
+
     if (BB_KNIGHT_ATTACKS[f] & Bits(KNIGHT | side))
         return true;
+
+    //
+    // Check for king attacks
+    //
+
     if (BB_KING_ATTACKS[f] & Bits(KING | side))
         return true;
 
-    U64 x, occ = BitsAll();
+    U64 occ = BitsAll(); // get all occupied squares
 
-    x = BB_BISHOP_ATTACKS[f] & (Bits(BISHOP | side) | Bits(QUEEN | side));
-    while (x)
-    {
-        FLD from = PopLSB(x);
-        if ((BB_BETWEEN[from][f] & occ) == 0)
+    //
+    // Check for bishop and queen attacks (diagonal)
+    //
+
+    U64 bishopsQueens = Bits(BISHOP | side) | Bits(QUEEN | side);
+
+    if (bishopsQueens) {
+        U64 attacks = BishopAttacks(f, occ);
+        if (attacks & bishopsQueens)
             return true;
     }
 
-    x = BB_ROOK_ATTACKS[f] & (Bits(ROOK | side) | Bits(QUEEN | side));
-    while (x)
-    {
-        FLD from = PopLSB(x);
-        if ((BB_BETWEEN[from][f] & occ) == 0)
+    //
+    // Check for rook and queen attacks (horizontal/vertical)
+    //
+
+    U64 rooksQueens = Bits(ROOK | side) | Bits(QUEEN | side);
+
+    if (rooksQueens) {
+        U64 attacks = RookAttacks(f, occ);
+        if (attacks & rooksQueens)
             return true;
     }
 
