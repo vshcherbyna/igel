@@ -91,6 +91,17 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
 
             if (followMove)
                 mvlist[j].m_score += pSearch->m_followTable[1][followPiece][followTo][mv.Piece()][mv.To()];
+
+            FLD   from  = mv.From();
+            FLD   to    = mv.To();
+            PIECE piece = mv.Piece();
+
+            //
+            // Bonus for central control
+            //
+
+            if ((to == D4 || to == E4 || to == D5 || to == E5) && piece != PW && piece != PB)
+                mvlist[j].m_score += 10;
         }
     }
 }
