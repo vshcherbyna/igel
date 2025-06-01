@@ -72,9 +72,16 @@ Search::Search() :
     m_evaluator.reset(new Evaluator);
     memset(&m_logLMRTable, 0, sizeof(m_logLMRTable));
 
-    for (int depth = 1; depth < 64; ++depth)
-        for (int moves = 1; moves < 64; ++moves)
-            m_logLMRTable[depth][moves] = 0.75 + log(depth) * log(moves) / 2.25;
+    for (int depth = 1; depth < 64; ++depth) {
+        for (int moves = 1; moves < 64; ++moves) {
+            double baseReduction = 0.85 + log(depth) * log(moves) / 1.75; // base reduction formula
+
+            if (depth >= 4)
+                baseReduction *= 1.15; // additional reduction for higher depths
+
+            m_logLMRTable[depth][moves] = std::min(baseReduction, 2.5); // cap maximum reduction
+        }
+    }
 }
 
 Search::~Search()
