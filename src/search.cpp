@@ -46,6 +46,22 @@ const U8 HASH_BETA = 2;
 /*static */constexpr int Search::m_fmpHistoryLimit[2];
 /*static */constexpr int Search::m_fpHistoryLimit[2];
 
+// Add these helper functions at the top of the file after the includes
+static inline EVAL adjust_mate_score(EVAL score, int ply) {
+    if (score > CHECKMATE_SCORE - MAX_PLY) {
+        // Adjust mate scores to be relative to current ply
+        return score - ply;
+    }
+    if (score < -CHECKMATE_SCORE + MAX_PLY) {
+        return score + ply;
+    }
+    return score;
+}
+
+static inline bool is_mate_score(EVAL score) {
+    return score > CHECKMATE_SCORE - MAX_PLY || score < -CHECKMATE_SCORE + MAX_PLY;
+}
+
 Search::Search() :
     m_nodes(0),
     m_tbHits(0),
@@ -173,17 +189,47 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
     if (ttHit) {
         ttScore = hEntry.m_data.score;
-        if (ttScore > CHECKMATE_SCORE - 50 && ttScore <= CHECKMATE_SCORE)
-            ttScore -= ply;
-        if (ttScore < -CHECKMATE_SCORE + 50 && ttScore >= -CHECKMATE_SCORE)
-            ttScore += ply;
+        
+        // Adjust mate scores relative to current ply
+        ttScore = adjust_mate_score(ttScore, ply);
+        
+        // Only use TT entry for pruning if:
+        // 1. The entry is deep enough
+        // 2. We're not in a PV node (or at root)
+        // 3. The position is not in a draw by fifty-move rule
+        // 4. The score is within bounds or it's a mate score
         if (hEntry.m_data.depth >= depth && (depth == 0 || !onPV)) {
-            if (!onPV && (m_position.Fifty() < 90) && (hEntry.m_data.type == HASH_EXACT
-                || (hEntry.m_data.type == HASH_BETA && ttScore >= beta)
-                || (hEntry.m_data.type == HASH_ALPHA && ttScore <= alpha)))
-                return ttScore;
+            if (!onPV && m_position.Fifty() < 90) {
+                bool can_use_score = false;
+                
+                if (hEntry.m_data.type == HASH_EXACT) {
+                    can_use_score = true;
+                }
+                else if (hEntry.m_data.type == HASH_BETA) {
+                    // For beta cutoffs, we need to be more careful with mate scores
+                    if (is_mate_score(ttScore)) {
+                        // Only use mate scores for beta cutoff if they're winning
+                        can_use_score = ttScore >= beta && ttScore > 0;
+                    } else {
+                        can_use_score = ttScore >= beta;
+                    }
+                }
+                else if (hEntry.m_data.type == HASH_ALPHA) {
+                    // For alpha pruning, we need to be more careful with mate scores
+                    if (is_mate_score(ttScore)) {
+                        // Only use mate scores for alpha pruning if they're losing
+                        can_use_score = ttScore <= alpha && ttScore < 0;
+                    } else {
+                        can_use_score = ttScore <= alpha;
+                    }
+                }
+                
+                if (can_use_score) {
+                    return ttScore;
+                }
+            }
         }
-
+        
         hashMove = hEntry.m_data.move;
     }
 
@@ -532,8 +578,18 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
     assert((m_position.Fifty() >= 100) == false); // we must cut off at the begining of a node search for draws
 
-    if (!skipMove)
-        TTable::instance().record(bestMove, bestScore, depth, ply, type, m_position.Hash());
+    if (!skipMove) {
+        // Adjust mate scores back to absolute values before storing
+        EVAL storeScore = bestScore;
+        if (is_mate_score(bestScore)) {
+            if (bestScore > 0) {
+                storeScore = bestScore + ply;
+            } else {
+                storeScore = bestScore - ply;
+            }
+        }
+        TTable::instance().record(bestMove, storeScore, depth, ply, type, m_position.Hash());
+    }
 
     return bestScore;
 }
@@ -562,19 +618,38 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
 
     if (ttHit) {
         ttScore = hEntry.m_data.score;
-        if (ttScore > CHECKMATE_SCORE - 50 && ttScore <= CHECKMATE_SCORE)
-            ttScore -= ply;
-        if (ttScore < -CHECKMATE_SCORE + 50 && ttScore >= -CHECKMATE_SCORE)
-            ttScore += ply;
+        ttScore = adjust_mate_score(ttScore, ply);
+        
         if (hEntry.m_data.depth >= tteDepth) {
             auto onPV = (beta - alpha > 1);
-
-            if (!onPV && (hEntry.m_data.type == HASH_EXACT
-                || (hEntry.m_data.type == HASH_BETA && ttScore >= beta)
-                || (hEntry.m_data.type == HASH_ALPHA && ttScore <= alpha)))
-                return ttScore;
+            
+            if (!onPV) {
+                bool can_use_score = false;
+                
+                if (hEntry.m_data.type == HASH_EXACT) {
+                    can_use_score = true;
+                }
+                else if (hEntry.m_data.type == HASH_BETA) {
+                    if (is_mate_score(ttScore)) {
+                        can_use_score = ttScore >= beta && ttScore > 0;
+                    } else {
+                        can_use_score = ttScore >= beta;
+                    }
+                }
+                else if (hEntry.m_data.type == HASH_ALPHA) {
+                    if (is_mate_score(ttScore)) {
+                        can_use_score = ttScore <= alpha && ttScore < 0;
+                    } else {
+                        can_use_score = ttScore <= alpha;
+                    }
+                }
+                
+                if (can_use_score) {
+                    return ttScore;
+                }
+            }
         }
-
+        
         hashMove = hEntry.m_data.move;
     }
 
