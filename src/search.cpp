@@ -467,8 +467,11 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                 if (onPV)
                     reduction -= 2;
 
+                if (!improving && !onPV)
+                    reduction += 1;
+
                 reduction -= mv == m_killerMoves[ply][0]
-                    || mv == m_killerMoves[ply][1];
+                          || mv == m_killerMoves[ply][1];
 
                 reduction -= std::max(-2, std::min(2, (history.history + history.cmhistory + history.fmhistory) / 5000));
 
