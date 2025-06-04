@@ -923,6 +923,11 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     m_ponder = 0;
     m_best   = 0;
 
+    clearHistory();
+    clearKillers();
+    clearStacks();
+    MoveEval::clearSEECache();  // Clear the SEE cache at the start of each search
+
     auto printBestMove = [](Search * pthis, Position & pos, Move m, Move p) {
 
         if (m)

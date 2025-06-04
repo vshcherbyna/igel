@@ -36,12 +36,26 @@ public:
     static Move getNextBest(MoveList & mvlist, size_t i);
     static EVAL SEE_Exchange(Search * pSearch, FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ);
     static EVAL SEE(Search * pSearch, const Move & mv);
+    static void clearSEECache();
 
 private:
     static constexpr int s_SortHash       = 7000000;
     static constexpr int s_SortCapture    = 6000000;
     static constexpr int s_SortKiller     = 5000000;
     static constexpr int s_SortBadCapture = 1000000;
+    
+    // SEE cache constants and structures
+    static constexpr int SEE_CACHE_SIZE = 1024;
+    static constexpr int SEE_CACHE_MASK = SEE_CACHE_SIZE - 1;
+    
+    struct SEECacheEntry {
+        uint64_t key;
+        int16_t score;
+        uint8_t depth;
+    };
+    
+    static SEECacheEntry s_seeCache[SEE_CACHE_SIZE];
+    static uint8_t s_seeCacheAge;
 };
 
 #endif // MOVEVAL_H
