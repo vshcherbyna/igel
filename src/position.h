@@ -189,7 +189,7 @@ private:
     int   m_ply;
     COLOR m_side;
 
-    enum { MAX_UNDO = 1024 };
+    enum { MAX_UNDO = 2048 };
     Undo m_undos[MAX_UNDO];
     int m_undoSize;
     bool m_initialPosition;
