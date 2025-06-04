@@ -161,14 +161,14 @@ void MoveEval::clearSEECache() {
 
 EVAL MoveEval::SEE(Search* pSearch, const Move& mv) {
 
-    if (!mv.Captured() && !mv.Promotion())
-        return 0; // qquick exit for non-captures
+    //if (!mv.Captured() && !mv.Promotion())
+    //    return 0; // quick exit for non-captures
 
-    if (SORT_VALUE[mv.Captured()] > SORT_VALUE[mv.Piece()] * 2)
-        return SORT_VALUE[mv.Captured()] - SORT_VALUE[mv.Piece()]; // quick exit for obvious winning captures
+    //if (SORT_VALUE[mv.Captured()] > SORT_VALUE[mv.Piece()] * 2)
+    //    return SORT_VALUE[mv.Captured()] - SORT_VALUE[mv.Piece()]; // quick exit for obvious winning captures
 
     //
-    // Check cache
+    // Check the cache
     //
 
     uint64_t key   = (mv.From() | (mv.To() << 6) | (mv.Piece() << 12) |  (mv.Captured() << 16) | (pSearch->m_position.Hash() << 20));
@@ -195,12 +195,12 @@ EVAL MoveEval::SEE(Search* pSearch, const Move& mv) {
         piece = promotion;
     }
 
-    //
-    // Quick exit for obvious losing captures
-    //
+    ////
+    //// Quick exit for obvious losing captures
+    ////
 
-    if (score0 < SORT_VALUE[piece] / 2)
-        return score0 - SORT_VALUE[piece];
+    //if (score0 < SORT_VALUE[piece] / 2)
+    //    return score0 - SORT_VALUE[piece];
 
     U64  occ   = pSearch->m_position.BitsAll() ^ BB_SINGLE[from];
     EVAL score = -SEE_Exchange(pSearch, to, side ^ 1, -score0, SORT_VALUE[piece], occ);
