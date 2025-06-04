@@ -278,7 +278,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //
 
         if (depth <= 2 && staticEval + 150 < alpha)
-            return qSearch(alpha, beta, ply, 0);
+            return qSearch(alpha, beta, ply, 0, isNull);
 
         //
         //  static null move pruning
