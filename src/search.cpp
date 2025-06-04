@@ -154,7 +154,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //
 
         auto rAlpha = alpha > -CHECKMATE_SCORE + ply ? alpha : -CHECKMATE_SCORE + ply;
-        auto rBeta = beta < CHECKMATE_SCORE - ply - 1 ? beta : CHECKMATE_SCORE - ply - 1;
+        auto rBeta = beta < CHECKMATE_SCORE - ply ? beta : CHECKMATE_SCORE - ply;
 
         if (rAlpha >= rBeta)
             return rAlpha;
