@@ -481,8 +481,14 @@ void Position::MakeNullMove()
 
     undo.previous = m_undoSize == 1 ? nullptr : m_state;
     m_state = &undo;
+    
+    // Properly reset accumulator state
+    std::memset(&m_state->accumulator.accumulation, 0, sizeof(m_state->accumulator.accumulation));
+    std::memset(&m_state->accumulator.psqtAccumulation, 0, sizeof(m_state->accumulator.psqtAccumulation));
+    m_state->accumulator.score = 0;
     m_state->accumulator.computed_score = false;
     m_state->accumulator.computed_accumulation = false;
+    
     m_state->dirtyPiece.dirty_num = 0;
     m_state->dirtyPiece.pieceId[0] = PIECE_ID_NONE;
 

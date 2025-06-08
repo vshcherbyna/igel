@@ -79,38 +79,27 @@ void Evaluator::initEval()
     assert(stream.peek() == std::ios::traits_type::eof());
 }
 
-int Evaluator::NnueEvaluate(Position & pos) {
-
+int Evaluator::NnueEvaluate(Position & pos)
+{
     auto & accumulator = pos.state()->accumulator;
 
-    //if (accumulator.computed_score)// - stronger on this net arch when disabled
-    //    return accumulator.score;
+    // Always recompute if accumulator was reset (computed_accumulation is false)
+    if (!accumulator.computed_accumulation) {
+        const std::size_t bucket = (countBits(pos.BitsAll()) - 1) / 4;
 
-    //
-    // transform the features
-    //
+        alignas(CACHE_LINE) std::uint8_t features[1024];
+        auto psqt = m_transformer->transform(pos, features, bucket);
 
-    const std::size_t bucket = (countBits(pos.BitsAll()) - 1) / 4;
+        alignas(CACHE_LINE) char buffer[384];
+        auto output = m_networks[bucket]->propagate(features, buffer);
 
-    alignas(CACHE_LINE) std::uint8_t features[1024];
-    auto psqt = m_transformer->transform(pos, features, bucket);
+        int eval      = output[0];
+        int delta     = 7;
 
-    //
-    // call network evaluation
-    //
-
-    alignas(CACHE_LINE) char buffer[384];
-    auto output = m_networks[bucket]->propagate(features, buffer);
-
-    //
-    // scale the result
-    //
-
-    int eval      = output[0];
-    int delta     = 7;
-
-    accumulator.score = static_cast<int>(((128 - delta) * psqt + (128 + delta) * eval) / 128 / WEIGHTS_SCALE);
-    accumulator.computed_score = true;
+        accumulator.score = static_cast<int>(((128 - delta) * psqt + (128 + delta) * eval) / 128 / WEIGHTS_SCALE);
+        accumulator.computed_score = true;
+        accumulator.computed_accumulation = true;  // Mark as computed after successful evaluation
+    }
 
     return accumulator.score;
 }
