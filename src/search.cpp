@@ -459,7 +459,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
             int reduction = 0;
 
-            if (depth >= 3 && quietMove && legalMoves > 1 + 2 * rootNode) {
+            if (depth >= 3 && quietMove && legalMoves > (rootNode ? 3 : 2)) {
                 reduction = m_logLMRTable[std::min(depth, 63)][std::min(legalMoves, 63)];
 
                 reduction += cutNode;
