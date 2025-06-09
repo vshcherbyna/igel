@@ -75,6 +75,8 @@ Search::Search() :
     for (int depth = 1; depth < 64; ++depth)
         for (int moves = 1; moves < 64; ++moves)
             m_logLMRTable[depth][moves] = 0.75 + log(depth) * log(moves) / 2.25;
+
+    m_threadStats.clear();
 }
 
 Search::~Search()
@@ -889,6 +891,68 @@ void Search::startPrincipalSearch(Time time, bool ponder)
         m_principalThread.reset(new std::thread(&Search::lazySmpSearcher, this));
 }
 
+int64_t Search::calculateThreadVote(const ThreadStats& stats, EVAL score, int depth) const {
+
+    int64_t vote = static_cast<int64_t>(score);  // base vote is the evaluation score
+
+    double depthWeight = std::log2(depth + 1.0); // apply logarithmic depth scaling to prevent excessive depth bias
+
+    // PV stability bonus with diminishing returns
+    int stabilityBonus = std::min(stats.pvStability * 5, 50);
+
+    // Best move consistency bonus with diminishing returns
+    int consistencyBonus = std::min(stats.bestMoveCount * 2, 20);
+
+    // Calculate trend bonus/penalty based on score progression
+    int trendBonus = 0;
+    if (stats.prevScore != 0) {
+        int scoreDiff = score - stats.prevScore;
+        trendBonus = scoreDiff > 0 ? 10 : (scoreDiff < 0 ? -5 : 0);
+    }
+
+    // Combine all factors with proper scaling
+    return vote * (100 + static_cast<int>(depthWeight * 30) + stabilityBonus + consistencyBonus + trendBonus) / 100;
+}
+
+void Search::updateThreadStats(unsigned int threadId, const Move* pv, int pvSize, EVAL score) {
+    if (threadId >= m_threadStats.size())
+        m_threadStats.resize(threadId + 1);
+
+    auto& stats = m_threadStats[threadId];
+
+    // Check PV stability
+    if (pvSize > 0) {
+        bool pvMatches = true;
+        size_t checkDepth = std::min(4, pvSize); // Only check first 4 moves
+
+        if (stats.prevPV.size() >= checkDepth) {
+            for (size_t i = 0; i < checkDepth; ++i) {
+                if (pv[i] != stats.prevPV[i]) {
+                    pvMatches = false;
+                    break;
+                }
+            }
+        }
+        else {
+            pvMatches = false;
+        }
+
+        if (pvMatches) {
+            stats.pvStability++;
+            stats.bestMoveCount++;
+        }
+        else {
+            stats.pvStability = 1;
+            stats.bestMoveCount = 1;
+        }
+
+        // Update previous PV
+        stats.prevPV.assign(pv, pv + pvSize);
+    }
+
+    stats.prevScore = score;
+}
+
 uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench)
 {
     m_nodes = 0;
@@ -1089,8 +1153,30 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         //
 
         for (unsigned int i = 0; i < m_thc; ++i) {
-            votes[m_threadParams[i].m_best].first  += (static_cast<int64_t>(m_threadParams[i].m_score) - static_cast<int64_t>(worst) + 20) * static_cast<int64_t>(m_threadParams[i].m_depth);
-            votes[m_threadParams[i].m_best].second = Stat{ m_threadParams[i].m_ponder , m_threadParams[i].m_score, m_threadParams[i].m_depth, m_threadParams[i].m_selDepth, m_threadParams[i].m_pvPrev[0], m_threadParams[i].m_pvSizePrev[0] };
+
+            //
+            // Update thread statistics
+            //
+
+            updateThreadStats(i, m_threadParams[i].m_pv[0], m_threadParams[i].m_pvSize[0], m_threadParams[i].m_score); // update thread statistics
+
+            //
+            // Calculate the vote
+            //
+
+            votes[m_threadParams[i].m_best].first = calculateThreadVote(m_threadStats[i], m_threadParams[i].m_score, m_threadParams[i].m_depth);
+
+            //
+            // Store move details
+            //
+
+            votes[m_threadParams[i].m_best].second = Stat{ m_threadParams[i].m_ponder,
+                m_threadParams[i].m_score,
+                m_threadParams[i].m_depth,
+                m_threadParams[i].m_selDepth,
+                m_threadParams[i].m_pvPrev[0],
+                m_threadParams[i].m_pvSizePrev[0]
+            };
         }
 
         //

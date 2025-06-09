@@ -156,6 +156,28 @@ private:
     EVAL m_score;
     Move m_best,
          m_ponder;
+
+private:
+    struct ThreadStats {
+        int pvStability;         // how many times PV has remained stable
+        int bestMoveCount;       // how many iterations current best move has been best
+        EVAL prevScore;          // previous iteration score
+        std::vector<Move> prevPV;// previous iteration PV
+
+        ThreadStats() : pvStability(0), bestMoveCount(0), prevScore(0) {}
+
+        void reset() {
+            pvStability     = 0;
+            bestMoveCount   = 0;
+            prevScore       = 0;
+            prevPV.clear();
+        }
+    };
+
+    std::vector<ThreadStats> m_threadStats;
+
+    int64_t calculateThreadVote(const ThreadStats & stats, EVAL score, int depth) const;
+    void updateThreadStats(unsigned int threadId, const Move * pv, int pvSize, EVAL score);
 };
 
 #endif
