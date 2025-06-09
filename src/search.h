@@ -142,8 +142,8 @@ private:
     static constexpr int m_lmpDepth = 8;
     static constexpr int m_lmpPruningTable[2][9] =
     {
-        {  0,  1,  2,  3,  5, 9, 13, 18,  25 },
-        {  0,  5,  7, 11, 17, 26, 36, 48, 63 },
+        {  0,  1,  2,  3,  4,  6,  8, 10, 12 }, // improving = false (more aggressive)
+        {  0,  2,  3,  4,  6,  8, 10, 12, 15 }, // improving = true (much more aggressive)
     };
     static constexpr int m_cmpDepth[]        = { 3, 2           };
     static constexpr int m_cmpHistoryLimit[] = { 0, -1000       };
