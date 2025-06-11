@@ -292,7 +292,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //
 
         if (!isNull && depth >= 3 && bestScore >= beta && (!ttHit || !(hEntry.m_data.type == HASH_BETA) || ttScore >= beta) && m_position.NonPawnMaterial()) {
-            int R = 5 + depth / 6 + std::min(3, (bestScore - beta) / 100);
+            int R = 3 + depth / 3 + std::min(3, (bestScore - beta) / 100) + (improving ? 0 : 1);
 
             m_position.MakeNullMove();
             EVAL nullScore = -abSearch(-beta, -beta + 1, depth - R, ply + 1, true, false, !cutNode);
