@@ -90,7 +90,7 @@ private:
     void indicateWorkersStop();
     EVAL abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool rootNode, bool cutNode, Move skipMove = 0);
     EVAL qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull = false);
-    __forceinline int extensionRequired(bool inCheck, bool onPV, int cmhistory, int fmhistory)
+    FORCE_INLINE int extensionRequired(bool inCheck, bool onPV, int cmhistory, int fmhistory)
     {
         if (!onPV && cmhistory >= 10000 && fmhistory >= 10000)
             return 1;

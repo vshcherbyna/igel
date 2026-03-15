@@ -29,9 +29,9 @@ class MoveEval
     ~MoveEval() = delete;
 
 public:
-    static __forceinline bool isTacticalMove(const Move & mv) { return (mv.Captured() || mv.Promotion()); }
+    static FORCE_INLINE bool isTacticalMove(const Move & mv) { return (mv.Captured() || mv.Promotion()); }
     static bool isSpecialMove(const Move & mv, Search * pSearch);
-    static __forceinline bool isGoodCapture(const Move & mv) { return SORT_VALUE[mv.Captured()] >= SORT_VALUE[mv.Piece()]; }
+    static FORCE_INLINE bool isGoodCapture(const Move & mv) { return SORT_VALUE[mv.Captured()] >= SORT_VALUE[mv.Piece()]; }
     static void sortMoves(Search * pSearch, MoveList & mvlist, Move hashMove, int ply);
     static Move getNextBest(MoveList & mvlist, size_t i);
     static EVAL SEE_Exchange(Search * pSearch, FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ);
