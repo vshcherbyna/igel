@@ -20,12 +20,6 @@
 #include "moveeval.h"
 #include "nnue.h"
 
-const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VAL_R, VAL_R, VAL_Q, VAL_Q, VAL_K, VAL_K };
-
-/*static*/ bool MoveEval::isTacticalMove(const Move & mv)
-{
-    return (mv.Captured() || mv.Promotion());
-}
 
 /*static*/ bool MoveEval::isSpecialMove(const Move & mv, Search * pSearch)
 {
@@ -59,6 +53,10 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
     auto followTo = ply >= 2 ? followMove.To() : 0;
 
     auto mvSize = mvlist.Size();
+    const auto killer0 = pSearch->m_killerMoves[ply][0];
+    const auto killer1 = pSearch->m_killerMoves[ply][1];
+    const auto side = pSearch->m_position.Side();
+
     for (size_t j = 0; j < mvSize; ++j)
     {
         Move mv = mvlist[j].m_mv;
@@ -81,10 +79,10 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
                     mvlist[j].m_score = s_SortBadCapture + see; // penalize bad captures, but still keep them above non-captures
             }
         }
-        else if (mv == pSearch->m_killerMoves[ply][0] || mv == pSearch->m_killerMoves[ply][1])
+        else if (mv == killer0 || mv == killer1)
             mvlist[j].m_score = s_SortKiller;
         else {
-            mvlist[j].m_score = pSearch->m_history[pSearch->m_position.Side()][mv.From()][mv.To()];
+            mvlist[j].m_score = pSearch->m_history[side][mv.From()][mv.To()];
 
             if (counterMove)
                 mvlist[j].m_score += pSearch->m_followTable[0][counterPiece][counterTo][mv.Piece()][mv.To()];
@@ -102,13 +100,14 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
 
     size_t best_idx = i;
     int best_score = mvlist[i].m_score;
+    const size_t size = mvlist.Size();
 
-    // find the move with the highest score
-    for (size_t j = i + 1; j < mvlist.Size(); ++j) {
-        if (mvlist[j].m_score > best_score) {
-            best_idx = j;
-            best_score = mvlist[j].m_score;
-        }
+    // branchless selection: avoid branch misprediction in the hot inner loop
+    for (size_t j = i + 1; j < size; ++j) {
+        int score_j = mvlist[j].m_score;
+        bool better = score_j > best_score;
+        best_idx   = better ? j         : best_idx;
+        best_score = better ? score_j   : best_score;
     }
 
     // if we found a better move, do a single swap
@@ -118,10 +117,6 @@ const EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VA
     return mvlist[i].m_mv;
 }
 
-/*static */bool MoveEval::isGoodCapture(const Move & mv)
-{
-    return SORT_VALUE[mv.Captured()] >= SORT_VALUE[mv.Piece()];
-}
 
 /*static */EVAL MoveEval::SEE_Exchange(Search * pSearch, FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ)
 {

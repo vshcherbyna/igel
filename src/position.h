@@ -24,6 +24,14 @@
 #include "bitboards.h"
 #include "nnue.h"
 
+#if defined(_MSC_VER)
+#define FORCE_INLINE __forceinline
+#elif defined(__GNUC__) || defined(__clang__)
+#define FORCE_INLINE inline __attribute__((always_inline))
+#else
+#define FORCE_INLINE inline
+#endif
+
 #define STD_POSITION "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 enum
@@ -129,7 +137,7 @@ public:
     std::string FEN() const;
     int    Fifty() const { return m_fifty; }
     U64    GetAttacks(FLD to, COLOR side, U64 occ) const;
-    U64    Hash() const;
+    FORCE_INLINE U64 Hash() const { return m_hash ^ s_hashSide[m_side] ^ s_hashCastlings[m_castlings] ^ s_hashEP[m_ep]; }
     bool   InCheck() const { return IsAttacked(King(m_side), m_side ^ 1); }
     bool   IsAttacked(FLD f, COLOR side) const;
     FLD    King(COLOR side) const { return m_Kings[side]; }

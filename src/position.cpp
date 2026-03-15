@@ -162,10 +162,7 @@ U64 Position::GetAttacks(FLD to, COLOR side, U64 occ) const
     return att;
 }
 
-U64 Position::Hash() const
-{
-    return m_hash ^ s_hashSide[m_side] ^ s_hashCastlings[m_castlings] ^ s_hashEP[m_ep];
-}
+
 
 void Position::InitHashNumbers()
 {
@@ -195,23 +192,13 @@ bool Position::IsAttacked(FLD f, COLOR side) const
     if (BB_KING_ATTACKS[f] & Bits(KING | side))
         return true;
 
-    U64 x, occ = BitsAll();
+    U64 occ = BitsAll();
 
-    x = BB_BISHOP_ATTACKS[f] & (Bits(BISHOP | side) | Bits(QUEEN | side));
-    while (x)
-    {
-        FLD from = PopLSB(x);
-        if ((BB_BETWEEN[from][f] & occ) == 0)
-            return true;
-    }
+    if (BishopAttacks(f, occ) & (Bits(BISHOP | side) | Bits(QUEEN | side)))
+        return true;
 
-    x = BB_ROOK_ATTACKS[f] & (Bits(ROOK | side) | Bits(QUEEN | side));
-    while (x)
-    {
-        FLD from = PopLSB(x);
-        if ((BB_BETWEEN[from][f] & occ) == 0)
-            return true;
-    }
+    if (RookAttacks(f, occ) & (Bits(ROOK | side) | Bits(QUEEN | side)))
+        return true;
 
     return false;
 }
@@ -893,13 +880,22 @@ std::uint32_t Position::getActiveIndexes(COLOR c, std::uint32_t indexes[]) {
     Square kingSq = static_cast<Square>((pieces[target] - PS_KING) % SQUARE_NB);
     std::uint32_t count = 0;
 
-    kingSq  = FLIP[c][kingSq];
+    kingSq = FLIP[c][kingSq];
 
-    for (PieceId i = PIECE_ID_ZERO; i <= PIECE_ID_BKING; i++)
-        if (pieces[i] != PS_NONE) {
-            Square sq = static_cast<Square>((pieces[i] - PS_KING) % SQUARE_NB);
-            indexes[count++] = makeIndex(kingSq, FLIP[c][sq], PieceAdapter[m_board[FLIP[!c][sq]]], c);
+    // Precompute orient constants once (same logic as getChangedIndexes)
+    const int flip_mask = (bool(c) * SQ_A8) ^ ((Col(kingSq) < FILE_E) * SQ_H1);
+    const std::uint32_t king_bucket_offset = PS_END * KingBuckets[Square(int(kingSq) ^ flip_mask)];
+
+    for (PieceId i = PIECE_ID_ZERO; i <= PIECE_ID_BKING; i++) {
+        const auto ps = pieces[i];
+        if (ps != PS_NONE) {
+            const Square sq_raw = static_cast<Square>((ps - PS_KING) % SQUARE_NB);
+            indexes[count++] = static_cast<std::uint32_t>(
+                (int(FLIP[c][sq_raw]) ^ flip_mask)
+                + PieceSquareIndex[c][PieceAdapter[m_board[FLIP[!c][sq_raw]]]]
+                + king_bucket_offset);
         }
+    }
 
     return count;
 }
@@ -912,22 +908,26 @@ std::pair<std::uint32_t, std::uint32_t> Position::getChangedIndexes(COLOR c, std
     kingSq = FLIP[c][kingSq];
     const auto & dp = state()->dirtyPiece;
 
-    std::uint32_t ca = 0; 
+    // Precompute once per call: orient(kingSq, kingSq, c) = kingSq ^ flip_mask
+    const int flip_mask = (bool(c) * SQ_A8) ^ ((Col(kingSq) < FILE_E) * SQ_H1);
+    const std::uint32_t king_bucket_offset = PS_END * KingBuckets[Square(int(kingSq) ^ flip_mask)];
+
+    std::uint32_t ca = 0;
     std::uint32_t cr = 0;
 
     for (int i = 0; i < dp.dirty_num; ++i) {
         const auto old_p = static_cast<PieceSquare>(dp.old_piece[i].from[c]);
 
         if (old_p != PS_NONE) {
-            Square sq = static_cast<Square>((old_p - PS_KING) % SQUARE_NB);
-            removed[cr++] = makeIndex(kingSq, FLIP[c][sq], dp.old_piece[i].piece, c);
+            Square sq = FLIP[c][static_cast<Square>((old_p - PS_KING) % SQUARE_NB)];
+            removed[cr++] = static_cast<std::uint32_t>((int(sq) ^ flip_mask) + PieceSquareIndex[c][dp.old_piece[i].piece] + king_bucket_offset);
         }
 
         const auto new_p = static_cast<PieceSquare>(dp.new_piece[i].from[c]);
 
         if (new_p != PS_NONE) {
-            Square sq = static_cast<Square>((new_p - PS_KING) % SQUARE_NB);
-            added[ca++] = makeIndex(kingSq, FLIP[c][sq], dp.new_piece[i].piece, c);
+            Square sq = FLIP[c][static_cast<Square>((new_p - PS_KING) % SQUARE_NB)];
+            added[ca++] = static_cast<std::uint32_t>((int(sq) ^ flip_mask) + PieceSquareIndex[c][dp.new_piece[i].piece] + king_bucket_offset);
         }
     }
 

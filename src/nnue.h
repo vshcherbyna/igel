@@ -28,6 +28,7 @@
 #include "types.h"
 
 class Position;
+struct Accumulator;
 
 const EVAL VAL_P = 100;
 const EVAL VAL_N = 310;
@@ -56,7 +57,7 @@ public:
 public:
     std::int32_t transform(Position & pos, std::uint8_t * outBuffer, const std::size_t bucket);
     inline void refresh(Position & pos);
-    inline void incremental(Position & pos);
+    inline void incremental(Position & pos, const Accumulator * baseAcc = nullptr);
 
 public:
     static constexpr int HalfDimensions  = 1024;

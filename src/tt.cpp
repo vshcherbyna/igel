@@ -27,7 +27,7 @@
 #include <sys/mman.h>
 #endif
 
-TTable::TTable() : m_hash(nullptr), m_hashSize(0), m_hashAge(0)
+TTable::TTable() : m_hash(nullptr), m_hashSize(0), m_hashMask(0), m_hashAge(0)
 {
 }
 
@@ -42,7 +42,7 @@ void TTable::record(Move mv, EVAL score, I8 depth, int ply, U8 type, U64 hash0)
     assert(m_hash);
     assert(m_hashSize);
 
-    size_t index = hash0 % m_hashSize;
+    size_t index = hash0 & m_hashMask;
     TTCluster & cluster = m_hash[index];
     auto * replaceEntry = &cluster.entry[0];
 
@@ -71,7 +71,7 @@ bool TTable::retrieve(U64 hash, TEntry & hentry)
     assert(m_hash);
     assert(m_hashSize);
 
-    size_t index = hash % m_hashSize;
+    size_t index = hash & m_hashMask;
     auto pCluster = m_hash + index;
 
     for (auto i = 0; i < 4; ++i) {
@@ -143,6 +143,14 @@ bool TTable::setHashSize(double mb, unsigned int threads)
 
     m_hashSize = static_cast<size_t>(static_cast<size_t>(1024 * 1024) * mb / sizeof(TTCluster));
 
+    // Round down to the nearest power of 2 so we can use & instead of % in hot paths
+    if (m_hashSize > 1) {
+        size_t p = 1;
+        while (p * 2 <= m_hashSize) p *= 2;
+        m_hashSize = p;
+    }
+    m_hashMask = m_hashSize - 1;
+
 #if defined(__linux__) && !defined(__ANDROID__)
     // on linux systems we align on 2MB boundaries and request Huge Pages
     // idea comes from Sami Kiminki as used in Ethereal
@@ -176,7 +184,7 @@ void TTable::prefetchEntry(U64 hash)
     assert(m_hash);
     assert(m_hashSize);
 
-    size_t index = hash % m_hashSize;
+    size_t index = hash & m_hashMask;
     auto pCluster = m_hash + index;
 
     prefetch(pCluster);

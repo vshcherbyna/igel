@@ -90,7 +90,14 @@ private:
     void indicateWorkersStop();
     EVAL abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool rootNode, bool cutNode, Move skipMove = 0);
     EVAL qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull = false);
-    inline int extensionRequired(bool inCheck, bool onPV, int cmhistory, int fmhistory);
+    FORCE_INLINE int extensionRequired(bool inCheck, bool onPV, int cmhistory, int fmhistory)
+    {
+        if (!onPV && cmhistory >= 10000 && fmhistory >= 10000)
+            return 1;
+        else if (inCheck)
+            return 1;
+        return 0;
+    }
     bool ProbeHash(TEntry & hentry);
     void printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv, uint64_t sumNodes, uint64_t sumHits, uint64_t nps);
     bool isDraw();
@@ -114,11 +121,11 @@ private:
     Move m_pvPrev[MAX_PLY][MAX_PLY];
     int m_pvSizePrev[MAX_PLY];
     Move m_killerMoves[MAX_PLY][2];
-    int m_history[2][64][64];
+    int16_t m_history[2][64][64];
     Move m_moveStack[MAX_PLY + 4];
     PIECE m_pieceStack[MAX_PLY + 4];
     EVAL m_evalStack[MAX_PLY + 4];
-    int m_followTable[2][14][64][14][64];
+    int16_t m_followTable[2][14][64][14][64];
     int m_logLMRTable[64][64];
     Time m_time, m_ponderTime;
     std::unique_ptr<std::thread> m_principalThread;
