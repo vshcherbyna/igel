@@ -96,6 +96,7 @@ public:
 private:
     mutable TTCluster * m_hash;
     mutable size_t m_hashSize;
+    mutable size_t m_hashMask;
     mutable unsigned int m_hashAge;
     static constexpr uint64_t MB = 1ull << 20;
 

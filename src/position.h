@@ -129,7 +129,7 @@ public:
     std::string FEN() const;
     int    Fifty() const { return m_fifty; }
     U64    GetAttacks(FLD to, COLOR side, U64 occ) const;
-    U64    Hash() const;
+    __forceinline U64 Hash() const { return m_hash ^ s_hashSide[m_side] ^ s_hashCastlings[m_castlings] ^ s_hashEP[m_ep]; }
     bool   InCheck() const { return IsAttacked(King(m_side), m_side ^ 1); }
     bool   IsAttacked(FLD f, COLOR side) const;
     FLD    King(COLOR side) const { return m_Kings[side]; }

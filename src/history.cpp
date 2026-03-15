@@ -52,21 +52,21 @@
         auto from = mv.From();
         auto piece = mv.Piece();
         auto to = mv.To();
-        auto entry = pSearch->m_history[colour][from][to];
+        int entry = pSearch->m_history[colour][from][to];
         bonus = std::min(bonus, s_historyMax);
         entry += s_historyMultiplier * delta - entry * abs(delta) / s_historyDivisor;
-        pSearch->m_history[colour][from][to] = entry;
+        pSearch->m_history[colour][from][to] = static_cast<int16_t>(entry);
 
         if (counterMove) {
-            auto entry = pSearch->m_followTable[0][counterPiece][counterTo][piece][to];
-            entry += s_historyMultiplier * delta - entry * abs(delta) / s_historyDivisor;
-            pSearch->m_followTable[0][counterPiece][counterTo][piece][to] = entry;
+            int centry = pSearch->m_followTable[0][counterPiece][counterTo][piece][to];
+            centry += s_historyMultiplier * delta - centry * abs(delta) / s_historyDivisor;
+            pSearch->m_followTable[0][counterPiece][counterTo][piece][to] = static_cast<int16_t>(centry);
         }
 
         if (followMove) {
-            entry = pSearch->m_followTable[1][followPiece][followTo][mv.Piece()][to];
-            entry += s_historyMultiplier * delta - entry * abs(bonus) / s_historyDivisor;
-            pSearch->m_followTable[1][followPiece][followTo][piece][to] = entry;
+            int fentry = pSearch->m_followTable[1][followPiece][followTo][mv.Piece()][to];
+            fentry += s_historyMultiplier * delta - fentry * abs(bonus) / s_historyDivisor;
+            pSearch->m_followTable[1][followPiece][followTo][piece][to] = static_cast<int16_t>(fentry);
         }
     }
 }

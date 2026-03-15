@@ -29,13 +29,15 @@ class MoveEval
     ~MoveEval() = delete;
 
 public:
-    static bool isTacticalMove(const Move & mv);
+    static __forceinline bool isTacticalMove(const Move & mv) { return (mv.Captured() || mv.Promotion()); }
     static bool isSpecialMove(const Move & mv, Search * pSearch);
-    static bool isGoodCapture(const Move & mv);
+    static __forceinline bool isGoodCapture(const Move & mv) { return SORT_VALUE[mv.Captured()] >= SORT_VALUE[mv.Piece()]; }
     static void sortMoves(Search * pSearch, MoveList & mvlist, Move hashMove, int ply);
     static Move getNextBest(MoveList & mvlist, size_t i);
     static EVAL SEE_Exchange(Search * pSearch, FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ);
     static EVAL SEE(Search * pSearch, const Move & mv);
+
+    static constexpr EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VAL_R, VAL_R, VAL_Q, VAL_Q, VAL_K, VAL_K };
 
 private:
     static constexpr int s_SortHash       = 7000000;

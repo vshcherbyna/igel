@@ -696,14 +696,6 @@ void Search::clearStacks()
     }
 }
 
-int Search::extensionRequired(bool inCheck, bool onPV, int cmhistory, int fmhistory)
-{
-    if (!onPV && cmhistory >= 10000 && fmhistory >= 10000)
-        return 1;
-    else if (inCheck)
-        return 1;
-    return 0;
-}
 
 bool Search::isGameOver(Position & pos, std::string & result, std::string & comment, Move & bestMove, int & legalMoves)
 {
