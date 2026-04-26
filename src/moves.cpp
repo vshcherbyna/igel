@@ -215,11 +215,19 @@ void GenAllMoves(const Position& pos, MoveList& mvlist)
     }
 
     // castlings
-    if (pos.CanCastle(side, KINGSIDE))
-        mvlist.Add(MOVE_O_O[side]);
+    if (pos.CanCastle(side, KINGSIDE)) {
+        if (g_uci_chess960)
+            mvlist.Add(Move::Castling(pos.King(side), pos.CastlingRookSq(side, KINGSIDE), KING | side));
+        else
+            mvlist.Add(MOVE_O_O[side]);
+    }
 
-    if (pos.CanCastle(side, QUEENSIDE))
-        mvlist.Add(MOVE_O_O_O[side]);
+    if (pos.CanCastle(side, QUEENSIDE)) {
+        if (g_uci_chess960)
+            mvlist.Add(Move::Castling(pos.King(side), pos.CastlingRookSq(side, QUEENSIDE), KING | side));
+        else
+            mvlist.Add(MOVE_O_O_O[side]);
+    }
 }
 
 void GenCapturesAndPromotions(const Position& pos, MoveList& mvlist)

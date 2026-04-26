@@ -28,6 +28,8 @@
 const Move MOVE_O_O[2]   = { Move(E1, G1, KW), Move(E8, G8, KB) };
 const Move MOVE_O_O_O[2] = { Move(E1, C1, KW), Move(E8, C8, KB) };
 
+bool g_uci_chess960 = false;
+
 U64 Position::s_hash[64][14];
 U64 Position::s_hashSide[2];
 U64 Position::s_hashCastlings[256];
@@ -45,15 +47,41 @@ bool Position::CanCastle(COLOR side, U8 flank) const
 
     COLOR opp = side ^ 1;
 
-    switch (flank)
-    {
-    case KINGSIDE:
-        return !m_board[FX[side]] && !m_board[GX[side]] && !IsAttacked(FX[side], opp) && !IsAttacked(GX[side], opp);
-    case QUEENSIDE:
-        return !m_board[DX[side]] && !m_board[CX[side]] && !m_board[BX[side]] && !IsAttacked(DX[side], opp) && !IsAttacked(CX[side], opp);
-    default:
+    FLD kingFrom = m_Kings[side];
+    FLD rookFrom = m_castlingRookSq[side][flank];
+
+    if (rookFrom == NF)
         return false;
+
+    int rankBase = (side == WHITE) ? A1 : A8;
+    FLD kingTo   = (flank == KINGSIDE) ? (FLD)(rankBase + 6) : (FLD)(rankBase + 2);
+    FLD rookTo   = (flank == KINGSIDE) ? (FLD)(rankBase + 5) : (FLD)(rankBase + 3);
+
+    int kingMin = (kingFrom < kingTo) ? kingFrom : kingTo;
+    int kingMax = (kingFrom > kingTo) ? kingFrom : kingTo;
+    int rookMin = (rookFrom < rookTo) ? rookFrom : rookTo;
+    int rookMax = (rookFrom > rookTo) ? rookFrom : rookTo;
+    int spanMin = (kingMin < rookMin) ? kingMin  : rookMin;
+    int spanMax = (kingMax > rookMax) ? kingMax  : rookMax;
+
+    for (int s = spanMin; s <= spanMax; ++s) {
+        if (s == kingFrom || s == rookFrom)
+            continue;
+        if (m_board[s])
+            return false;
     }
+
+    int kStep = (kingTo > kingFrom) ? 1 : (kingTo < kingFrom) ? -1 : 0;
+    if (kStep != 0) {
+        for (int s = (int)kingFrom + kStep; ; s += kStep) {
+            if (IsAttacked((FLD)s, opp))
+                return false;
+            if (s == (int)kingTo)
+                break;
+        }
+    }
+
+    return true;
 }
 
 void Position::Clear()
@@ -78,6 +106,10 @@ void Position::Clear()
 
     m_bitsAll[WHITE] = m_bitsAll[BLACK] = 0;
     m_castlings = 0;
+    m_castlingRookSq[WHITE][KINGSIDE]  = NF;
+    m_castlingRookSq[WHITE][QUEENSIDE] = NF;
+    m_castlingRookSq[BLACK][KINGSIDE]  = NF;
+    m_castlingRookSq[BLACK][QUEENSIDE] = NF;
     m_ep = NF;
     m_fifty = 0;
     m_hash = 0;
@@ -127,14 +159,28 @@ std::string Position::FEN() const
 
     if (m_castlings & 0xff)
     {
-        if (m_castlings & CASTLINGS[WHITE][KINGSIDE])
-            fen << "K";
-        if (m_castlings & CASTLINGS[WHITE][QUEENSIDE])
-            fen << "Q";
-        if (m_castlings & CASTLINGS[BLACK][KINGSIDE])
-            fen << "k";
-        if (m_castlings & CASTLINGS[BLACK][QUEENSIDE])
-            fen << "q";
+        if (g_uci_chess960)
+        {
+            if (m_castlings & CASTLINGS[WHITE][KINGSIDE])
+                fen << (char)('A' + Col(m_castlingRookSq[WHITE][KINGSIDE]));
+            if (m_castlings & CASTLINGS[WHITE][QUEENSIDE])
+                fen << (char)('A' + Col(m_castlingRookSq[WHITE][QUEENSIDE]));
+            if (m_castlings & CASTLINGS[BLACK][KINGSIDE])
+                fen << (char)('a' + Col(m_castlingRookSq[BLACK][KINGSIDE]));
+            if (m_castlings & CASTLINGS[BLACK][QUEENSIDE])
+                fen << (char)('a' + Col(m_castlingRookSq[BLACK][QUEENSIDE]));
+        }
+        else
+        {
+            if (m_castlings & CASTLINGS[WHITE][KINGSIDE])
+                fen << "K";
+            if (m_castlings & CASTLINGS[WHITE][QUEENSIDE])
+                fen << "Q";
+            if (m_castlings & CASTLINGS[BLACK][KINGSIDE])
+                fen << "k";
+            if (m_castlings & CASTLINGS[BLACK][QUEENSIDE])
+                fen << "q";
+        }
     }
     else
         fen << "-";
@@ -218,6 +264,10 @@ bool Position::MakeMove(Move mv)
     Undo & undo = m_undos[m_undoSize++];
 
     undo.m_castlings = m_castlings;
+    undo.m_castlingRookSq[WHITE][KINGSIDE]  = m_castlingRookSq[WHITE][KINGSIDE];
+    undo.m_castlingRookSq[WHITE][QUEENSIDE] = m_castlingRookSq[WHITE][QUEENSIDE];
+    undo.m_castlingRookSq[BLACK][KINGSIDE]  = m_castlingRookSq[BLACK][KINGSIDE];
+    undo.m_castlingRookSq[BLACK][QUEENSIDE] = m_castlingRookSq[BLACK][QUEENSIDE];
     undo.m_ep = m_ep;
     undo.m_fifty = m_fifty;
     undo.m_hash = Hash();
@@ -267,7 +317,7 @@ bool Position::MakeMove(Move mv)
         dp.new_piece[1].piece = NO_PIECE;
     }
 
-    auto castling = (mv == MOVE_O_O[side]) || (mv == MOVE_O_O_O[side]);
+    auto castling = mv.IsCastling() || (mv == MOVE_O_O[side]) || (mv == MOVE_O_O_O[side]);
 
     // handle non-castling moves
     if (!castling) {
@@ -280,7 +330,8 @@ bool Position::MakeMove(Move mv)
         dp.new_piece[0].piece = PieceAdapter[piece];
     }
 
-    MovePiece(piece, from, to);
+    if (!castling)
+        MovePiece(piece, from, to);
 
     m_ep = NF;
 
@@ -303,30 +354,48 @@ bool Position::MakeMove(Move mv)
             break;
         case KW:
         case KB:
-            m_Kings[side] = to;
-            FLD rfrom, rto;
-            if (mv == MOVE_O_O[side]) {
-                assert(castling);
-                rfrom = HX[side];
-                rto = FX[side];
-                Remove(HX[side]);
-                Put(FX[side], ROOK | side);
-            }
-            else if (mv == MOVE_O_O_O[side]) {
-                assert(castling);
-                rfrom = AX[side];
-                rto = DX[side];
-                Remove(AX[side]);
-                Put(DX[side], ROOK | side);
-            }
+            FLD rfrom, rto, kto;
             if (castling) {
-                dp.dirty_num = 2; // 2 pieces moved
+                U8 flank;
+                if (mv == MOVE_O_O[side]) {
+                    flank = KINGSIDE;
+                    rfrom = HX[side];
+                }
+                else if (mv == MOVE_O_O_O[side]) {
+                    flank = QUEENSIDE;
+                    rfrom = AX[side];
+                }
+                else {
+                    rfrom = to; // FRC: to == rook-from
+                    flank = (Col(rfrom) > Col(from)) ? KINGSIDE : QUEENSIDE;
+                }
+                int rankBase = (side == WHITE) ? A1 : A8;
+                kto  = (flank == KINGSIDE) ? (FLD)(rankBase + 6) : (FLD)(rankBase + 2);
+                rto  = (flank == KINGSIDE) ? (FLD)(rankBase + 5) : (FLD)(rankBase + 3);
+
+                //
+                // Capture piece ids before moving anything in piece_id_list.
+                //
+
                 dp0 = piece_id_on(from);
                 dp1 = piece_id_on(rfrom);
+
+                //
+                // Remove king and rook from starting squares, then place them at destinations
+                // Order handles FRC edge cases where destinations overlap with starts
+                //
+
+                Remove(from);
+                Remove(rfrom);
+                Put(kto, KING | side);
+                Put(rto, ROOK | side);
+                m_Kings[side] = kto;
+
+                dp.dirty_num = 2; // 2 pieces moved
                 dp.pieceId[0] = dp0;
                 dp.old_piece[0] = evalList.piece_with_id(dp0);
                 dp.old_piece[0].piece = side == WHITE ? W_KING : B_KING;
-                evalList.put_piece(dp0, to, side == WHITE ? W_KING : B_KING);
+                evalList.put_piece(dp0, kto, side == WHITE ? W_KING : B_KING);
                 dp.new_piece[0] = evalList.piece_with_id(dp0);
                 dp.new_piece[0].piece = side == WHITE ? W_KING : B_KING;
                 dp.pieceId[1] = dp1;
@@ -336,31 +405,36 @@ bool Position::MakeMove(Move mv)
                 dp.new_piece[1] = evalList.piece_with_id(dp1);
                 dp.new_piece[1].piece = side == WHITE ? W_ROOK : B_ROOK;
             }
+            else {
+                m_Kings[side] = to;
+            }
             break;
         default:
             break;
     }
 
-    static const U8 castlingsDelta[64] =
-    {
-        0xdf, 0xff, 0xff, 0xff, 0xcf, 0xff, 0xff, 0xef,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xfd, 0xff, 0xff, 0xff, 0xfc, 0xff, 0xff, 0xfe
-    };
+    //
+    // King movement clears all castling rights for that side.
+    //
 
-    m_castlings &= castlingsDelta[from];
-    m_castlings &= castlingsDelta[to];
+    if (piece == (KING | WHITE))
+        m_castlings &= ~(CASTLINGS[WHITE][KINGSIDE] | CASTLINGS[WHITE][QUEENSIDE]);
+    else if (piece == (KING | BLACK))
+        m_castlings &= ~(CASTLINGS[BLACK][KINGSIDE] | CASTLINGS[BLACK][QUEENSIDE]);
+
+    // Movement from / capture on a rook starting square clears that flank.
+    for (COLOR c = 0; c < 2; ++c) {
+        for (U8 fl = 0; fl < 2; ++fl) {
+            FLD rsq = m_castlingRookSq[c][fl];
+            if (rsq != NF && (from == rsq || to == rsq))
+                m_castlings &= ~CASTLINGS[c][fl];
+        }
+    }
 
     ++m_ply;
     m_side ^= 1;
 
-    if (IsAttacked(King(side), opp))
-    {
+    if (IsAttacked(King(side), opp)) {
         UnmakeMove();
         return false;
     }
@@ -383,70 +457,78 @@ void Position::UnmakeMove()
     PIECE captured = mv.Captured();
 
     m_castlings = undo.m_castlings;
+    m_castlingRookSq[WHITE][KINGSIDE]  = undo.m_castlingRookSq[WHITE][KINGSIDE];
+    m_castlingRookSq[WHITE][QUEENSIDE] = undo.m_castlingRookSq[WHITE][QUEENSIDE];
+    m_castlingRookSq[BLACK][KINGSIDE]  = undo.m_castlingRookSq[BLACK][KINGSIDE];
+    m_castlingRookSq[BLACK][QUEENSIDE] = undo.m_castlingRookSq[BLACK][QUEENSIDE];
     m_ep = undo.m_ep;
     m_fifty = undo.m_fifty;
 
     COLOR opp = m_side;
     COLOR side = opp ^ 1;
 
-    auto castling = (mv == MOVE_O_O[side]) || (mv == MOVE_O_O_O[side]);
+    auto castling = mv.IsCastling() || (mv == MOVE_O_O[side]) || (mv == MOVE_O_O_O[side]);
 
-    if (!castling) {
-        PieceId dp0 = m_state->dirtyPiece.pieceId[0];
-        evalList.put_piece(dp0, from, PieceAdapter[piece]);
-    }
-
-    Remove(to);
-
-    if (captured) {
-        assert(castling == false);
-        auto nnueTo = to == m_ep ? to + 8 - 16 * side : to;
-        if (to == m_ep)
-            Put(to + 8 - 16 * side, captured);
-        else
-            Put(to, captured);
-        PieceId dp1 = m_state->dirtyPiece.pieceId[1];
-        assert(evalList.piece_with_id(dp1).from[WHITE] == PS_NONE);
-        assert(evalList.piece_with_id(dp1).from[BLACK] == PS_NONE);
-        evalList.put_piece(dp1, nnueTo, PieceAdapter[captured]);
-    }
-
-    Put(from, piece);
-
-    switch (piece)
-    {
-    case KW:
-    case KB:
-        m_Kings[side] = from;
-        FLD rfrom, rto;
+    if (castling) {
+        // Determine the destinations the make-move placed king/rook on.
+        FLD rfrom;
+        U8 flank;
         if (mv == MOVE_O_O[side]) {
-            assert(castling);
-            rto = FX[side];
+            flank = KINGSIDE;
             rfrom = HX[side];
-            Remove(FX[side]);
-            Put(HX[side], ROOK | side);
         }
         else if (mv == MOVE_O_O_O[side]) {
-            assert(castling);
-            rto = DX[side];
+            flank = QUEENSIDE;
             rfrom = AX[side];
-            Remove(DX[side]);
-            Put(AX[side], ROOK | side);
+        }
+        else {
+            rfrom = to; // FRC: to == rook-from-square
+            flank = (Col(rfrom) > Col(from)) ? KINGSIDE : QUEENSIDE;
+        }
+        int rankBase = (side == WHITE) ? A1 : A8;
+        FLD kto = (flank == KINGSIDE) ? (FLD)(rankBase + 6) : (FLD)(rankBase + 2);
+        FLD rto = (flank == KINGSIDE) ? (FLD)(rankBase + 5) : (FLD)(rankBase + 3);
+
+        //
+        // Restore: remove king and rook from destinations, place them at starting squares
+        //
+
+        Remove(kto);
+        if (rto != kto)
+            Remove(rto);
+        Put(from, KING | side);
+        if (rfrom != from)
+            Put(rfrom, ROOK | side);
+        m_Kings[side] = from;
+
+        auto & dp = m_state->dirtyPiece;
+        PieceId dp0 = dp.pieceId[0];
+        PieceId dp1 = dp.pieceId[1];
+        evalList.put_piece(dp0, from,  side == WHITE ? W_KING : B_KING);
+        evalList.put_piece(dp1, rfrom, side == WHITE ? W_ROOK : B_ROOK);
+    }
+    else {
+        PieceId dp0 = m_state->dirtyPiece.pieceId[0];
+        evalList.put_piece(dp0, from, PieceAdapter[piece]);
+
+        Remove(to);
+
+        if (captured) {
+            auto nnueTo = to == m_ep ? to + 8 - 16 * side : to;
+            if (to == m_ep)
+                Put(to + 8 - 16 * side, captured);
+            else
+                Put(to, captured);
+            PieceId dp1 = m_state->dirtyPiece.pieceId[1];
+            assert(evalList.piece_with_id(dp1).from[WHITE] == PS_NONE);
+            assert(evalList.piece_with_id(dp1).from[BLACK] == PS_NONE);
+            evalList.put_piece(dp1, nnueTo, PieceAdapter[captured]);
         }
 
-        if (castling) {
-            auto & dp = m_state->dirtyPiece;
-            PieceId dp0, dp1;
-            dp.dirty_num = 2; // 2 pieces moved
+        Put(from, piece);
 
-            dp0 = piece_id_on(to);
-            dp1 = piece_id_on(rto);
-            evalList.put_piece(dp0, from, side == WHITE ? W_KING : B_KING);
-            evalList.put_piece(dp1, rfrom, side == WHITE ? W_ROOK : B_ROOK);
-        }
-        break;
-    default:
-        break;
+        if (piece == KW || piece == KB)
+            m_Kings[side] = from;
     }
 
     --m_ply;
@@ -737,27 +819,57 @@ bool Position::SetFEN(const std::string& fen)
         goto FINAL_CHECK;
     for (size_t i = 0; i < tokens[2].length(); ++i)
     {
-        switch (tokens[2][i])
-        {
-        case 'K':
-            if (m_board[E1] == KW && m_board[H1] == RW)
-                m_castlings |= CASTLINGS[WHITE][KINGSIDE];
-            break;
-        case 'Q':
-            if (m_board[E1] == KW && m_board[A1] == RW)
-                m_castlings |= CASTLINGS[WHITE][QUEENSIDE];
-            break;
-        case 'k':
-            if (m_board[E8] == KB && m_board[H8] == RB)
-                m_castlings |= CASTLINGS[BLACK][KINGSIDE];
-            break;
-        case 'q':
-            if (m_board[E8] == KB && m_board[A8] == RB)
-                m_castlings |= CASTLINGS[BLACK][QUEENSIDE];
-            break;
-        case '-': break;
-        default: goto ILLEGAL_FEN;
+        char ch = tokens[2][i];
+        if (ch == '-')
+            continue;
+
+        COLOR cside = (ch >= 'A' && ch <= 'Z') ? WHITE : BLACK;
+        PIECE rookPiece = (cside == WHITE) ? RW : RB;
+        PIECE kingPiece = (cside == WHITE) ? KW : KB;
+        FLD kingSq = m_Kings[cside];
+        if (kingSq == NF || m_board[kingSq] != kingPiece)
+            goto ILLEGAL_FEN;
+        int rankBase = (cside == WHITE) ? A1 : A8;
+        char up = (ch >= 'a' && ch <= 'z') ? (char)(ch - 'a' + 'A') : ch;
+
+        FLD rookSq = NF;
+        U8 flank = 0;
+
+        if (up == 'K') {
+            // outermost rook to the right of the king
+            for (int f = 7; f > Col(kingSq); --f) {
+                FLD s = (FLD)(rankBase + f);
+                if (m_board[s] == rookPiece) { rookSq = s; break; }
+            }
+            flank = KINGSIDE;
         }
+        else if (up == 'Q') {
+            // outermost rook to the left of the king
+            for (int f = 0; f < Col(kingSq); ++f) {
+                FLD s = (FLD)(rankBase + f);
+                if (m_board[s] == rookPiece) { rookSq = s; break; }
+            }
+            flank = QUEENSIDE;
+        }
+        else if (up >= 'A' && up <= 'H') {
+            // Shredder-FEN: explicit rook file
+            int file = up - 'A';
+            FLD s = (FLD)(rankBase + file);
+            if (m_board[s] != rookPiece)
+                goto ILLEGAL_FEN;
+            rookSq = s;
+            flank = (file > Col(kingSq)) ? KINGSIDE : QUEENSIDE;
+        }
+        else
+        {
+            goto ILLEGAL_FEN;
+        }
+
+        if (rookSq == NF)
+            goto ILLEGAL_FEN;
+
+        m_castlings |= CASTLINGS[cside][flank];
+        m_castlingRookSq[cside][flank] = rookSq;
     }
 
     if (tokens.size() < 4)

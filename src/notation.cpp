@@ -57,8 +57,8 @@ FLD StrToFld(const std::string& s)
 Move StrToMove(const std::string& s, Position& pos)
 {
     std::string s1 = s;
-    while (s1.length() > 2)
-    {
+
+    while (s1.length() > 2) {
         const std::string special = "+#?!";
         char ch = s1[s1.length() - 1];
         if (special.find_first_of(ch) == std::string::npos) break;
@@ -69,32 +69,42 @@ Move StrToMove(const std::string& s, Position& pos)
     GenAllMoves(pos, mvlist);
     auto mvSize = mvlist.Size();
 
-    for (size_t i = 0; i < mvSize; ++i)
-    {
+    for (size_t i = 0; i < mvSize; ++i) {
         Move mv = mvlist[i].m_mv;
         if (MoveToStrLong(mv) == s1)
-        {
             return mv;
-            /*if (pos.MakeMove(mv))
-            {
-                pos.UnmakeMove();
-                return mv;
-            }*/
-        }
     }
 
-    for (size_t i = 0; i < mvSize; ++i)
-    {
+    //
+    // Accept the alternate UCI castling notation: standard "e1g1"/"e1c1" when in
+    // Chess960 mode, or king-takes-rook "e1h1"/"e1a1" when in standard mode
+    //
+
+    for (size_t i = 0; i < mvSize; ++i) {
+
+        Move mv = mvlist[i].m_mv;
+
+        if (!mv.IsCastling() && mv != MOVE_O_O[WHITE] && mv != MOVE_O_O[BLACK] && mv != MOVE_O_O_O[WHITE] && mv != MOVE_O_O_O[BLACK])
+            continue;
+
+        COLOR side    = GetColor(mv.Piece());
+        FLD   kFrom   = pos.King(side);
+        int rankBase  = (side == WHITE) ? A1 : A8;
+        bool kingside = (mv == MOVE_O_O[side]) || (mv.IsCastling() && Col(mv.To()) > Col(mv.From()));
+        FLD kStdTo    = (FLD)(rankBase + (kingside ? 6 : 2));
+        FLD rFromSq   = pos.CastlingRookSq(side, kingside ? KINGSIDE : QUEENSIDE);
+
+        std::string altStd  = FldToStr(kFrom) + FldToStr(kStdTo);
+        std::string altFrc  = (rFromSq != NF) ? (FldToStr(kFrom) + FldToStr(rFromSq)) : std::string();
+
+        if (s1 == altStd || (!altFrc.empty() && s1 == altFrc))
+            return mv;
+    }
+
+    for (size_t i = 0; i < mvSize; ++i) {
         Move mv = mvlist[i].m_mv;
         if (MoveToStrShort(mv, pos, mvlist) == s1)
-        {
             return mv;
-            /*if (pos.MakeMove(mv))
-            {
-                pos.UnmakeMove();
-                return mv;
-            }*/
-        }
     }
 
     return 0;
@@ -120,6 +130,8 @@ std::string MoveToStrShort(Move mv, Position& pos, const MoveList& mvlist)
         return "O-O";
     if (mv == MOVE_O_O_O[WHITE] || mv == MOVE_O_O_O[BLACK])
         return "O-O-O";
+    if (mv.IsCastling())
+        return (Col(mv.To()) > Col(mv.From())) ? "O-O" : "O-O-O";
 
     std::string strPiece, strCapture, strFrom, strTo, strPromotion;
     FLD from = mv.From();
