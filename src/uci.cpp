@@ -31,7 +31,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "3.6.4";
+const std::string VERSION = "3.6.5";
 const std::string ARCHITECTURE = " 64 "
 
 #if _BTYPE==0
@@ -158,6 +158,8 @@ void Uci::onUci()
         " min "		<< MIN_LEVEL	<<
         " max "		<< MAX_LEVEL << std::endl;
 
+    std::cout << "option name UCI_Chess960 type check default false" << std::endl;
+
     std::cout << "uciok" << std::endl;
 }
 
@@ -226,6 +228,13 @@ int Uci::onBench(const char * depth)
         abort();
     }
 
+    //
+    // Intentionally mix standard chess and Fischer Random positions
+    //
+
+    bool prev_chess960 = g_uci_chess960;
+    g_uci_chess960 = true;
+
     onUciNewGame();
 
     m_searcher.m_principalSearcher = true;
@@ -246,6 +255,8 @@ int Uci::onBench(const char * depth)
         sumNodes += m_searcher.startSearch(time, 1, false, true);
         onUciNewGame();
     }
+
+    g_uci_chess960 = prev_chess960;
 
     std::cout << "Time  : " << (GetProcTime() - start) << std::endl;
     std::cout << "Nodes : " << sumNodes << std::endl;
@@ -342,6 +353,8 @@ void Uci::onSetOption(commandParams params)
 #endif
     else if (name == "Ponder")
         ; // nothing to do, we are stateless here
+    else if (name == "UCI_Chess960")
+        g_uci_chess960 = (value == "true" || value == "True" || value == "TRUE" || value == "1");
     else
         std::cout << "Unknown option " << name << std::endl;
 }

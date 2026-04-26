@@ -50,6 +50,8 @@ const U8 CASTLINGS[2][2] =
 class Move
 {
 public:
+    static const U32 CASTLING_FLAG = 1u << 24;
+
     Move() : m_data(0) {}
     Move(U32 x) : m_data(x) {}
 
@@ -60,11 +62,18 @@ public:
     Move(U32 from, U32 to, U32 piece, U32 captured, U32 promotion) :
         m_data(from | (to << 6) | (piece << 20) | (captured << 16) | (promotion << 12)) {}
 
+    static Move Castling(U32 from, U32 to, U32 piece) {
+        Move m;
+        m.m_data = from | (to << 6) | (piece << 20) | CASTLING_FLAG;
+        return m;
+    }
+
     FLD From() const { return m_data & 0x3f; }
     FLD To() const { return (m_data >> 6) & 0x3f; }
     FLD Piece() const { return (m_data >> 20) & 0x0f; }
     FLD Captured() const { return (m_data >> 16) & 0x0f; }
     FLD Promotion() const { return (m_data >> 12) & 0x0f; }
+    bool IsCastling() const { return (m_data & CASTLING_FLAG) != 0; }
     inline void reset() { m_data = 0; }
     operator U32() const { return m_data; }
 
@@ -83,6 +92,7 @@ struct alignas(CACHE_LINE) Accumulator {
 struct Undo
 {
     U8   m_castlings;
+    FLD  m_castlingRookSq[2][2];
     FLD  m_ep;
     int  m_fifty;
     U64  m_hash;
@@ -92,9 +102,13 @@ struct Undo
     DirtyPiece dirtyPiece;
     Undo* previous;
 
-    void reset() 
+    void reset()
     {
         m_castlings = 0;
+        m_castlingRookSq[0][0] = NF;
+        m_castlingRookSq[0][1] = NF;
+        m_castlingRookSq[1][0] = NF;
+        m_castlingRookSq[1][1] = NF;
         m_ep        = 0;
         m_fifty     = 0;
         m_hash      = 0;
@@ -131,6 +145,7 @@ public:
     U64    BitsAll(COLOR side) const { return m_bitsAll[side]; }
     U64    BitsAll() const { return m_bitsAll[WHITE] | m_bitsAll[BLACK]; }
     U8     Castlings() const { return m_castlings; }
+    FLD    CastlingRookSq(COLOR side, U8 flank) const { return m_castlingRookSq[side][flank]; }
     bool   CanCastle(COLOR side, U8 flank) const;
     int    Count(PIECE p) const { return m_count[p]; }
     FLD    EP() const { return m_ep; }
@@ -188,6 +203,7 @@ private:
     U64   m_bitsAll[2];
     PIECE m_board[64];
     U8    m_castlings;
+    FLD   m_castlingRookSq[2][2];
     int   m_count[14];
     FLD   m_ep;
     int   m_fifty;
@@ -215,6 +231,8 @@ const FLD HX[2] = { H1, H8 };
 
 extern const Move MOVE_O_O[2];
 extern const Move MOVE_O_O_O[2];
+
+extern bool g_uci_chess960;
 
 const FLD FLIP[2][64] =
 {
