@@ -92,7 +92,7 @@ int Evaluator::NnueEvaluate(Position & pos) {
 
     const std::size_t bucket = (countBits(pos.BitsAll()) - 1) / 4;
 
-    alignas(CACHE_LINE) std::uint8_t features[1024];
+    alignas(CACHE_LINE) std::uint8_t features[2048];
     auto psqt = m_transformer->transform(pos, features, bucket);
 
     //
@@ -107,7 +107,7 @@ int Evaluator::NnueEvaluate(Position & pos) {
     //
 
     int eval      = output[0];
-    int delta     = 7;
+    int delta     = 0;
 
     accumulator.score = static_cast<int>(((128 - delta) * psqt + (128 + delta) * eval) / 128 / WEIGHTS_SCALE);
     accumulator.computed_score = true;

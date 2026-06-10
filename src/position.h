@@ -82,7 +82,7 @@ private:
 };
 
 struct alignas(CACHE_LINE) Accumulator {
-    std::int16_t accumulation[2][1024];
+    std::int16_t accumulation[2][2048];
     std::int32_t psqtAccumulation[2][8];
     int score;
     bool computed_accumulation;

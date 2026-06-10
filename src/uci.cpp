@@ -31,7 +31,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "3.6.5";
+const std::string VERSION = "3.6.6";
 const std::string ARCHITECTURE = " 64 "
 
 #if _BTYPE==0
