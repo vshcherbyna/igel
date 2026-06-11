@@ -27,7 +27,7 @@ class TEntry
 public:
     typedef union {
         struct {
-            U32 move:24, age:8, type:2;
+            U32 move:25, age:7, type:2;
             I32 score:22, depth:8;
         };
         U64 raw;
@@ -48,7 +48,7 @@ public:
         assert(age >= 0 && age <= 255);
         assert(depth >= -128 && depth <= 127);
         assert(score >= -50000 && score <= 50000);
-        assert(mv >= 0 && mv <= 16777216);
+        assert(mv >= 0 && mv <= 33554431); // 2^25 - 1: move now uses 25 bits (incl. Move::CASTLING_FLAG)
 
         m_data.age   = age;
         m_data.type  = type;
