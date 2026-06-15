@@ -21,6 +21,7 @@
 
 #include <chrono>
 #include <thread>
+#include <algorithm>
 
 using namespace std::chrono_literals;
 std::vector<std::list<Move>> g_movesBook;
