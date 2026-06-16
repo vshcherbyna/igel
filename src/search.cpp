@@ -1038,17 +1038,6 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         //  Pickup the best thread based on eval/depth
         //
 
-        auto worst = m_score;
-
-        //
-        //  Calculate worst score yet
-        //
-
-        for (unsigned int i = 0; i < m_thc; ++i)
-            worst = std::min(worst, m_threadParams[i].m_score);
-
-        int64_t bestSoFar = (static_cast<int64_t>(m_score) - static_cast<int64_t>(worst) + 20) * static_cast<int64_t>(m_depth);
-
         typedef struct tagStat {
             tagStat(Move p, EVAL s, int d, int sd, const Move* pv_, int pvSize_) {
                 ponder = p;
@@ -1073,33 +1062,103 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
             int  pvSize;
         }Stat;
 
-        std::map<Move, std::pair<int64_t, Stat>> votes;
-        votes[m_best] = std::make_pair(bestSoFar, Stat{ m_ponder, m_score, m_depth, m_selDepth, m_pvPrev[0], m_pvSizePrev[0] });
+        auto isWinScore  = [](EVAL score) { return score >=   TBBASE_SCORE - 2 * MAX_PLY;  };
+        auto isLossScore = [](EVAL score) { return score <= -(TBBASE_SCORE - 2 * MAX_PLY); };
 
         //
-        //  Calculate the voting map
+        //  A proven win outranks any search depth, otherwise the deeper searcher is the better witness
         //
+
+        auto moreAuthoritative = [isWinScore](const Stat & a, const Stat & b) {
+            if (isWinScore(a.score) || isWinScore(b.score))
+                return a.score > b.score;
+            if (a.depth != b.depth)
+                return a.depth > b.depth;
+            return a.score > b.score;
+        };
+
+        //
+        //  Calculate worst score yet, considering only the threads which completed an iteration and can vote
+        //
+
+        auto worst = m_best ? m_score : CHECKMATE_SCORE;
 
         for (unsigned int i = 0; i < m_thc; ++i) {
-            votes[m_threadParams[i].m_best].first  += (static_cast<int64_t>(m_threadParams[i].m_score) - static_cast<int64_t>(worst) + 20) * static_cast<int64_t>(m_threadParams[i].m_depth);
-            votes[m_threadParams[i].m_best].second = Stat{ m_threadParams[i].m_ponder , m_threadParams[i].m_score, m_threadParams[i].m_depth, m_threadParams[i].m_selDepth, m_threadParams[i].m_pvPrev[0], m_threadParams[i].m_pvSizePrev[0] };
+            if (m_threadParams[i].m_best)
+                worst = std::min(worst, m_threadParams[i].m_score);
+        }
+
+        auto voteWeight = [worst](EVAL score, int depth) {
+            return (static_cast<int64_t>(score) - static_cast<int64_t>(worst) + 20) * static_cast<int64_t>(depth);
+        };
+
+        //
+        //  Calculate the voting map; each voted move keeps the stats of its most authoritative voter
+        //
+
+        std::map<Move, std::pair<int64_t, Stat>> votes;
+
+        if (m_best)
+            votes[m_best] = std::make_pair(voteWeight(m_score, m_depth), Stat{ m_ponder, m_score, m_depth, m_selDepth, m_pvPrev[0], m_pvSizePrev[0] });
+
+        for (unsigned int i = 0; i < m_thc; ++i) {
+            auto & worker = m_threadParams[i];
+
+            if (!worker.m_best)
+                continue; // a worker without a completed iteration gets no vote
+
+            auto & vote = votes[worker.m_best];
+            vote.first += voteWeight(worker.m_score, worker.m_depth);
+
+            Stat workerStat{ worker.m_ponder, worker.m_score, worker.m_depth, worker.m_selDepth, worker.m_pvPrev[0], worker.m_pvSizePrev[0] };
+
+            if (moreAuthoritative(workerStat, vote.second))
+                vote.second = workerStat;
         }
 
         //
-        //  Democracy in action: pick-up the most voted best based on highest score
+        //  Democracy in action: pick-up the most voted best move, except that votes never overrule a proven win
         //
 
+        const Stat * best = nullptr;
+        int64_t bestVotes = 0;
+
+        if (m_best) {
+            best      = &votes[m_best].second;
+            bestVotes = votes[m_best].first;
+        }
+
         for (const auto & vote : votes) {
-            if (vote.first && (vote.second.first > bestSoFar)) { // select move with highest score
-                bestSoFar = vote.second.first;                   // memorize highest score so far
-                m_best = vote.first;                             // store the best move
-                m_ponder = vote.second.second.ponder;            // store the best ponder
-                m_score = vote.second.second.score;              // store statistics
-                m_depth = std::max(m_depth, vote.second.second.depth);
-                m_selDepth = std::max(m_selDepth, vote.second.second.selDepth);
-                m_pvSizePrev[0] = vote.second.second.pvSize;
-                memcpy(m_pvPrev[0], vote.second.second.pv, m_pvSizePrev[0] * sizeof(Move));
+            auto candVotes    = vote.second.first;
+            const auto & cand = vote.second.second;
+
+            bool takeover;
+
+            if (!best)
+                takeover = true;
+            else if (isWinScore(best->score))
+                takeover = cand.score > best->score; // only a shorter mate or a faster tablebase win displaces a proven win
+            else if (isWinScore(cand.score))
+                takeover = true;                     // a proven win always displaces an unproven move
+            else if (isLossScore(best->score))
+                takeover = cand.score > best->score; // escape a proven loss if possible, otherwise prefer the longest defence
+            else
+                takeover = !isLossScore(cand.score) && candVotes > bestVotes;
+
+            if (takeover) {
+                bestVotes = candVotes;
+                best      = &cand;
+                m_best    = vote.first;
             }
+        }
+
+        if (best) {
+            m_ponder   = best->ponder;
+            m_score    = best->score;
+            m_depth    = best->depth;
+            m_selDepth = best->selDepth;
+            m_pvSizePrev[0] = best->pvSize;
+            memcpy(m_pvPrev[0], best->pv, best->pvSize * sizeof(Move));
         }
 
         printPV(m_position, m_depth, m_selDepth, m_score, m_pvPrev[0], m_pvSizePrev[0], m_best, sumNodes, sumHits, nps);
