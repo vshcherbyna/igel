@@ -403,12 +403,51 @@ inline std::int32_t * Layer<OutputDimensions, InputDimensions>::propagate(std::u
     auto output = reinterpret_cast<std::int32_t*>(outBuffer);
 
 #if defined(USE_AVX512)
-    std::uint32_t chunks = InputDimensions / (SIMD_WIDTH * 2);
-    const auto input_vector = reinterpret_cast<const __m512i*>(features);
-#if !defined(USE_VNNI)
-    const __m512i ones = _mm512_set1_epi16(1);
+    if constexpr (InputDimensions % (SIMD_WIDTH * 2) == 0) {
+        const std::uint32_t chunks = InputDimensions / (SIMD_WIDTH * 2);
+        const auto input_vector = reinterpret_cast<const __m512i*>(features);
+        const __m512i ones = _mm512_set1_epi16(1);
+
+        if constexpr (OutputDimensions % 4 == 0 && InputDimensions >= 128) {
+            for (std::uint32_t i = 0; i < OutputDimensions; i += 4) {
+                __m512i s0 = _mm512_setzero_si512();
+                __m512i s1 = _mm512_setzero_si512();
+                __m512i s2 = _mm512_setzero_si512();
+                __m512i s3 = _mm512_setzero_si512();
+                const auto r0 = reinterpret_cast<const __m512i*>(&weights[(i+0) * InputDimensions]);
+                const auto r1 = reinterpret_cast<const __m512i*>(&weights[(i+1) * InputDimensions]);
+                const auto r2 = reinterpret_cast<const __m512i*>(&weights[(i+2) * InputDimensions]);
+                const auto r3 = reinterpret_cast<const __m512i*>(&weights[(i+3) * InputDimensions]);
+                for (std::uint32_t j = 0; j < chunks; ++j) {
+                    const __m512i inp = _mm512_loadu_si512(&input_vector[j]);
+                    s0 = _mm512_add_epi32(s0, _mm512_madd_epi16(_mm512_maddubs_epi16(inp, _mm512_loadu_si512(&r0[j])), ones));
+                    s1 = _mm512_add_epi32(s1, _mm512_madd_epi16(_mm512_maddubs_epi16(inp, _mm512_loadu_si512(&r1[j])), ones));
+                    s2 = _mm512_add_epi32(s2, _mm512_madd_epi16(_mm512_maddubs_epi16(inp, _mm512_loadu_si512(&r2[j])), ones));
+                    s3 = _mm512_add_epi32(s3, _mm512_madd_epi16(_mm512_maddubs_epi16(inp, _mm512_loadu_si512(&r3[j])), ones));
+                }
+                output[i+0] = _mm512_reduce_add_epi32(s0) + biases[i+0];
+                output[i+1] = _mm512_reduce_add_epi32(s1) + biases[i+1];
+                output[i+2] = _mm512_reduce_add_epi32(s2) + biases[i+2];
+                output[i+3] = _mm512_reduce_add_epi32(s3) + biases[i+3];
+            }
+            return output;
+        }
+
+        for (std::uint32_t i = 0; i < OutputDimensions; ++i) {
+            __m512i sum = _mm512_setzero_si512();
+            const auto row = reinterpret_cast<const __m512i*>(&weights[i * InputDimensions]);
+            for (std::uint32_t j = 0; j < chunks; ++j) {
+                __m512i product = _mm512_maddubs_epi16(_mm512_loadu_si512(&input_vector[j]), _mm512_loadu_si512(&row[j]));
+                product = _mm512_madd_epi16(product, ones);
+                sum = _mm512_add_epi32(sum, product);
+            }
+            output[i] = _mm512_reduce_add_epi32(sum) + biases[i];
+        }
+        return output;
+    }
 #endif
-#elif defined(USE_AVX2)
+
+#if defined(USE_AVX2)
     std::uint32_t chunks = InputDimensions / SIMD_WIDTH;
     const __m256i ones = _mm256_set1_epi16(1);
     const auto input_vector = reinterpret_cast<const __m256i*>(features);
