@@ -65,6 +65,17 @@ cmake -DEVALFILE=network_file -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
 make -j
 ```
 
+To compile with AVX512 and VNNI support use -DUSE_VNNI=1 -DUSE_AVX512=1, for example:
+
+```
+git clone https://github.com/vshcherbyna/igel.git ./igel
+cd igel
+git submodule update --init --recursive
+wget https://github.com/vshcherbyna/igel/releases/download/3.5.0/c049c117 -O ./network_file
+cmake -DEVALFILE=network_file -DUSE_AVX2=1 -DUSE_AVX512=1 -DUSE_VNNI=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
+make -j
+```
+
 Important! If you make a custom build of Igel you need to validate the bench using command:
 
 ```
