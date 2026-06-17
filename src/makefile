@@ -13,7 +13,7 @@ NNFLAGS  = -DEVALFILE=\"$(EVALFILE)\"
 
 LIBS   = -std=c++17 -mpopcnt -pthread -lstdc++ -lm
 WARN   = -Wall
-OPTIM  = -O3 -march=native -flto=auto
+OPTIM  = -O3 -march=native -flto=auto -funroll-loops
 DEFS   = -DNDEBUG -D_BTYPE=0 -DSYZYGY_SUPPORT=TRUE
 
 ifneq ($(findstring __AVX2__, $(GCCDEFINES)),)
@@ -24,6 +24,11 @@ endif
 ifneq ($(findstring __AVX512BW__, $(GCCDEFINES)),)
     LIBS += -mavx512f -mavx512bw
     DEFS += -DUSE_AVX512=1
+endif
+
+ifneq ($(findstring __AVX512VNNI__, $(GCCDEFINES)),)
+    LIBS += -mavx512vnni
+    DEFS += -DUSE_VNNI=1
 endif
 
 CFLAGS = $(WARN) $(LIBS) $(OPTIM) $(NNFLAGS)
