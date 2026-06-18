@@ -145,6 +145,25 @@ inline __m512i affine_acc_512(__m512i acc, __m512i a, __m512i b) {
 }
 #endif
 
+inline __m128i m256_haddx4(__m256i s0, __m256i s1, __m256i s2, __m256i s3, __m128i bias) {
+    s0 = _mm256_hadd_epi32(s0, s1);
+    s2 = _mm256_hadd_epi32(s2, s3);
+    s0 = _mm256_hadd_epi32(s0, s2);
+    const __m128i lo = _mm256_castsi256_si128(s0);
+    const __m128i hi = _mm256_extracti128_si256(s0, 1);
+    return _mm_add_epi32(_mm_add_epi32(lo, hi), bias);
+}
+
+#if defined(USE_AVX512)
+inline __m128i m512_haddx4(__m512i s0, __m512i s1, __m512i s2, __m512i s3, __m128i bias) {
+    const __m256i a0 = _mm256_add_epi32(_mm512_castsi512_si256(s0), _mm512_extracti64x4_epi64(s0, 1));
+    const __m256i a1 = _mm256_add_epi32(_mm512_castsi512_si256(s1), _mm512_extracti64x4_epi64(s1, 1));
+    const __m256i a2 = _mm256_add_epi32(_mm512_castsi512_si256(s2), _mm512_extracti64x4_epi64(s2, 1));
+    const __m256i a3 = _mm256_add_epi32(_mm512_castsi512_si256(s3), _mm512_extracti64x4_epi64(s3, 1));
+    return m256_haddx4(a0, a1, a2, a3, bias);
+}
+#endif
+
 std::int32_t Transformer::transform(Position & pos, std::uint8_t * outBuffer, const std::size_t bucket) {
 
     const auto s = pos.state();
@@ -498,10 +517,8 @@ inline std::int32_t * Layer<OutputDimensions, InputDimensions>::propagate(std::u
                     s2 = affine_acc_512(s2, inp, _mm512_loadu_si512(&r2[j]));
                     s3 = affine_acc_512(s3, inp, _mm512_loadu_si512(&r3[j]));
                 }
-                output[i+0] = _mm512_reduce_add_epi32(s0) + biases[i+0];
-                output[i+1] = _mm512_reduce_add_epi32(s1) + biases[i+1];
-                output[i+2] = _mm512_reduce_add_epi32(s2) + biases[i+2];
-                output[i+3] = _mm512_reduce_add_epi32(s3) + biases[i+3];
+                const __m128i bias = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&biases[i]));
+                _mm_storeu_si128(reinterpret_cast<__m128i*>(&output[i]), m512_haddx4(s0, s1, s2, s3, bias));
             }
             return output;
         }
@@ -526,7 +543,9 @@ inline std::int32_t * Layer<OutputDimensions, InputDimensions>::propagate(std::u
 #if defined(USE_AVX2)
     // 4-way kernel blocking: process 4 output neurons simultaneously.
     // 4 independent accumulator chains allow better ILP vs. one serial chain per output.
-    if constexpr (OutputDimensions % 4 == 0 && InputDimensions >= 128) {
+    // Threshold is one full SIMD chunk so the small 32x32 hidden layer also takes this path,
+    // where batching the four reductions is a bigger win than the dot-product itself.
+    if constexpr (OutputDimensions % 4 == 0 && InputDimensions >= 32) {
         for (std::uint32_t i = 0; i < OutputDimensions; i += 4) {
             __m256i s0 = _mm256_setzero_si256();
             __m256i s1 = _mm256_setzero_si256();
@@ -543,15 +562,8 @@ inline std::int32_t * Layer<OutputDimensions, InputDimensions>::propagate(std::u
                 s2 = _mm256_add_epi32(s2, _mm256_madd_epi16(_mm256_maddubs_epi16(inp, _mm256_load_si256(&r2[j])), ones));
                 s3 = _mm256_add_epi32(s3, _mm256_madd_epi16(_mm256_maddubs_epi16(inp, _mm256_load_si256(&r3[j])), ones));
             }
-            auto hreduce = [](const __m256i& s) -> std::int32_t {
-                __m128i t = _mm_add_epi32(_mm256_castsi256_si128(s), _mm256_extracti128_si256(s, 1));
-                t = _mm_add_epi32(t, _mm_shuffle_epi32(t, _MM_PERM_BADC));
-                return _mm_cvtsi128_si32(_mm_add_epi32(t, _mm_shuffle_epi32(t, _MM_PERM_CDAB)));
-            };
-            output[i+0] = hreduce(s0) + biases[i+0];
-            output[i+1] = hreduce(s1) + biases[i+1];
-            output[i+2] = hreduce(s2) + biases[i+2];
-            output[i+3] = hreduce(s3) + biases[i+3];
+            const __m128i bias = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&biases[i]));
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(&output[i]), m256_haddx4(s0, s1, s2, s3, bias));
         }
         return output;
     }
