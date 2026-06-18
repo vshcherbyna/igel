@@ -128,6 +128,23 @@ inline __m256i vec_msb_pack_16(__m256i a, __m256i b) {
     return _mm256_permute4x64_epi64(compacted, 0b11011000);
 }
 
+#if defined(USE_AVX512)
+inline __m512i vec_msb_pack_16_512(__m512i a, __m512i b) {
+    __m512i compacted = _mm512_packs_epi16(_mm512_srli_epi16(a, 7), _mm512_srli_epi16(b, 7));
+    const __m512i idx = _mm512_setr_epi64(0, 2, 4, 6, 1, 3, 5, 7);
+    return _mm512_permutexvar_epi64(idx, compacted);
+}
+
+inline __m512i affine_acc_512(__m512i acc, __m512i a, __m512i b) {
+#if defined(USE_VNNI)
+    return _mm512_dpbusd_epi32(acc, a, b);
+#else
+    const __m512i ones = _mm512_set1_epi16(1);
+    return _mm512_add_epi32(acc, _mm512_madd_epi16(_mm512_maddubs_epi16(a, b), ones));
+#endif
+}
+#endif
+
 std::int32_t Transformer::transform(Position & pos, std::uint8_t * outBuffer, const std::size_t bucket) {
 
     const auto s = pos.state();
@@ -156,7 +173,30 @@ std::int32_t Transformer::transform(Position & pos, std::uint8_t * outBuffer, co
     for (std::uint32_t side = 0; side < 2; ++side) {
         std::uint32_t offset = (HalfDimensions / 2) * side;
 
-#if defined(USE_AVX2)
+#if defined(USE_AVX512)
+        constexpr std::uint32_t OutputChunkSize = MAX_CHUNK_SIZE * 2;
+        static_assert((HalfDimensions / 2) % OutputChunkSize == 0);
+        constexpr std::uint32_t NumOutputChunks = HalfDimensions / 2 / OutputChunkSize;
+
+        const __m512i Zero = _mm512_setzero_si512();
+        const __m512i One = _mm512_set1_epi16(127);
+
+        const __m512i* in0 = reinterpret_cast<const __m512i*>(&(acc[sides[side]][0]));
+        const __m512i* in1 = reinterpret_cast<const __m512i*>(&(acc[sides[side]][HalfDimensions / 2]));
+        __m512i* out = reinterpret_cast<__m512i*>(outBuffer + offset);
+
+        for (std::uint32_t j = 0; j < NumOutputChunks; j += 1) {
+            const __m512i sum0a = _mm512_max_epi16(_mm512_min_epi16(in0[j * 2 + 0], One), Zero);
+            const __m512i sum0b = _mm512_max_epi16(_mm512_min_epi16(in0[j * 2 + 1], One), Zero);
+            const __m512i sum1a = _mm512_max_epi16(_mm512_min_epi16(in1[j * 2 + 0], One), Zero);
+            const __m512i sum1b = _mm512_max_epi16(_mm512_min_epi16(in1[j * 2 + 1], One), Zero);
+
+            const __m512i pa = _mm512_mullo_epi16(sum0a, sum1a);
+            const __m512i pb = _mm512_mullo_epi16(sum0b, sum1b);
+
+            out[j] = vec_msb_pack_16_512(pa, pb);
+        }
+#elif defined(USE_AVX2)
         constexpr std::uint32_t OutputChunkSize = MAX_CHUNK_SIZE;
         static_assert((HalfDimensions / 2) % OutputChunkSize == 0);
         constexpr std::uint32_t NumOutputChunks = HalfDimensions / 2 / OutputChunkSize;
@@ -206,9 +246,19 @@ inline void Transformer::incremental(Position & pos, const Accumulator * baseAcc
                 pa = pos.getChangedIndexes(c, added, removed);
         }
 
+#if defined(USE_AVX512)
+        using acc_vec_t = __m512i;
+        auto vadd16 = [](acc_vec_t a, acc_vec_t b) { return _mm512_add_epi16(a, b); };
+        auto vsub16 = [](acc_vec_t a, acc_vec_t b) { return _mm512_sub_epi16(a, b); };
+#elif defined(USE_AVX2)
+        using acc_vec_t = __m256i;
+        auto vadd16 = [](acc_vec_t a, acc_vec_t b) { return _mm256_add_epi16(a, b); };
+        auto vsub16 = [](acc_vec_t a, acc_vec_t b) { return _mm256_sub_epi16(a, b); };
+#endif
+
 #if defined(USE_AVX2)
-        std::uint32_t chunks = HalfDimensions / (SIMD_WIDTH / 2);
-        auto accumulation = reinterpret_cast<__m256i*>(&accumulator.accumulation[c][0]);
+        const std::uint32_t chunks = HalfDimensions / (sizeof(acc_vec_t) / sizeof(std::int16_t));
+        auto accumulation = reinterpret_cast<acc_vec_t*>(&accumulator.accumulation[c][0]);
 #endif
 
         if (fullUpdate) {
@@ -235,21 +285,21 @@ inline void Transformer::incremental(Position & pos, const Accumulator * baseAcc
 #endif
 
 #if defined(USE_AVX2)
-                auto column = reinterpret_cast<const __m256i*>(&weights[offset]);
+                auto column = reinterpret_cast<const acc_vec_t*>(&weights[offset]);
                 for (std::uint32_t j = 0; j < chunks; ++j)
-                    accumulation[j] = _mm256_add_epi16(accumulation[j], column[j]);
+                    accumulation[j] = vadd16(accumulation[j], column[j]);
 #endif
             }
         }
         else {
 #if defined(USE_AVX2)
-            // Fast path: fuse copy+sub+add into a single AVX2 pass (avoids re-reading accumulation)
+            // Fast path: fuse copy+sub+add into a single SIMD pass (avoids re-reading accumulation)
             if (pa.second == 1 && pa.first == 1) {
-                const auto prev_acc = reinterpret_cast<const __m256i*>(&prev_accumulator.accumulation[c][0]);
-                const auto rem_col  = reinterpret_cast<const __m256i*>(&weights[HalfDimensions * removed[0]]);
-                const auto add_col  = reinterpret_cast<const __m256i*>(&weights[HalfDimensions * added[0]]);
+                const auto prev_acc = reinterpret_cast<const acc_vec_t*>(&prev_accumulator.accumulation[c][0]);
+                const auto rem_col  = reinterpret_cast<const acc_vec_t*>(&weights[HalfDimensions * removed[0]]);
+                const auto add_col  = reinterpret_cast<const acc_vec_t*>(&weights[HalfDimensions * added[0]]);
                 for (std::uint32_t j = 0; j < chunks; ++j)
-                    accumulation[j] = _mm256_add_epi16(_mm256_sub_epi16(prev_acc[j], rem_col[j]), add_col[j]);
+                    accumulation[j] = vadd16(vsub16(prev_acc[j], rem_col[j]), add_col[j]);
 
                 {
                     const __m256i prev_p = _mm256_load_si256(reinterpret_cast<const __m256i*>(&prev_accumulator.psqtAccumulation[c][0]));
@@ -259,15 +309,15 @@ inline void Transformer::incremental(Position & pos, const Accumulator * baseAcc
                         _mm256_add_epi32(_mm256_sub_epi32(prev_p, rem_p), add_p));
                 }
             }
-            // Fast path for captures: fuse copy+sub+sub+add into a single AVX2 pass
+            // Fast path for captures: fuse copy+sub+sub+add into a single SIMD pass
             else if (pa.second == 2 && pa.first == 1) {
-                const auto prev_acc = reinterpret_cast<const __m256i*>(&prev_accumulator.accumulation[c][0]);
-                const auto rem0     = reinterpret_cast<const __m256i*>(&weights[HalfDimensions * removed[0]]);
-                const auto rem1     = reinterpret_cast<const __m256i*>(&weights[HalfDimensions * removed[1]]);
-                const auto add_col  = reinterpret_cast<const __m256i*>(&weights[HalfDimensions * added[0]]);
+                const auto prev_acc = reinterpret_cast<const acc_vec_t*>(&prev_accumulator.accumulation[c][0]);
+                const auto rem0     = reinterpret_cast<const acc_vec_t*>(&weights[HalfDimensions * removed[0]]);
+                const auto rem1     = reinterpret_cast<const acc_vec_t*>(&weights[HalfDimensions * removed[1]]);
+                const auto add_col  = reinterpret_cast<const acc_vec_t*>(&weights[HalfDimensions * added[0]]);
                 for (std::uint32_t j = 0; j < chunks; ++j)
-                    accumulation[j] = _mm256_add_epi16(
-                        _mm256_sub_epi16(_mm256_sub_epi16(prev_acc[j], rem0[j]), rem1[j]),
+                    accumulation[j] = vadd16(
+                        vsub16(vsub16(prev_acc[j], rem0[j]), rem1[j]),
                         add_col[j]);
 
                 {
@@ -305,9 +355,9 @@ inline void Transformer::incremental(Position & pos, const Accumulator * baseAcc
 #endif
 
 #if defined(USE_AVX2)
-                auto column = reinterpret_cast<const __m256i*>(&weights[offset]);
+                auto column = reinterpret_cast<const acc_vec_t*>(&weights[offset]);
                 for (std::uint32_t j = 0; j < chunks; ++j)
-                    accumulation[j] = _mm256_sub_epi16(accumulation[j], column[j]);
+                    accumulation[j] = vsub16(accumulation[j], column[j]);
 #endif
             }
 
@@ -325,9 +375,9 @@ inline void Transformer::incremental(Position & pos, const Accumulator * baseAcc
 #endif
 
 #if defined(USE_AVX2)
-                auto column = reinterpret_cast<const __m256i*>(&weights[offset]);
+                auto column = reinterpret_cast<const acc_vec_t*>(&weights[offset]);
                 for (std::uint32_t j = 0; j < chunks; ++j)
-                    accumulation[j] = _mm256_add_epi16(accumulation[j], column[j]);
+                    accumulation[j] = vadd16(accumulation[j], column[j]);
 #endif
             }
 #if defined(USE_AVX2)
@@ -345,9 +395,29 @@ inline void Transformer::refresh(Position & pos) {
 
         std::uint32_t ci = pos.getActiveIndexes(c, indexes);
 
-#if defined(USE_AVX2)
+#if defined(USE_AVX512)
+        constexpr std::uint32_t numRegs = TILE_HEIGHT / (sizeof(__m512i) / sizeof(std::int16_t));
+        __m512i acc[numRegs];
+
+        for (std::uint32_t j = 0; j < HalfDimensions / TILE_HEIGHT; ++j) {
+            auto biasesTile = reinterpret_cast<const __m512i*>(&biases[j * TILE_HEIGHT]);
+            for (std::uint32_t k = 0; k < numRegs; ++k)
+                acc[k] = biasesTile[k];
+
+            for (std::uint32_t index = 0; index < ci; index++) {
+                const std::uint32_t offset = HalfDimensions * indexes[index] + j * TILE_HEIGHT;
+                auto column = reinterpret_cast<const __m512i*>(&weights[offset]);
+
+                for (std::uint32_t k = 0; k < numRegs; ++k)
+                    acc[k] = _mm512_add_epi16(acc[k], column[k]);
+            }
+
+            auto accTile = reinterpret_cast<__m512i*>(&accumulator.accumulation[c][j * TILE_HEIGHT]);
+            for (std::uint32_t k = 0; k < numRegs; ++k)
+                accTile[k] = acc[k];
+        }
+#elif defined(USE_AVX2)
         __m256i acc[NUM_REGS];
-        __m256i psqt[NUM_PSQT_REGS];
 
         for (std::uint32_t j = 0; j < HalfDimensions / TILE_HEIGHT; ++j) {
             auto biasesTile = reinterpret_cast<const __m256i*>(&biases[j * TILE_HEIGHT]);
@@ -366,6 +436,10 @@ inline void Transformer::refresh(Position & pos) {
             for (unsigned k = 0; k < NUM_REGS; k++)
                 _mm256_store_si256(&accTile[k], acc[k]);
         }
+#endif
+
+#if defined(USE_AVX2)
+        __m256i psqt[NUM_PSQT_REGS];
 
         for (std::uint32_t j = 0; j < PSQT_BUCKETS / PSQT_TILE_HEIGHT; ++j) {
             for (std::size_t k = 0; k < NUM_PSQT_REGS; ++k)
@@ -403,12 +477,47 @@ inline std::int32_t * Layer<OutputDimensions, InputDimensions>::propagate(std::u
     auto output = reinterpret_cast<std::int32_t*>(outBuffer);
 
 #if defined(USE_AVX512)
-    std::uint32_t chunks = InputDimensions / (SIMD_WIDTH * 2);
-    const auto input_vector = reinterpret_cast<const __m512i*>(features);
-#if !defined(USE_VNNI)
-    const __m512i ones = _mm512_set1_epi16(1);
+    if constexpr (InputDimensions % (SIMD_WIDTH * 2) == 0) {
+        const std::uint32_t chunks = InputDimensions / (SIMD_WIDTH * 2);
+        const auto input_vector = reinterpret_cast<const __m512i*>(features);
+
+        if constexpr (OutputDimensions % 4 == 0 && InputDimensions >= 128) {
+            for (std::uint32_t i = 0; i < OutputDimensions; i += 4) {
+                __m512i s0 = _mm512_setzero_si512();
+                __m512i s1 = _mm512_setzero_si512();
+                __m512i s2 = _mm512_setzero_si512();
+                __m512i s3 = _mm512_setzero_si512();
+                const auto r0 = reinterpret_cast<const __m512i*>(&weights[(i+0) * InputDimensions]);
+                const auto r1 = reinterpret_cast<const __m512i*>(&weights[(i+1) * InputDimensions]);
+                const auto r2 = reinterpret_cast<const __m512i*>(&weights[(i+2) * InputDimensions]);
+                const auto r3 = reinterpret_cast<const __m512i*>(&weights[(i+3) * InputDimensions]);
+                for (std::uint32_t j = 0; j < chunks; ++j) {
+                    const __m512i inp = _mm512_loadu_si512(&input_vector[j]);
+                    s0 = affine_acc_512(s0, inp, _mm512_loadu_si512(&r0[j]));
+                    s1 = affine_acc_512(s1, inp, _mm512_loadu_si512(&r1[j]));
+                    s2 = affine_acc_512(s2, inp, _mm512_loadu_si512(&r2[j]));
+                    s3 = affine_acc_512(s3, inp, _mm512_loadu_si512(&r3[j]));
+                }
+                output[i+0] = _mm512_reduce_add_epi32(s0) + biases[i+0];
+                output[i+1] = _mm512_reduce_add_epi32(s1) + biases[i+1];
+                output[i+2] = _mm512_reduce_add_epi32(s2) + biases[i+2];
+                output[i+3] = _mm512_reduce_add_epi32(s3) + biases[i+3];
+            }
+            return output;
+        }
+
+        for (std::uint32_t i = 0; i < OutputDimensions; ++i) {
+            __m512i sum = _mm512_setzero_si512();
+            const auto row = reinterpret_cast<const __m512i*>(&weights[i * InputDimensions]);
+            for (std::uint32_t j = 0; j < chunks; ++j)
+                sum = affine_acc_512(sum, _mm512_loadu_si512(&input_vector[j]), _mm512_loadu_si512(&row[j]));
+            output[i] = _mm512_reduce_add_epi32(sum) + biases[i];
+        }
+        return output;
+    }
 #endif
-#elif defined(USE_AVX2)
+
+#if defined(USE_AVX2)
     std::uint32_t chunks = InputDimensions / SIMD_WIDTH;
     const __m256i ones = _mm256_set1_epi16(1);
     const auto input_vector = reinterpret_cast<const __m256i*>(features);
