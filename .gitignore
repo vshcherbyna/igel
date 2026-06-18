@@ -26,3 +26,12 @@ ipch/
 # Local folder
 [Ll]ocal/
 
+#CMake
+CMakeCache.txt
+CMakeFiles
+Makefile
+cmake_install.cmake
+
+network_file
+igel
+igel.exe
