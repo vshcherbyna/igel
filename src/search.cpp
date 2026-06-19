@@ -135,7 +135,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     if (depth <= 0 && m_level > MEDIUM_LEVEL)
         return qSearch(alpha, beta, ply, 0, isNull);
 
-    TTable::instance().prefetchEntry(m_position.Hash());
+    const U64 hash = m_position.Hash();
+    TTable::instance().prefetchEntry(hash);
 
     ++m_nodes;
     m_pvSize[ply]  = 0;
@@ -169,7 +170,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
     EVAL ttScore = 0;
     auto onPV    = (beta - alpha > 1);
-    auto ttHit   = !skipMove && !isNull && ProbeHash(hEntry);
+    auto ttHit   = !skipMove && !isNull && ProbeHash(hEntry, hash);
 
     if (ttHit) {
         ttScore = hEntry.m_data.score;
@@ -244,7 +245,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                 //
 
                 if ((type == HASH_EXACT) || (type == HASH_ALPHA ? (score <= alpha) : (score >= beta))) {
-                    TTable::instance().record(0, score, MAX_PLY, 0, type, m_position.Hash());
+                    TTable::instance().record(0, score, MAX_PLY, 0, type, hash);
                     return score;
                 }
             }
@@ -521,7 +522,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         }
     }
 
-    TTable::instance().prefetchEntry(m_position.Hash());
+    TTable::instance().prefetchEntry(hash);
 
     if (legalMoves == 0) {
         if (inCheck || skipMove)
@@ -533,7 +534,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     assert((m_position.Fifty() >= 100) == false); // we must cut off at the begining of a node search for draws
 
     if (!skipMove)
-        TTable::instance().record(bestMove, bestScore, depth, ply, type, m_position.Hash());
+        TTable::instance().record(bestMove, bestScore, depth, ply, type, hash);
 
     return bestScore;
 }
@@ -547,7 +548,8 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
     if (checkLimits())
         return DRAW_SCORE;
 
-    TTable::instance().prefetchEntry(m_position.Hash());
+    const U64 hash = m_position.Hash();
+    TTable::instance().prefetchEntry(hash);
 
     if ((ply > MAX_PLY - 2) || isDraw())
         return ((ply > MAX_PLY - 2) && !m_position.InCheck()) ? m_evaluator->evaluate(m_position) : DRAW_SCORE;
@@ -558,7 +560,7 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
 
     auto inCheck = m_position.InCheck();
     auto tteDepth = inCheck || depth >= 0 ? 0 : -1;
-    auto ttHit = ProbeHash(hEntry);
+    auto ttHit = ProbeHash(hEntry, hash);
 
     if (ttHit) {
         ttScore = hEntry.m_data.score;
@@ -597,7 +599,7 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
 
         if (bestScore >= beta) {
             if (!ttHit)
-                TTable::instance().record(0, bestScore, -5, ply, HASH_BETA, m_position.Hash());
+                TTable::instance().record(0, bestScore, -5, ply, HASH_BETA, hash);
             return bestScore;
         }
 
@@ -646,7 +648,7 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
         }
     }
 
-    TTable::instance().record(bestMove, bestScore, tteDepth, ply, type, m_position.Hash());
+    TTable::instance().record(bestMove, bestScore, tteDepth, ply, type, hash);
     return bestScore;
 }
 
@@ -798,9 +800,8 @@ void Search::printPV(const Position& pos, int iter, int selDepth, EVAL score, co
     std::cout << std::endl;
 }
 
-bool Search::ProbeHash(TEntry & hentry)
+bool Search::ProbeHash(TEntry & hentry, U64 hash)
 {
-    auto hash  = m_position.Hash();
     return TTable::instance().retrieve(hash, hentry);
 }
 

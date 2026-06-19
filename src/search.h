@@ -98,7 +98,7 @@ private:
             return 1;
         return 0;
     }
-    bool ProbeHash(TEntry & hentry);
+    bool ProbeHash(TEntry & hentry, U64 hash);
     void printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv, uint64_t sumNodes, uint64_t sumHits, uint64_t nps);
     bool isDraw();
 
