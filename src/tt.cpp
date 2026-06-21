@@ -46,6 +46,13 @@ void TTable::record(Move mv, EVAL score, I8 depth, int ply, U8 type, U64 hash0)
     TTCluster & cluster = m_hash[index];
     auto * replaceEntry = &cluster.entry[0];
 
+    //
+    // m_data.age is a 7-bit field, so reduce the generation counter the same way
+    // before comparing; this lets the counter wrap cleanly every 128 generations
+    //
+
+    const U8 curAge = static_cast<U8>(m_hashAge & 0x7F);
+
     for (auto i = 0; i < 4; ++i) {
         // empty bucket or a matched hash
         if ((!cluster.entry[i].m_key) || ((cluster.entry[i].m_key ^ cluster.entry[i].m_data.raw) == hash0)) {
@@ -53,7 +60,7 @@ void TTable::record(Move mv, EVAL score, I8 depth, int ply, U8 type, U64 hash0)
             break;
         }
 
-        if ((cluster.entry[i].m_data.age == m_hashAge) - (replaceEntry->m_data.age == m_hashAge) - (cluster.entry[i].m_data.depth < replaceEntry->m_data.depth) < 0)
+        if ((cluster.entry[i].m_data.age == curAge) - (replaceEntry->m_data.age == curAge) - (cluster.entry[i].m_data.depth < replaceEntry->m_data.depth) < 0)
             replaceEntry = &cluster.entry[i];
     }
 
@@ -63,7 +70,7 @@ void TTable::record(Move mv, EVAL score, I8 depth, int ply, U8 type, U64 hash0)
     if (score < -CHECKMATE_SCORE + 50 && score >= -CHECKMATE_SCORE)
         score -= ply;
 
-    replaceEntry->store(mv, score, depth, type, hash0, m_hashAge);
+    replaceEntry->store(mv, score, depth, type, hash0, curAge);
 }
 
 bool TTable::retrieve(U64 hash, TEntry & hentry)
