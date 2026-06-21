@@ -45,6 +45,7 @@
 
     auto s = quetMoves.Size();
     auto best = quetMoves[s - 1].m_mv;
+    bonus = std::min(bonus, s_historyMax);
 
     for (size_t i = 0; i < s; ++i) {
         Move mv = quetMoves[i].m_mv;
@@ -53,7 +54,6 @@
         auto piece = mv.Piece();
         auto to = mv.To();
         int entry = pSearch->m_history[colour][from][to];
-        bonus = std::min(bonus, s_historyMax);
         entry += s_historyMultiplier * delta - entry * abs(delta) / s_historyDivisor;
         pSearch->m_history[colour][from][to] = static_cast<int16_t>(entry);
 
@@ -65,7 +65,7 @@
 
         if (followMove) {
             int fentry = pSearch->m_followTable[1][followPiece][followTo][mv.Piece()][to];
-            fentry += s_historyMultiplier * delta - fentry * abs(bonus) / s_historyDivisor;
+            fentry += s_historyMultiplier * delta - fentry * abs(delta) / s_historyDivisor;
             pSearch->m_followTable[1][followPiece][followTo][piece][to] = static_cast<int16_t>(fentry);
         }
     }
