@@ -54,6 +54,10 @@ Search::Search() :
     m_flags(0),
     m_depth(0),
     m_syzygyDepth(0),
+#if defined (SYZYGY_SUPPORT)
+    m_tbRoot(false),
+    m_tbRootScore(0),
+#endif
     m_selDepth(0),
     m_principalSearcher(false),
     m_thc(0),
@@ -371,6 +375,11 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
         if (mv == skipMove)
             continue;
+
+#if defined (SYZYGY_SUPPORT)
+        if (rootNode && m_tbRoot && !tbRootMoveAllowed(mv))
+            continue;       // play only tablebase-optimal moves at the root
+#endif
 
         auto quietMove = !MoveEval::isTacticalMove(mv);
         History::HistoryHeuristics history{};
@@ -916,6 +925,11 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     m_ponder = 0;
     m_best   = 0;
 
+#if defined (SYZYGY_SUPPORT)
+    if (m_principalSearcher)
+        tbProbeRoot();      // resolve the root against Syzygy up front
+#endif
+
     auto printBestMove = [](Search * pthis, Position & pos, Move m, Move p) {
 
         if (m)
@@ -938,7 +952,13 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     //  Start worker threads if Threads option is configured
     //
 
-    if (m_thc)
+    auto helpersActive = m_thc != 0;
+#if defined (SYZYGY_SUPPORT)
+    if (m_tbRoot)
+        helpersActive = false;
+#endif
+
+    if (helpersActive)
         startWorkerThreads(time);
 
     uint64_t sumNodes = 0;
@@ -952,6 +972,10 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         //
 
         EVAL aspiration = m_depth >= 4 ? 5 : CHECKMATE_SCORE;
+#if defined (SYZYGY_SUPPORT)
+        if (m_tbRoot)
+            aspiration = CHECKMATE_SCORE; // known TB result
+#endif
 
         EVAL alpha = std::max(m_score - aspiration, -CHECKMATE_SCORE);
         EVAL beta  = std::min(m_score + aspiration, CHECKMATE_SCORE);
@@ -988,6 +1012,11 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
                 break;
         }
 
+#if defined (SYZYGY_SUPPORT)
+        if (m_tbRoot)
+            m_score = m_tbRootScore; // report the tb verdict
+#endif
+
         if (m_flags & SEARCH_TERMINATED)
             break;
 
@@ -998,9 +1027,11 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         if (m_principalSearcher) {
             sumNodes = m_nodes;
             sumHits = m_tbHits;
-            for (unsigned int i = 0; i < m_thc; ++i) {
-                sumNodes += m_threadParams[i].m_nodes;
-                sumHits += m_threadParams[i].m_tbHits;
+            if (helpersActive) {
+                for (unsigned int i = 0; i < m_thc; ++i) {
+                    sumNodes += m_threadParams[i].m_nodes;
+                    sumHits += m_threadParams[i].m_tbHits;
+                }
             }
             m_time.adjust(m_score, m_depth);
         }
@@ -1032,7 +1063,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     //  Stop worker threads if necessary
     //
 
-    if (m_thc) {
+    if (helpersActive) {
         stopWorkerThreads();
 
         //
@@ -1173,7 +1204,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     m_ponderHit = false;
 
     if (!(m_flags & MODE_SILENT) && m_principalSearcher) {
-        if (!m_thc)
+        if (!helpersActive)
             printPV(m_position, m_depth, m_selDepth, m_score, m_pv[0], m_pvSize[0], m_best, sumNodes, sumHits, nps);
         printBestMove(this, m_position, m_best, m_ponder);
     }
@@ -1193,6 +1224,116 @@ void Search::setSyzygyDepth(int depth)
 {
     m_syzygyDepth = depth;
 }
+
+#if defined (SYZYGY_SUPPORT)
+static inline unsigned igelPromoToTb(FLD promo) {
+    switch (promo & ~1) { // strip the colour bit
+        case QUEEN:  return TB_PROMOTES_QUEEN;
+        case ROOK:   return TB_PROMOTES_ROOK;
+        case BISHOP: return TB_PROMOTES_BISHOP;
+        case KNIGHT: return TB_PROMOTES_KNIGHT;
+        default:     return TB_PROMOTES_NONE;
+    }
+}
+
+//
+//  Root tablebase (DTZ) probe
+//
+
+bool Search::tbProbeRoot()
+{
+    m_tbRoot      = false;
+    m_tbRootScore = 0;
+
+    m_tbRootMoves.Clear();
+
+    if (!TB_LARGEST)
+        return false;
+
+    if (m_position.CanCastle(WHITE, KINGSIDE) || m_position.CanCastle(WHITE, QUEENSIDE) ||
+        m_position.CanCastle(BLACK, KINGSIDE) || m_position.CanCastle(BLACK, QUEENSIDE))
+        return false;
+
+    if (countBits(m_position.BitsAll()) > TB_LARGEST)
+        return false;
+
+    FLD ep = m_position.EP();
+    ep = (ep == NF) ? 0 : (FLD)(63 - ep);
+
+    unsigned results[TB_MAX_MOVES];
+    unsigned probe = tb_probe_root(
+        m_position.BitsAll(WHITE), m_position.BitsAll(BLACK),
+        m_position.Bits(KW) | m_position.Bits(KB),
+        m_position.Bits(QW) | m_position.Bits(QB),
+        m_position.Bits(RW) | m_position.Bits(RB),
+        m_position.Bits(BW) | m_position.Bits(BB),
+        m_position.Bits(NW) | m_position.Bits(NB),
+        m_position.Bits(PW) | m_position.Bits(PB),
+        m_position.Fifty(),     // real 50-move clock -> DTZ is rule-50 correct
+        0,                      // castling: none (checked above)
+        ep,
+        m_position.Side() == WHITE,
+        results);
+
+    if (probe == TB_RESULT_FAILED || probe == TB_RESULT_CHECKMATE || probe == TB_RESULT_STALEMATE)
+        return false;
+
+    bool     have = false;
+    unsigned bestWdl = 0;
+
+    for (unsigned i = 0; results[i] != TB_RESULT_FAILED; ++i) {
+        unsigned w = TB_GET_WDL(results[i]);
+        if (!have || w > bestWdl) { bestWdl = w; have = true; }
+    }
+    if (!have)
+        return false;
+
+    //
+    // keep our own moves whose resulting position has the best WDL
+    //
+
+    MoveList all;
+    GenAllMoves(m_position, all);
+
+    for (size_t k = 0; k < all.Size(); ++k) {
+
+        Move mv = all[k].m_mv;
+        unsigned ff = (unsigned)(63 - mv.From());
+        unsigned ft = (unsigned)(63 - mv.To());
+        unsigned fp = igelPromoToTb(mv.Promotion());
+
+        for (unsigned i = 0; results[i] != TB_RESULT_FAILED; ++i) {
+            if (TB_GET_FROM(results[i]) == ff && TB_GET_TO(results[i]) == ft &&
+                TB_GET_PROMOTES(results[i]) == fp && TB_GET_WDL(results[i]) == bestWdl) {
+                m_tbRootMoves.Add(mv);
+                break;
+            }
+        }
+    }
+
+    if (m_tbRootMoves.Size() == 0)
+        return false; // matching failed
+
+    EVAL tbWin = TBBASE_SCORE - MAX_PLY;
+
+    m_tbRootScore = (bestWdl == TB_WIN)  ?  tbWin
+                  : (bestWdl == TB_LOSS) ? -tbWin
+                  : 0;
+
+    m_tbRoot = true;
+
+    return true;
+}
+
+bool Search::tbRootMoveAllowed(Move mv) const
+{
+    for (size_t i = 0; i < m_tbRootMoves.Size(); ++i)
+        if (m_tbRootMoves[i].m_mv == mv)
+            return true;
+
+    return false;
+}
+#endif
 
 void Search::setLevel(int level)
 {

@@ -89,6 +89,10 @@ private:
     void lazySmpSearcher();
     void indicateWorkersStop();
     EVAL abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool rootNode, bool cutNode, Move skipMove = 0);
+#if defined (SYZYGY_SUPPORT)
+    bool tbProbeRoot();
+    bool tbRootMoveAllowed(Move mv) const;
+#endif
     EVAL qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull = false);
     FORCE_INLINE int extensionRequired(bool inCheck, bool onPV, int cmhistory, int fmhistory)
     {
@@ -114,6 +118,11 @@ private:
     volatile U8 m_flags;
     int m_depth;
     int m_syzygyDepth;
+#if defined (SYZYGY_SUPPORT)
+    bool     m_tbRoot;
+    EVAL     m_tbRootScore;
+    MoveList m_tbRootMoves;
+#endif
     int m_selDepth;
     MoveList m_lists[MAX_PLY];
     Move m_pv[MAX_PLY][MAX_PLY];
