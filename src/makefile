@@ -33,6 +33,17 @@ endif
 
 CFLAGS = $(WARN) $(LIBS) $(OPTIM) $(NNFLAGS)
 
+#
+# Clang full-LTO + PGO build settings (used by the pgoclang target below).
+# Clang rejects gcc's -flto=auto and links LTO through lld. Override
+# CLANGCC / CLANGLD / PROFDATA if your toolchain uses unversioned names.
+#
+CLANGCC    = clang++-19
+CLANGLD    = lld-19
+PROFDATA   = llvm-profdata-19
+CLANGOPTIM = -O3 -march=native -flto -fuse-ld=$(CLANGLD) -funroll-loops
+CLANGFLAGS = $(WARN) $(LIBS) $(CLANGOPTIM) $(NNFLAGS)
+
 basic:
 	$(CC) $(CFLAGS) $(SRC) $(DEFS) -o $(EXE)
 
@@ -49,6 +60,18 @@ else ifeq ($(findstring clang, $(CC)), clang)
 	$(CC) $(CFLAGS) $(SRC) $(DEFS) -fprofile-instr-use=igel.profdata -o $(EXE)
 	@rm -rf pgo pgo.out igel.profdata *.profraw
 endif
+
+#
+# Clang full-LTO + Profile-Guided Optimization build (sibling of 'pgo').
+# A single 'make pgoclang' builds an instrumented binary, trains it on
+# bench, merges the profile with llvm-profdata, then rebuilds with it.
+#
+pgoclang: download-network
+	$(CLANGCC) $(CLANGFLAGS) $(SRC) $(DEFS) -fprofile-generate -o $(EXE)
+	LLVM_PROFILE_FILE=igel.profraw ./$(EXE) bench 15 > pgo.out 2>&1
+	$(PROFDATA) merge -output=igel.profdata igel.profraw
+	$(CLANGCC) $(CLANGFLAGS) $(SRC) $(DEFS) -fprofile-use=igel.profdata -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date -o $(EXE)
+	@rm -rf igel.profraw igel.profdata pgo.out default*.profraw
 
 download-network:
 	mkdir weights; \

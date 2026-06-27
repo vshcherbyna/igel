@@ -76,6 +76,19 @@ cmake -DEVALFILE=network_file -DUSE_AVX2=1 -DUSE_AVX512=1 -DUSE_VNNI=1 -D_BTYPE=
 make -j
 ```
 
+On Linux you can also build with clang and full LTO, optionally with Profile-Guided Optimization (PGO) for the fastest binary. This needs clang, the lld linker and llvm-profdata from the LLVM 19 toolchain (on Debian/Ubuntu also install the instrumentation runtime, e.g. `libclang-rt-19-dev`). Add -DPGO=1 and a single `make` runs the whole cycle automatically: it builds an instrumented Igel, trains it on `bench`, merges the profile and rebuilds Igel with it.
+
+```
+git clone https://github.com/vshcherbyna/igel.git ./igel
+cd igel
+git submodule update --init --recursive
+wget https://github.com/vshcherbyna/igel/releases/download/3.5.0/c049c117 -O ./network_file
+cmake -DPGO=1 -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DEVALFILE=network_file -DUSE_AVX2=1 -DUSE_AVX512=1 -DUSE_VNNI=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
+make -j
+```
+
+Omit -DPGO=1 for a plain clang full-LTO build.
+
 Important! If you make a custom build of Igel you need to validate the bench using command:
 
 ```
