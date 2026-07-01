@@ -32,6 +32,11 @@
 #include <sstream>
 
 const std::string VERSION = "3.6.11";
+#if defined(PURE_HCE)
+const std::string PROGRAM_NAME = "Igel HCE";
+#else
+const std::string PROGRAM_NAME = "Igel";
+#endif
 const std::string ARCHITECTURE = " 64 "
 
 #if _BTYPE==0
@@ -81,7 +86,7 @@ const int MAX_THREADS     = 1024;
 
 int Uci::handleCommands()
 {
-    std::cout << "Igel " << VERSION << ARCHITECTURE << " by V. Shcherbyna (Igel author 2018-2025), V. Medvedev (GreKo author 2002-2018)" << std::endl;
+    std::cout << PROGRAM_NAME << " " << VERSION << ARCHITECTURE << " by V. Shcherbyna (Igel author 2018-2025), V. Medvedev (GreKo author 2002-2018)" << std::endl;
 
     if (!TTable::instance().setHashSize(DEFAULT_HASH_SIZE, DEFAULT_THREADS)) {
         std::cout << "Fatal error: unable to allocate memory for transposition table" << std::endl;
@@ -128,7 +133,7 @@ int Uci::handleCommands()
 
 void Uci::onUci()
 {
-    std::cout << "id name Igel " << VERSION << ARCHITECTURE << std::endl;
+    std::cout << "id name " << PROGRAM_NAME << " " << VERSION << ARCHITECTURE << std::endl;
     std::cout << "id author V. Shcherbyna (Igel author 2018-2025), V. Medvedev (GreKo author 2002-2018)" << std::endl;
 
     std::cout << "option name Hash type spin"   <<
