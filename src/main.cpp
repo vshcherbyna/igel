@@ -19,6 +19,9 @@
 */
 
 #include "nnue.h"
+#if defined(PURE_HCE)
+#include "hce.h"
+#endif
 #include "uci.h"
 
 #if !defined(UNIT_TEST)
@@ -33,7 +36,11 @@ int main(int argc, const char* argv[])
 
     InitBitboards();
     Position::InitHashNumbers();
+#if defined(PURE_HCE)
+    Hce::init();
+#else
     Evaluator::initEval();
+#endif
 
     std::unique_ptr<Search> searcher(new Search);
 

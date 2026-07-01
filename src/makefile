@@ -73,6 +73,18 @@ pgoclang: download-network
 	$(CLANGCC) $(CLANGFLAGS) $(SRC) $(DEFS) -fprofile-use=igel.profdata -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date -o $(EXE)
 	@rm -rf igel.profraw igel.profdata pgo.out default*.profraw
 
+#
+# Same as the pgoclang target but builds the pure hand-crafted evaluator
+# (-DPURE_HCE). The HCE engine embeds no NNUE network, so there is no
+# download-network step.
+#
+pgoclanghce:
+	$(CLANGCC) $(CLANGFLAGS) $(SRC) $(DEFS) -DPURE_HCE -fprofile-generate -o $(EXE)
+	LLVM_PROFILE_FILE=igel.profraw ./$(EXE) bench 15 > pgo.out 2>&1
+	$(PROFDATA) merge -output=igel.profdata igel.profraw
+	$(CLANGCC) $(CLANGFLAGS) $(SRC) $(DEFS) -DPURE_HCE -fprofile-use=igel.profdata -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date -o $(EXE)
+	@rm -rf igel.profraw igel.profdata pgo.out default*.profraw
+
 download-network:
 	mkdir weights; \
 	echo "Downloading latest Igel network with wget"; wget -P weights https://github.com/vshcherbyna/igel/releases/download/3.5.0/c049c117;

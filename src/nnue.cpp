@@ -19,10 +19,12 @@
 
 #include "nnue.h"
 #include "position.h"
+#include "hce.h"
 #include "utils.h"
 #include <immintrin.h>
 #include <streambuf>
 
+#if !defined(PURE_HCE)
 #include "incbin/incbin.h"
 
 #if !defined(_MSC_VER)
@@ -31,17 +33,25 @@ INCBIN(EmbeddedNNUE, EVALFILE);
 
 /*static */std::unique_ptr<Transformer> Evaluator::m_transformer;
 /*static */std::vector<std::unique_ptr<LayeredNetwork>> Evaluator::m_networks;
+#endif // PURE_HCE
 
 EVAL Evaluator::evaluate(Position & pos)
 {
+#if defined(PURE_HCE)
+    // Pure hand-crafted evaluation, selected at compile time with -DPURE_HCE.
+    Pair base = Hce::baseScore(pos);
+    return Hce::evaluate(pos, base);
+#else
     EVAL scale = 600 + 20 * pos.nonPawnMaterial() / 1024;
     EVAL v = static_cast<EVAL>(NnueEvaluate(pos) * scale / 1024);
 
     v = v * (208 - pos.Fifty()) / 208;
 
     return v + Tempo;
+#endif
 }
 
+#if !defined(PURE_HCE)
 void Evaluator::initEval()
 {
 #if !defined(_MSC_VER)
@@ -689,3 +699,4 @@ inline std::uint8_t* ClippedReLU<WeightScaleBits, InputDimensions>::propagateSqr
 
     return output;
 }
+#endif // PURE_HCE

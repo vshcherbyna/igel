@@ -1,0 +1,1294 @@
+/*
+*  Igel - a UCI chess playing engine derived from GreKo 2018.01
+*
+*  Copyright (C) 2002-2018 Vladimir Medvedev <vrm@bk.ru> (GreKo author)
+*  Copyright (C) 2018-2023 Volodymyr Shcherbyna <volodymyr@shcherbyna.com>
+*
+*  Igel is free software: you can redistribute it and/or modify
+*  it under the terms of the GNU General Public License as published by
+*  the Free Software Foundation, either version 3 of the License, or
+*  (at your option) any later version.
+*
+*  Igel is distributed in the hope that it will be useful,
+*  but WITHOUT ANY WARRANTY; without even the implied warranty of
+*  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*  GNU General Public License for more details.
+*
+*  You should have received a copy of the GNU General Public License
+*  along with Igel.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+#include "hce.h"
+#include "position.h"
+#include "bitboards.h"
+#include "nnue.h"
+#include "utils.h"
+
+#include <cassert>
+#include <cstring>
+#include <cstdlib>
+#include <string>
+#include <vector>
+
+namespace {
+
+enum Param
+{
+    Mid_Pawn, End_Pawn,
+    Mid_Knight, End_Knight,
+    Mid_Bishop, End_Bishop,
+    Mid_Rook, End_Rook,
+    Mid_Queen, End_Queen,
+    Mid_King, End_King,
+    Mid_PawnPassed, End_PawnPassed,
+    Mid_PawnPassedBlocked, End_PawnPassedBlocked,
+    Mid_PawnPassedFree, End_PawnPassedFree,
+    Mid_PawnConnectedFree, End_PawnConnectedFree,
+    Mid_PawnDoubled, End_PawnDoubled,
+    Mid_PawnIsolated, End_PawnIsolated,
+    Mid_PawnDoubledIsolated, End_PawnDoubledIsolated,
+    Mid_PawnBlocked, End_PawnBlocked,
+    Mid_PawnFence, End_PawnFence,
+    Mid_PawnBackwards, End_PawnBackwards,
+    Mid_PawnOnBiColor, End_PawnOnBiColor,
+    Mid_KnightStrong, End_KnightStrong,
+    Mid_KnightForpost, End_KnightForpost,
+    Mid_KnightKingDist, End_KnightKingDist,
+    Mid_KnightAndQueen, End_KnightAndQueen,
+    Mid_BishopStrong, End_BishopStrong,
+    Mid_BishopMobility, End_BishopMobility,
+    Mid_KnightMobility, End_KnightMobility,
+    Mid_BishopKingDist, End_BishopKingDist,
+    Mid_BishopAndRook, End_BishopAndRook,
+    Mid_RookMobility, End_RookMobility,
+    Mid_QueenMobility, End_QueenMobility,
+    Mid_RookOpen, End_RookOpen,
+    Mid_Rook7th, End_Rook7th,
+    Mid_RookKingDist, End_RookKingDist,
+    Mid_Queen7th, End_Queen7th,
+    Mid_QueenKingDist, End_QueenKingDist,
+    Mid_KingPawnShield, End_KingPawnShield,
+    Mid_KingPawnStorm, End_KingPawnStorm,
+    Mid_KingPassedDist, End_KingPassedDist,
+    Mid_AttackKingZone, End_AttackKingZone,
+    Mid_AttackStronger, End_AttackStronger,
+    Mid_AttackCenter, End_AttackCenter,
+    Mid_ConnectedRooks, End_ConnectedRooks,
+    Mid_BishopsPair, End_BishopsPair,
+    Mid_RooksPair, End_RooksPair,
+    Mid_KnightsPair, End_KnightsPair,
+    Mid_QueenSafeChecksPenalty, End_QueenSafeChecksPenalty,
+    Mid_RookSafeChecksPenalty, End_RookSafeChecksPenalty,
+    Mid_BishopSafeChecksPenalty, End_BishopSafeChecksPenalty,
+    Mid_KnightSafeChecksPenalty, End_KnightSafeChecksPenalty,
+    Mid_LesserAttacksOnRooks, End_LesserAttacksOnRooks,
+    Mid_LesserAttacksOnQueen, End_LesserAttacksOnQueen,
+    Mid_MajorAttacksOnMinors, End_MajorAttacksOnMinors,
+    Mid_MinorAttacksOnMinors, End_MinorAttacksOnMinors,
+    Mid_RookTrapped, End_RookTrapped,
+    KingDangerInit,
+    KingDangerWeakSquares,
+    KingDangerKnightChecks,
+    KingDangerBishopChecks,
+    KingDangerRookChecks,
+    KingDangerQueenChecks,
+    KingDangerNoEnemyQueen,
+    Mid_HangingPiece, End_HangingPiece,
+    Mid_WeakPawn, End_WeakPawn,
+    Mid_RestrictedPiece, End_RestrictedPiece,
+    Mid_SafePawnThreat, End_SafePawnThreat,
+    Mid_RookOnQueenFile, End_RookOnQueenFile,
+    Mid_BishopAttackOnKingRing, End_BishopAttackOnKingRing,
+    NUM_LINES
+};
+
+struct Line
+{
+    Line() : name(""), start(0), len(0) {}
+    Line(const std::string& n, int l) : name(n), start(0), len(l) {}
+
+    std::string name;
+    int start;
+    int len;
+};
+
+static const char* weightsFile[] = {
+    #include "hce_weights.txt"
+    ""
+};
+
+std::vector<int> evalWeights;
+int NUM_PARAMS = 0;
+
+Line lines[NUM_LINES] =
+{
+    Line("Mid_Pawn", 64), Line("End_Pawn", 64),
+    Line("Mid_Knight", 64), Line("End_Knight", 64),
+    Line("Mid_Bishop", 64), Line("End_Bishop", 64),
+    Line("Mid_Rook", 64), Line("End_Rook", 64),
+    Line("Mid_Queen", 64), Line("End_Queen", 64),
+    Line("Mid_King", 64), Line("End_King", 64),
+    Line("Mid_PawnPassed", 64), Line("End_PawnPassed", 64),
+    Line("Mid_PawnPassedBlocked", 64), Line("End_PawnPassedBlocked", 64),
+    Line("Mid_PawnPassedFree", 64), Line("End_PawnPassedFree", 64),
+    Line("Mid_PawnConnectedFree", 64), Line("End_PawnConnectedFree", 64),
+    Line("Mid_PawnDoubled", 64), Line("End_PawnDoubled", 64),
+    Line("Mid_PawnIsolated", 64), Line("End_PawnIsolated", 64),
+    Line("Mid_PawnDoubledIsolated", 64), Line("End_PawnDoubledIsolated", 64),
+    Line("Mid_PawnBlocked", 64), Line("End_PawnBlocked", 64),
+    Line("Mid_PawnFence", 64), Line("End_PawnFence", 64),
+    Line("Mid_PawnBackwards", 64), Line("End_PawnBackwards", 64),
+    Line("Mid_PawnOnBiColor", 1), Line("End_PawnOnBiColor", 1),
+    Line("Mid_KnightStrong", 64), Line("End_KnightStrong", 64),
+    Line("Mid_KnightForpost", 64), Line("End_KnightForpost", 64),
+    Line("Mid_KnightKingDist", 10), Line("End_KnightKingDist", 10),
+    Line("Mid_KnightAndQueen", 1), Line("End_KnightAndQueen", 1),
+    Line("Mid_BishopStrong", 64), Line("End_BishopStrong", 64),
+    Line("Mid_BishopMobility", 14), Line("End_BishopMobility", 14),
+    Line("Mid_KnightMobility", 9), Line("End_KnightMobility", 9),
+    Line("Mid_BishopKingDist", 10), Line("End_BishopKingDist", 10),
+    Line("Mid_BishopAndRook", 1), Line("End_BishopAndRook", 1),
+    Line("Mid_RookMobility", 15), Line("End_RookMobility", 15),
+    Line("Mid_QueenMobility", 28), Line("End_QueenMobility", 28),
+    Line("Mid_RookOpen", 1), Line("End_RookOpen", 1),
+    Line("Mid_Rook7th", 1), Line("End_Rook7th", 1),
+    Line("Mid_RookKingDist", 10), Line("End_RookKingDist", 10),
+    Line("Mid_Queen7th", 1), Line("End_Queen7th", 1),
+    Line("Mid_QueenKingDist", 10), Line("End_QueenKingDist", 10),
+    Line("Mid_KingPawnShield", 10), Line("End_KingPawnShield", 10),
+    Line("Mid_KingPawnStorm", 10), Line("End_KingPawnStorm", 10),
+    Line("Mid_KingPassedDist", 10), Line("End_KingPassedDist", 10),
+    Line("Mid_AttackKingZone", 4), Line("End_AttackKingZone", 4),
+    Line("Mid_AttackStronger", 1), Line("End_AttackStronger", 1),
+    Line("Mid_AttackCenter", 1), Line("End_AttackCenter", 1),
+    Line("Mid_ConnectedRooks", 1), Line("End_ConnectedRooks", 1),
+    Line("Mid_BishopsPair", 1), Line("End_BishopsPair", 1),
+    Line("Mid_RooksPair", 1), Line("End_RooksPair", 1),
+    Line("Mid_KnightsPair", 1), Line("End_KnightsPair", 1),
+    Line("Mid_QueenSafeChecksPenalty", 1), Line("End_QueenSafeChecksPenalty", 1),
+    Line("Mid_RookSafeChecksPenalty", 1), Line("End_RookSafeChecksPenalty", 1),
+    Line("Mid_BishopSafeChecksPenalty", 1), Line("End_BishopSafeChecksPenalty", 1),
+    Line("Mid_KnightSafeChecksPenalty", 1), Line("End_KnightSafeChecksPenalty", 1),
+    Line("Mid_LesserAttacksOnRooks", 1), Line("End_LesserAttacksOnRooks", 1),
+    Line("Mid_LesserAttacksOnQueen", 1), Line("End_LesserAttacksOnQueen", 1),
+    Line("Mid_MajorAttacksOnMinors", 1), Line("End_MajorAttacksOnMinors", 1),
+    Line("Mid_MinorAttacksOnMinors", 1), Line("End_MinorAttacksOnMinors", 1),
+    Line("Mid_RookTrapped", 1), Line("End_RookTrapped", 1),
+    Line("KingDangerInit", 1),
+    Line("KingDangerWeakSquares", 1),
+    Line("KingDangerKnightChecks", 1),
+    Line("KingDangerBishopChecks", 1),
+    Line("KingDangerRookChecks", 1),
+    Line("KingDangerQueenChecks", 1),
+    Line("KingDangerNoEnemyQueen", 1),
+    Line("Mid_HangingPiece", 1), Line("End_HangingPiece", 1),
+    Line("Mid_WeakPawn", 1), Line("End_WeakPawn", 1),
+    Line("Mid_RestrictedPiece", 1), Line("End_RestrictedPiece", 1),
+    Line("Mid_SafePawnThreat", 1), Line("End_SafePawnThreat", 1),
+    Line("Mid_RookOnQueenFile", 1), Line("End_RookOnQueenFile", 1),
+    Line("Mid_BishopAttackOnKingRing", 1), Line("End_BishopAttackOnKingRing", 1)
+};
+
+void initParams()
+{
+    for (int i = 1; i < NUM_LINES; ++i)
+        lines[i].start = lines[i - 1].start + lines[i - 1].len;
+
+    NUM_PARAMS = lines[NUM_LINES - 1].start + lines[NUM_LINES - 1].len;
+}
+
+void setDefaultWeights(std::vector<int>& x)
+{
+    x.resize(NUM_PARAMS);
+
+    for (auto w = 0; strcmp(weightsFile[w], ""); w++) {
+        std::vector<std::string> tokens;
+        std::string s = weightsFile[w];
+        Split(s, tokens, " ");
+        if (tokens.size() < 2)
+            continue;
+
+        for (auto i = 0; i < NUM_LINES; ++i) {
+            const Line& line = lines[i];
+            if (tokens[0] == line.name) {
+                for (int j = 0; j < line.len; ++j)
+                    x[line.start + j] = atoi(tokens[1 + j].c_str());
+            }
+        }
+    }
+}
+
+int refParam(int tag, int f)
+{
+    int* ptr = &(evalWeights[lines[tag].start]);
+    return ptr[f];
+}
+
+#define REFERENCE_PARAM(n)       \
+    n.mid = refParam(Mid_##n, 0);\
+    n.end = refParam(End_##n, 0);
+
+Pair pieceSquareTables[14][64];
+
+Pair passedPawn[64];
+Pair passedPawnBlocked[64];
+Pair passedPawnFree[64];
+Pair passedPawnConnected[64];
+Pair pawnDoubled[64];
+Pair pawnIsolated[64];
+Pair pawnDoubledIsolated[64];
+Pair pawnBlocked[64];
+Pair pawnFence[64];
+Pair pawnBackwards[64];
+Pair pawnOnBiColor;
+
+Pair knightMobility[9];
+Pair bishopMobility[14];
+Pair rookMobility[15];
+Pair queenMobility[28];
+
+Pair knightStrong[64];
+Pair knightForepost[64];
+Pair knightKingDistance[10];
+Pair bishopStrong[64];
+Pair bishopKingDistance[10];
+Pair rookOnOpenFile;
+Pair rookOn7thRank;
+Pair rookKingDistance[10];
+Pair queenOn7thRank;
+Pair queenKingDistance[10];
+Pair rooksConnected;
+Pair RookOnQueenFile;
+Pair RookTrapped;
+Pair HangingPiece;
+Pair WeakPawn;
+Pair RestrictedPiece;
+Pair SafePawnThreat;
+Pair BishopAttackOnKingRing;
+
+int pKingDangerInit         = 0;
+int pKingDangerWeakSquares  = 0;
+int pKingDangerKnightChecks = 0;
+int pKingDangerBishopChecks = 0;
+int pKingDangerRookChecks   = 0;
+int pKingDangerQueenChecks  = 0;
+int pKingDangerNoEnemyQueen = 0;
+int KingAttackerWeight[]    = { 16, 6, 10, 8 };
+
+Pair kingPawnShield[10];
+Pair kingPawnStorm[10];
+Pair kingPasserDistance[10];
+Pair attackKingZone[8];
+Pair strongAttack;
+Pair centerAttack;
+Pair queenSafeChecksPenalty;
+Pair rookSafeChecksPenalty;
+Pair bishopSafeChecksPenalty;
+Pair knightSafeChecksPenalty;
+
+Pair rooksPair;
+Pair bishopsPair;
+Pair knightsPair;
+Pair knightAndQueen;
+Pair bishopAndRook;
+
+Pair lesserAttacksOnRooks;
+Pair lesserAttacksOnQueen;
+Pair majorAttacksOnMinors;
+Pair minorAttacksOnMinors;
+
+void buildTables(const std::vector<int>& x)
+{
+    evalWeights = x;
+
+    for (FLD f = 0; f < 64; ++f) {
+        if (Row(f) != 0 && Row(f) != 7)
+        {
+            pieceSquareTables[PW][f].mid = VAL_P + refParam(Mid_Pawn, f);
+            pieceSquareTables[PW][f].end = VAL_P + refParam(End_Pawn, f);
+
+            passedPawn[f].mid = refParam(Mid_PawnPassed, f);
+            passedPawn[f].end = refParam(End_PawnPassed, f);
+
+            passedPawnBlocked[f].mid = refParam(Mid_PawnPassedBlocked, f);
+            passedPawnBlocked[f].end = refParam(End_PawnPassedBlocked, f);
+
+            passedPawnFree[f].mid = refParam(Mid_PawnPassedFree, f);
+            passedPawnFree[f].end = refParam(End_PawnPassedFree, f);
+
+            passedPawnConnected[f].mid = refParam(Mid_PawnConnectedFree, f);
+            passedPawnConnected[f].end = refParam(End_PawnConnectedFree, f);
+
+            pawnDoubled[f].mid = refParam(Mid_PawnDoubled, f);
+            pawnDoubled[f].end = refParam(End_PawnDoubled, f);
+
+            pawnIsolated[f].mid = refParam(Mid_PawnIsolated, f);
+            pawnIsolated[f].end = refParam(End_PawnIsolated, f);
+
+            pawnDoubledIsolated[f].mid = refParam(Mid_PawnDoubledIsolated, f);
+            pawnDoubledIsolated[f].end = refParam(End_PawnDoubledIsolated, f);
+
+            pawnBlocked[f].mid = refParam(Mid_PawnBlocked, f);
+            pawnBlocked[f].end = refParam(End_PawnBlocked, f);
+
+            pawnFence[f].mid = refParam(Mid_PawnFence, f);
+            pawnFence[f].end = refParam(End_PawnFence, f);
+
+            pawnBackwards[f].mid = refParam(Mid_PawnBackwards, f);
+            pawnBackwards[f].end = refParam(End_PawnBackwards, f);
+        }
+        else
+        {
+            pieceSquareTables[PW][f]    = VAL_P;
+            passedPawn[f]               = 0;
+            passedPawnBlocked[f]        = 0;
+            passedPawnFree[f]           = 0;
+            passedPawnConnected[f]      = 0;
+            pawnDoubled[f]              = 0;
+            pawnIsolated[f]             = 0;
+            pawnDoubledIsolated[f]      = 0;
+            pawnBlocked[f]              = 0;
+            pawnFence[f]                = 0;
+            pawnBackwards[f]            = 0;
+        }
+
+        pieceSquareTables[NW][f].mid = VAL_N + refParam(Mid_Knight, f);
+        pieceSquareTables[NW][f].end = VAL_N + refParam(End_Knight, f);
+
+        pieceSquareTables[BW][f].mid = VAL_B + refParam(Mid_Bishop, f);
+        pieceSquareTables[BW][f].end = VAL_B + refParam(End_Bishop, f);
+
+        pieceSquareTables[RW][f].mid = VAL_R + refParam(Mid_Rook, f);
+        pieceSquareTables[RW][f].end = VAL_R + refParam(End_Rook, f);
+
+        pieceSquareTables[QW][f].mid = VAL_Q + refParam(Mid_Queen, f);
+        pieceSquareTables[QW][f].end = VAL_Q + refParam(End_Queen, f);
+
+        pieceSquareTables[KW][f].mid = VAL_K + refParam(Mid_King, f);
+        pieceSquareTables[KW][f].end = VAL_K + refParam(End_King, f);
+
+        pieceSquareTables[PB][FLIP[BLACK][f]] = -pieceSquareTables[PW][f];
+        pieceSquareTables[NB][FLIP[BLACK][f]] = -pieceSquareTables[NW][f];
+        pieceSquareTables[BB][FLIP[BLACK][f]] = -pieceSquareTables[BW][f];
+        pieceSquareTables[RB][FLIP[BLACK][f]] = -pieceSquareTables[RW][f];
+        pieceSquareTables[QB][FLIP[BLACK][f]] = -pieceSquareTables[QW][f];
+        pieceSquareTables[KB][FLIP[BLACK][f]] = -pieceSquareTables[KW][f];
+
+        knightStrong[f].mid = refParam(Mid_KnightStrong, f);
+        knightStrong[f].end = refParam(End_KnightStrong, f);
+
+        bishopStrong[f].mid = refParam(Mid_BishopStrong, f);
+        bishopStrong[f].end = refParam(End_BishopStrong, f);
+
+        knightForepost[f].mid = refParam(Mid_KnightForpost, f);
+        knightForepost[f].end = refParam(End_KnightForpost, f);
+    }
+
+    for (int m = 0; m < 9; ++m) {
+        knightMobility[m].mid = refParam(Mid_KnightMobility, m);
+        knightMobility[m].end = refParam(End_KnightMobility, m);
+    }
+
+    for (int m = 0; m < 14; ++m) {
+        bishopMobility[m].mid = refParam(Mid_BishopMobility, m);
+        bishopMobility[m].end = refParam(End_BishopMobility, m);
+    }
+
+    for (int m = 0; m < 15; ++m) {
+        rookMobility[m].mid = refParam(Mid_RookMobility, m);
+        rookMobility[m].end = refParam(End_RookMobility, m);
+    }
+
+    for (int m = 0; m < 28; ++m) {
+        queenMobility[m].mid = refParam(Mid_QueenMobility, m);
+        queenMobility[m].end = refParam(End_QueenMobility, m);
+    }
+
+    rookOnOpenFile.mid = refParam(Mid_RookOpen, 0);
+    rookOnOpenFile.end = refParam(End_RookOpen, 0);
+
+    rookOn7thRank.mid = refParam(Mid_Rook7th, 0);
+    rookOn7thRank.end = refParam(End_Rook7th, 0);
+
+    queenOn7thRank.mid = refParam(Mid_Queen7th, 0);
+    queenOn7thRank.end = refParam(End_Queen7th, 0);
+
+    for (int d = 0; d < 10; ++d) {
+        queenKingDistance[d].mid = refParam(Mid_QueenKingDist, d);
+        queenKingDistance[d].end = refParam(End_QueenKingDist, d);
+
+        knightKingDistance[d].mid = refParam(Mid_KnightKingDist, d);
+        knightKingDistance[d].end = refParam(End_KnightKingDist, d);
+
+        bishopKingDistance[d].mid = refParam(Mid_BishopKingDist, d);
+        bishopKingDistance[d].end = refParam(End_BishopKingDist, d);
+
+        rookKingDistance[d].mid = refParam(Mid_RookKingDist, d);
+        rookKingDistance[d].end = refParam(End_RookKingDist, d);
+
+        kingPasserDistance[d].mid = refParam(Mid_KingPassedDist, d);
+        kingPasserDistance[d].end = refParam(End_KingPassedDist, d);
+    }
+
+    for (int p = 0; p < 10; ++p) {
+        kingPawnShield[p].mid = refParam(Mid_KingPawnShield, p);
+        kingPawnShield[p].end = refParam(End_KingPawnShield, p);
+
+        kingPawnStorm[p].mid = refParam(Mid_KingPawnStorm, p);
+        kingPawnStorm[p].end = refParam(End_KingPawnStorm, p);
+    }
+
+    strongAttack.mid = refParam(Mid_AttackStronger, 0);
+    strongAttack.end = refParam(End_AttackStronger, 0);
+
+    centerAttack.mid = refParam(Mid_AttackCenter, 0);
+    centerAttack.end = refParam(End_AttackCenter, 0);
+
+    rooksConnected.mid = refParam(Mid_ConnectedRooks, 0);
+    rooksConnected.end = refParam(End_ConnectedRooks, 0);
+
+    bishopsPair.mid = refParam(Mid_BishopsPair, 0);
+    bishopsPair.end = refParam(End_BishopsPair, 0);
+
+    rooksPair.mid = refParam(Mid_RooksPair, 0);
+    rooksPair.end = refParam(End_RooksPair, 0);
+
+    knightsPair.mid = refParam(Mid_KnightsPair, 0);
+    knightsPair.end = refParam(End_KnightsPair, 0);
+
+    pawnOnBiColor.mid = refParam(Mid_PawnOnBiColor, 0);
+    pawnOnBiColor.end = refParam(End_PawnOnBiColor, 0);
+
+    knightAndQueen.mid = refParam(Mid_KnightAndQueen, 0);
+    knightAndQueen.end = refParam(End_KnightAndQueen, 0);
+
+    bishopAndRook.mid = refParam(Mid_BishopAndRook, 0);
+    bishopAndRook.end = refParam(End_BishopAndRook, 0);
+
+    for (int att = 0; att < 4; ++att) {
+        attackKingZone[att].mid = refParam(Mid_AttackKingZone, att);
+        attackKingZone[att].end = refParam(End_AttackKingZone, att);
+    }
+
+    queenSafeChecksPenalty.mid = refParam(Mid_QueenSafeChecksPenalty, 0);
+    queenSafeChecksPenalty.end = refParam(End_QueenSafeChecksPenalty, 0);
+
+    rookSafeChecksPenalty.mid = refParam(Mid_RookSafeChecksPenalty, 0);
+    rookSafeChecksPenalty.end = refParam(End_RookSafeChecksPenalty, 0);
+
+    bishopSafeChecksPenalty.mid = refParam(Mid_BishopSafeChecksPenalty, 0);
+    bishopSafeChecksPenalty.end = refParam(End_BishopSafeChecksPenalty, 0);
+
+    knightSafeChecksPenalty.mid = refParam(Mid_KnightSafeChecksPenalty, 0);
+    knightSafeChecksPenalty.end = refParam(End_KnightSafeChecksPenalty, 0);
+
+    lesserAttacksOnRooks.mid = refParam(Mid_LesserAttacksOnRooks, 0);
+    lesserAttacksOnRooks.end = refParam(End_LesserAttacksOnRooks, 0);
+
+    lesserAttacksOnQueen.mid = refParam(Mid_LesserAttacksOnQueen, 0);
+    lesserAttacksOnQueen.end = refParam(End_LesserAttacksOnQueen, 0);
+
+    majorAttacksOnMinors.mid = refParam(Mid_MajorAttacksOnMinors, 0);
+    majorAttacksOnMinors.end = refParam(End_MajorAttacksOnMinors, 0);
+
+    minorAttacksOnMinors.mid = refParam(Mid_MinorAttacksOnMinors, 0);
+    minorAttacksOnMinors.end = refParam(End_MinorAttacksOnMinors, 0);
+
+    pKingDangerInit         = refParam(KingDangerInit, 0);
+    pKingDangerWeakSquares  = refParam(KingDangerWeakSquares, 0);
+    pKingDangerKnightChecks = refParam(KingDangerKnightChecks, 0);
+    pKingDangerBishopChecks = refParam(KingDangerBishopChecks, 0);
+    pKingDangerRookChecks   = refParam(KingDangerRookChecks, 0);
+    pKingDangerQueenChecks  = refParam(KingDangerQueenChecks, 0);
+    pKingDangerNoEnemyQueen = refParam(KingDangerNoEnemyQueen, 0);
+
+    REFERENCE_PARAM(RookTrapped)
+    REFERENCE_PARAM(HangingPiece)
+    REFERENCE_PARAM(WeakPawn)
+    REFERENCE_PARAM(RestrictedPiece)
+    REFERENCE_PARAM(SafePawnThreat)
+    REFERENCE_PARAM(RookOnQueenFile)
+    REFERENCE_PARAM(BishopAttackOnKingRing)
+}
+
+}
+
+void Hce::init()
+{
+    initParams();
+    setDefaultWeights(evalWeights);
+    buildTables(evalWeights);
+}
+
+Pair Hce::baseScore(Position& pos)
+{
+    Pair score;
+    U64 occ = pos.BitsAll();
+
+    while (occ) {
+        FLD f = PopLSB(occ);
+        score += pieceSquareTables[pos[f]][f];
+    }
+
+    return score;
+}
+
+EVAL Hce::evaluate(Position& pos, const Pair& base)
+{
+    Hce hce;
+    return hce.run(pos, base);
+}
+
+EVAL Hce::run(Position& pos, Pair score)
+{
+    U64 kingZone[2];
+    int attackKing[2];
+    PawnHashEntry  pawnEntry;
+    PawnHashEntry* ps = &pawnEntry;
+    U64 occ;
+
+    memset(m_pieceAttacks,         0, sizeof(m_pieceAttacks));
+    memset(m_pieceAttacks2,        0, sizeof(m_pieceAttacks2));
+    memset(m_lesserAttacksOnRooks, 0, sizeof(m_lesserAttacksOnRooks));
+    memset(m_lesserAttacksOnQueen, 0, sizeof(m_lesserAttacksOnQueen));
+    memset(m_majorAttacksOnMinors, 0, sizeof(m_majorAttacksOnMinors));
+    memset(m_minorAttacksOnMinors, 0, sizeof(m_minorAttacksOnMinors));
+    memset(m_kingAttackersWeight,  0, sizeof(m_kingAttackersWeight));
+    memset(m_kingAttackers,        0, sizeof(m_kingAttackers));
+    memset(attackKing,             0, sizeof(attackKing));
+
+    kingZone[0] = BB_KING_ATTACKS[pos.King(WHITE)];
+    kingZone[1] = BB_KING_ATTACKS[pos.King(BLACK)];
+
+    occ = pos.BitsAll();
+
+    score += evaluatePawns(pos, occ, &ps);
+    score += evaluatePawnsAttacks(pos);
+    score += evaluateKnights(pos, kingZone, attackKing, ps);
+    score += evaluateBishops(pos, occ, kingZone, attackKing, ps);
+    score += evaluateRooks(pos, occ, kingZone, attackKing, ps);
+    score += evaluateQueens(pos, occ, kingZone, attackKing);
+    score += evaluateKings(pos, occ, ps, attackKing);
+    score += evaluatePiecesPairs(pos);
+    score += evaluateKingsAttackers(pos, attackKing);
+    score += evaluateThreats(pos);
+
+    auto mid = pos.MatIndex(WHITE) + pos.MatIndex(BLACK);
+    auto end = 64 - mid;
+
+    EVAL eval = (score.mid * mid + score.end * end) / 64;
+
+    eval += pos.Side() == WHITE ? Tempo : -Tempo;
+
+    if (pos.Side() == BLACK)
+        eval = -eval;
+
+    return eval;
+}
+
+Pair Hce::evaluatePawns(Position& pos, U64 occ, PawnHashEntry** pps)
+{
+    PawnHashEntry& ps = **pps;
+    ps.Read(pos);
+    *pps = &ps;
+
+    Pair score{};
+
+    score += evaluatePawn(pos, WHITE, occ, &ps);
+    score -= evaluatePawn(pos, BLACK, occ, &ps);
+
+    assert((score.mid >= -2000 && score.mid <= 2000) && (score.end >= -2000 && score.end <= 2000));
+
+    return score;
+}
+
+Pair Hce::evaluatePawn(Position& pos, COLOR side, U64 occ, PawnHashEntry* ps)
+{
+    Pair score{};
+
+    auto opp   = side ^ 1;
+    auto pawns = pos.Bits(PAWN | side);
+    auto x     = ps->m_passedPawns[side];
+
+    m_pieceAttacks[side]  = m_pieceAttacks[PAWN | side] = side == WHITE ? (((pawns << 9) & L1MASK) | ((pawns << 7) & R1MASK)) : (((pawns >> 9) & R1MASK) | ((pawns >> 7) & L1MASK));
+
+    while (x) {
+        auto f = PopLSB(x);
+        score += passedPawn[FLIP[side][f]];
+
+        auto dir = side == WHITE ? DIR_U : DIR_D;
+
+        // check if it is a blocked or a free pass pawn
+        if (pos[f - 8 + 16 * side] != NOPIECE)
+            score += passedPawnBlocked[FLIP[side][f]];
+        else if ((BB_DIR[f][dir] & occ) == 0)
+            score += passedPawnFree[FLIP[side][f]];
+
+        // check if it is a connected pass pawn
+        if ((BB_PAWN_CONNECTED[f] & ps->m_passedPawns[side]))
+            score += passedPawnConnected[FLIP[side][f]];
+
+        score += kingPasserDistance[distance(f - 8 + 16 * side, pos.King(opp))];
+        score -= kingPasserDistance[distance(f - 8 + 16 * side, pos.King(side))];
+    }
+
+    x = ps->m_doubledPawns[side];
+    while (x)
+        score += pawnDoubled[FLIP[side][PopLSB(x)]];
+
+    x = ps->m_isolatedPawns[side];
+    while (x)
+        score += pawnIsolated[FLIP[side][PopLSB(x)]];
+
+    x = ps->m_doubledPawns[side] & ps->m_isolatedPawns[side];
+    while (x)
+        score += pawnDoubledIsolated[FLIP[side][PopLSB(x)]];
+
+    x = ps->m_backwardPawns & pos.Bits(PAWN | side);
+    while (x)
+        score += pawnBackwards[FLIP[side][PopLSB(x)]];
+
+    auto direction = side == WHITE ? Down(occ) : Up(occ);
+    x = pos.Bits(PAWN | side) & direction;
+    while (x)
+        score += pawnBlocked[FLIP[side][PopLSB(x)]];
+
+    direction = side == WHITE ? Down(pos.Bits(PB)) : Up(pos.Bits(PW));
+    x = pos.Bits(PAWN | side) & direction;
+    while (x)
+        score += pawnFence[FLIP[side][PopLSB(x)]];
+
+    if (pos.Count(BISHOP | side) == 1) {
+        U64 mask = (pos.Bits(BISHOP | side) & BB_WHITE_FIELDS) ? BB_WHITE_FIELDS : BB_BLACK_FIELDS;
+        score += countBits(pos.Bits(PAWN | side) & mask) * pawnOnBiColor;
+    }
+
+    return score;
+}
+
+Pair Hce::evaluatePawnsAttacks(Position& pos)
+{
+    Pair score{};
+
+    score += evaluatePawnAttacks(pos, WHITE);
+    score -= evaluatePawnAttacks(pos, BLACK);
+
+    assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
+
+    return score;
+}
+
+Pair Hce::evaluatePawnAttacks(Position& pos, COLOR side)
+{
+    Pair score{};
+
+    auto opp = side ^ 1;
+    auto x   = pos.Bits(PAWN | side);
+    U64  y   = side == WHITE ? UpRight(x) | UpLeft(x) : DownRight(x) | DownLeft(x);
+
+    y &= (pos.Bits(KNIGHT | opp) | pos.Bits(BISHOP | opp) | pos.Bits(ROOK | opp) | pos.Bits(QUEEN | opp));
+    score += countBits(y) * strongAttack;
+
+    auto y2 = y & BB_CENTER[side];
+    score += countBits(y2) * centerAttack;
+
+    return score;
+}
+
+Pair Hce::evaluateKnights(Position& pos, U64 kingZone[], int attackers[], PawnHashEntry* ps)
+{
+    Pair score{};
+
+    score += evaluateKnight(pos, WHITE, kingZone, attackers, ps);
+    score -= evaluateKnight(pos, BLACK, kingZone, attackers, ps);
+
+    assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
+
+    return score;
+}
+
+Pair Hce::evaluateKnight(Position& pos, COLOR side, U64 kingZone[], int attackers[], PawnHashEntry* ps)
+{
+    Pair score{};
+
+    auto opp = side ^ 1;
+    auto x   = pos.Bits(KNIGHT | side);
+
+    while (x) {
+        auto f    = PopLSB(x);
+        auto dist = distance(f, pos.King(opp));
+
+        score += knightKingDistance[dist];
+
+        auto mobility = BB_KNIGHT_ATTACKS[f];
+        auto y        = mobility;
+
+        m_pieceAttacks2[side] |= m_pieceAttacks[side] & y;
+        m_pieceAttacks[side]  |= m_pieceAttacks[KNIGHT | side] |= y;
+
+        if (y & kingZone[opp]) {
+            attackers[side]++;
+            m_kingAttackers[side]++;
+            m_kingAttackersWeight[side] += KingAttackerWeight[0];
+        }
+
+        m_lesserAttacksOnRooks[side] += countBits(y & pos.Bits(ROOK  | opp));
+        m_lesserAttacksOnQueen[side] += countBits(y & pos.Bits(QUEEN | opp));
+        m_minorAttacksOnMinors[side] += countBits(y & (pos.Bits(KNIGHT | opp) | pos.Bits(BISHOP | opp)));
+
+        mobility &= ~pos.BitsAll(); // exclude enemy/friendly occupied squares
+        mobility &= ~m_pieceAttacks[PAWN | opp]; // exclude attacks by enemy pawns
+        score += knightMobility[countBits(mobility)];
+
+        y &= (pos.Bits(ROOK | opp) | pos.Bits(QUEEN | opp));
+        score += countBits(y) * strongAttack;
+
+        auto y2 = y & BB_CENTER[side];
+        score += countBits(y2) * centerAttack;
+
+        if (BB_SINGLE[f] & ps->m_strongFields[side]) {
+            score += knightStrong[FLIP[side][f]];
+            auto file = Col(f) + 1;
+            if (ps->m_ranks[file][side] == 7 * side) {
+                auto dir = side == WHITE ? BB_DIR[f][DIR_D] : BB_DIR[f][DIR_U];
+                if (dir & pos.Bits(KNIGHT | side))
+                    score += knightForepost[FLIP[side][f]];
+            }
+        }
+    }
+
+    return score;
+}
+
+Pair Hce::evaluateBishops(Position& pos, U64 occ, U64 kingZone[], int attackers[], PawnHashEntry* ps)
+{
+    Pair score{};
+
+    score += evaluateBishop(pos, WHITE, occ, kingZone, attackers, ps);
+    score -= evaluateBishop(pos, BLACK, occ, kingZone, attackers, ps);
+
+    assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
+
+    return score;
+}
+
+Pair Hce::evaluateBishop(Position& pos, COLOR side, U64 occ, U64 kingZone[], int attackers[], PawnHashEntry* ps)
+{
+    Pair score{};
+
+    auto opp = side ^ 1;
+    auto x   = pos.Bits(BISHOP | side);
+
+    while (x) {
+        auto f    = PopLSB(x);
+        auto dist = distance(f, pos.King(opp));
+
+        score += bishopKingDistance[dist];
+
+        auto mobility = BishopAttacks(f, occ);
+        auto y        = mobility;
+
+        m_pieceAttacks2[side] |= m_pieceAttacks[side] & y;
+        m_pieceAttacks[side]  |= m_pieceAttacks[BISHOP | side] |= y;
+
+        if (y & kingZone[opp]) {
+            attackers[side]++;
+            m_kingAttackers[side]++;
+            m_kingAttackersWeight[side] += KingAttackerWeight[1];
+            score += BishopAttackOnKingRing;
+        }
+
+        m_lesserAttacksOnRooks[side] += countBits(y & pos.Bits(ROOK  | opp));
+        m_lesserAttacksOnQueen[side] += countBits(y & pos.Bits(QUEEN | opp));
+        m_minorAttacksOnMinors[side] += countBits(y & (pos.Bits(KNIGHT | opp) | pos.Bits(BISHOP | opp)));
+
+        mobility &= ~pos.BitsAll(); // exclude enemy/friendly occupied squares
+        mobility &= ~m_pieceAttacks[PAWN | opp]; // exclude attacks by enemy pawns
+        score += bishopMobility[countBits(mobility)];
+
+        y &= (pos.Bits(ROOK | opp) | pos.Bits(QUEEN | opp));
+        score += countBits(y) * strongAttack;
+
+        auto y2 = y & BB_CENTER[side];
+        score += countBits(y2) * centerAttack;
+
+        if (BB_SINGLE[f] & ps->m_strongFields[side])
+            score += bishopStrong[FLIP[side][f]];
+    }
+
+    return score;
+}
+
+Pair Hce::evaluateRooks(Position& pos, U64 occ, U64 kingZone[], int attackers[], PawnHashEntry* ps)
+{
+    Pair score{};
+
+    score += evaluateRook(pos, WHITE, occ, kingZone, attackers, ps);
+    score -= evaluateRook(pos, BLACK, occ, kingZone, attackers, ps);
+
+    assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
+
+    return score;
+}
+
+Pair Hce::evaluateRook(Position& pos, COLOR side, U64 occ, U64 kingZone[], int attackers[], PawnHashEntry* ps)
+{
+    Pair score{};
+
+    auto opp = side ^ 1;
+    auto x   = pos.Bits(ROOK | side);
+
+    while (x) {
+        auto f      = PopLSB(x);
+        auto dist   = distance(f, pos.King(opp));
+
+        score += rookKingDistance[dist];
+
+        auto mobility = RookAttacks(f, occ);
+        auto y        = mobility;
+
+        m_pieceAttacks2[side] |= m_pieceAttacks[side] & y;
+        m_pieceAttacks[side]  |= m_pieceAttacks[ROOK | side] |= y;
+
+        if (y & kingZone[opp]) {
+            attackers[side]++;
+            m_kingAttackers[side]++;
+            m_kingAttackersWeight[side] += KingAttackerWeight[2];
+        }
+
+        m_lesserAttacksOnQueen[side] += countBits(y & pos.Bits(QUEEN | opp));
+        m_majorAttacksOnMinors[side] += countBits(y & (pos.Bits(BISHOP | opp) | pos.Bits(KNIGHT | opp)));
+
+        if (y & pos.Bits(ROOK | side))
+            score += rooksConnected;  // bonus for rook on the same file as another rook
+
+        if (y & pos.Bits(QUEEN | side))
+            score += RookOnQueenFile; // bonus for rook on the same file as queen
+
+        mobility &= ~pos.BitsAll(); // exclude enemy/friendly occupied squares
+        mobility &= ~(m_pieceAttacks[PAWN | opp] | m_pieceAttacks[KNIGHT | opp] | m_pieceAttacks[BISHOP | opp]); // exclude attacks by enemy pieces: pawns, knights and bishops
+
+        auto m = countBits(mobility);
+        score += rookMobility[m];
+
+        if (m <= 3)
+            score += RookTrapped; // rook is trapped
+
+        y &= pos.Bits(QUEEN | opp);
+        score += countBits(y) * strongAttack;
+
+        auto y2 = y & BB_CENTER[side];
+        score += countBits(y2) * centerAttack;
+
+        auto file = Col(f) + 1;
+        if (ps->m_ranks[file][side] == 7 * side)
+            score += rookOnOpenFile;
+
+        if (Row(f) == 1 + 5 * side) { // seventh rank
+            U64 ranks[] = { LL(0x000000000000ff00), LL(0x00ff000000000000) };
+            if ((pos.Bits(PAWN | opp) & ranks[opp]) || (Row(pos.King(opp)) == 7 * side))
+                score += rookOn7thRank;
+        }
+    }
+
+    return score;
+}
+
+Pair Hce::evaluateQueens(Position& pos, U64 occ, U64 kingZone[], int attackers[])
+{
+    Pair score{};
+
+    score += evaluateQueen(pos, WHITE, occ, kingZone, attackers);
+    score -= evaluateQueen(pos, BLACK, occ, kingZone, attackers);
+
+    assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
+
+    return score;
+}
+
+Pair Hce::evaluateQueen(Position& pos, COLOR side, U64 occ, U64 kingZone[], int attackers[])
+{
+    Pair score{};
+
+    auto opp = side ^ 1;
+    auto x   = pos.Bits(QUEEN | side);
+
+    while (x) {
+        auto f    = PopLSB(x);
+        auto dist = distance(f, pos.King(opp));
+
+        score += queenKingDistance[dist];
+
+        auto mobility = QueenAttacks(f, occ);
+        auto y        = mobility;
+
+        m_pieceAttacks2[side] |= m_pieceAttacks[side] & y;
+        m_pieceAttacks[side]  |= m_pieceAttacks[QUEEN | side] |= y;
+
+        if (y & kingZone[opp]) {
+            attackers[side]++;
+            m_kingAttackers[side]++;
+            m_kingAttackersWeight[side] += KingAttackerWeight[3];
+        }
+
+        m_majorAttacksOnMinors[side] += countBits(y & (pos.Bits(BISHOP | opp) | pos.Bits(KNIGHT | opp)));
+
+        mobility &= ~pos.BitsAll(); // exclude enemy/friendly occupied squares
+        mobility &= ~(m_pieceAttacks[PAWN | opp] | m_pieceAttacks[KNIGHT | opp] | m_pieceAttacks[BISHOP | opp] | m_pieceAttacks[ROOK | opp]); // exclude attacks by enemy pieces: pawns, knights, bishops and rooks
+
+        score += queenMobility[countBits(mobility)];
+
+        auto y2 = y & BB_CENTER[side];
+        score += countBits(y2) * centerAttack;
+
+        if (Row(f) == 1 + 5 * side) { // seventh rank
+            U64 ranks[] = {LL(0x000000000000ff00), LL(0x00ff000000000000)};
+            if ((pos.Bits(PAWN | opp) & ranks[opp]) || (Row(pos.King(opp)) == 7 * side))
+                score += queenOn7thRank;
+        }
+    }
+
+    return score;
+}
+
+Pair Hce::evaluateKingsAttackers(Position& pos, int attackers[])
+{
+    Pair score{};
+
+    score += evaluateKingAttackers(pos, WHITE, attackers);
+    score -= evaluateKingAttackers(pos, BLACK, attackers);
+
+    assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
+
+    return score;
+}
+
+Pair Hce::evaluateKingAttackers(Position& pos, COLOR side, int attackers[])
+{
+    (void)pos;
+    Pair score{};
+
+    if (attackers[side] > 3)
+        attackers[side] = 3;
+
+    score += attackKingZone[attackers[side]];
+
+    return score;
+}
+
+Pair Hce::evaluateKings(Position& pos, U64 occ, PawnHashEntry* ps, int attackers[])
+{
+    Pair score{};
+
+    score += evaluateKing(pos, WHITE, occ, ps, attackers);
+    score -= evaluateKing(pos, BLACK, occ, ps, attackers);
+
+    assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
+
+    return score;
+}
+
+Pair Hce::evaluateKing(Position& pos, COLOR side, U64 occ, PawnHashEntry* ps, int attackers[])
+{
+    (void)attackers;
+    Pair score{};
+
+    auto f      = pos.King(side);
+    auto fileK  = Col(f) + 1;
+    auto shield = pawnShieldPenalty(ps, fileK, side);
+    auto storm  = pawnStormPenalty(ps, fileK, side);
+
+    score += kingPawnShield[shield];
+    score += kingPawnStorm[storm];
+
+    COLOR opp = side ^ 1;
+
+    auto ourAttacks = m_pieceAttacks[side];
+    auto oppAttacks = m_pieceAttacks[opp];
+
+    m_pieceAttacks2[side] |= m_pieceAttacks[side] & BB_KING_ATTACKS[f];
+    m_pieceAttacks[side]  |= m_pieceAttacks[KING | side] |= BB_KING_ATTACKS[f];
+
+    auto weak = m_pieceAttacks[opp] & ~m_pieceAttacks2[side] & (~m_pieceAttacks[side] | m_pieceAttacks[KING | side] | m_pieceAttacks[QUEEN | side]);
+    auto safe = ~pos.BitsAll(opp);
+    safe &= ~m_pieceAttacks[side] | (weak & m_pieceAttacks2[opp]);
+
+    auto king = pos.Count(ROOK | opp) ? RookAttacks(f, occ) : 0;
+    auto rookChecks = safe & m_pieceAttacks[ROOK | opp] & king;
+
+    if (rookChecks)
+        score += rookSafeChecksPenalty;
+
+    auto kingq = pos.Count(QUEEN | opp) ? QueenAttacks(f, occ) : 0;
+    auto queenChecks = safe & m_pieceAttacks[QUEEN | opp] & kingq & ~rookChecks;
+
+    if (queenChecks)
+        score += queenSafeChecksPenalty;
+
+    auto kingb = pos.Count(BISHOP | opp) ? BishopAttacks(f, occ) : 0;
+    auto bishopChecks = safe & m_pieceAttacks[BISHOP | opp] & kingb & ~queenChecks;
+
+    if (bishopChecks)
+        score += bishopSafeChecksPenalty;
+
+    auto kingk = pos.Count(KNIGHT | opp) ? BB_KNIGHT_ATTACKS[f] : 0;
+    auto knightChecks = safe & m_pieceAttacks[KNIGHT | opp] & kingk;
+
+    if (knightChecks)
+        score += knightSafeChecksPenalty;
+
+    auto enemyQueens = pos.Count(QUEEN | opp);
+    auto vulnerable = oppAttacks & ~ourAttacks;
+
+    int danger = pKingDangerInit
+        + m_kingAttackers[opp]      * m_kingAttackersWeight[opp]
+        + pKingDangerWeakSquares    * countBits(vulnerable & BB_KING_ATTACKS[f])
+        + pKingDangerKnightChecks   * countBits(knightChecks)
+        + pKingDangerBishopChecks   * countBits(bishopChecks)
+        + pKingDangerRookChecks     * countBits(rookChecks)
+        + pKingDangerQueenChecks    * countBits(queenChecks)
+        + pKingDangerNoEnemyQueen   * !enemyQueens;
+
+    if (danger > 100)
+        score -= Pair(danger * danger / 720, danger / 20);
+
+    return score;
+}
+
+Pair Hce::evaluatePiecesPairs(Position& pos)
+{
+    Pair score{};
+
+    score += evaluatePiecePairs(pos, WHITE);
+    score -= evaluatePiecePairs(pos, BLACK);
+
+    assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
+
+    return score;
+}
+
+Pair Hce::evaluatePiecePairs(Position& pos, COLOR side)
+{
+    Pair score{};
+
+    if (pos.Count(KNIGHT | side) >= 2)
+        score += knightsPair;
+
+    if (pos.Count(BISHOP | side) >= 2)
+        score += bishopsPair;
+
+    if (pos.Count(ROOK | side) >= 2)
+        score += rooksPair;
+
+    if (pos.Count(KNIGHT | side) && pos.Count(QUEEN | side))
+        score += knightAndQueen;
+
+    if (pos.Count(BISHOP | side) && pos.Count(ROOK | side))
+        score += bishopAndRook;
+
+    return score;
+}
+
+Pair Hce::evaluateThreats(Position& pos)
+{
+    Pair score{};
+
+    score += evaluateThreat(pos, WHITE);
+    score -= evaluateThreat(pos, BLACK);
+
+    assert((score.mid >= -1000 && score.mid <= 1000) && (score.end >= -1000 && score.end <= 1000));
+
+    return score;
+}
+
+Pair Hce::evaluateThreat(Position& pos, COLOR side)
+{
+    Pair score{};
+
+    score += m_lesserAttacksOnRooks[side] * lesserAttacksOnRooks;
+    score += m_lesserAttacksOnQueen[side] * lesserAttacksOnQueen;
+    score += m_majorAttacksOnMinors[side] * majorAttacksOnMinors;
+    score += m_minorAttacksOnMinors[side] * minorAttacksOnMinors;
+
+    COLOR opp = side ^ 1;
+
+    auto nonPawnEnemies = pos.Bits(QUEEN | opp) | pos.Bits(ROOK | opp) | pos.Bits(BISHOP | opp) | pos.Bits(KNIGHT | opp);
+    auto hanging = (nonPawnEnemies & m_pieceAttacks[side]) & ~m_pieceAttacks[opp];
+    score += countBits(hanging) * HangingPiece;
+
+    auto weakSqueares = (m_pieceAttacks[opp] & ~m_pieceAttacks[side]) | (m_pieceAttacks2[opp] & ~m_pieceAttacks2[side] & ~m_pieceAttacks[PAWN | side]);
+    score += countBits(pos.Bits(PAWN | side) & ~m_pieceAttacks[PAWN | opp] & weakSqueares) * WeakPawn;
+
+    auto stronglyProtected = m_pieceAttacks[PAWN | opp] | (m_pieceAttacks2[opp] & ~m_pieceAttacks2[side]);
+    score += countBits(m_pieceAttacks[opp] & ~stronglyProtected & m_pieceAttacks[side]) * RestrictedPiece;
+
+    auto safeSquares = ~m_pieceAttacks[opp] | m_pieceAttacks[side];
+    auto safePawns = pos.Bits(PAWN | side) & safeSquares;
+    U64  pawnAttacks = side == WHITE ? UpRight(safePawns) | UpLeft(safePawns) : DownRight(safePawns) | DownLeft(safePawns);
+    score += countBits(pawnAttacks & nonPawnEnemies) * SafePawnThreat;
+
+    return score;
+}
+
+int Hce::distance(FLD f1, FLD f2)
+{
+    static const int dist[100] =
+    {
+        0, 1, 1, 1, 2, 2, 2, 2, 2, 3,
+        3, 3, 3, 3, 3, 3, 4, 4, 4, 4,
+        4, 4, 4, 4, 4, 5, 5, 5, 5, 5,
+        5, 5, 5, 5, 5, 5, 6, 6, 6, 6,
+        6, 6, 6, 6, 6, 6, 6, 6, 6, 7,
+        7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+        7, 7, 7, 7, 8, 8, 8, 8, 8, 8,
+        8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+        8, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+        9, 9, 9, 9, 9, 9, 9, 9, 9, 9
+    };
+
+    int drow = Row(f1) - Row(f2);
+    int dcol = Col(f1) - Col(f2);
+    return dist[drow * drow + dcol * dcol];
+}
+
+int Hce::pawnShieldPenalty(const PawnHashEntry* pEntry, int fileK, COLOR side)
+{
+    static const int delta[2][8] =
+    {
+        { 3, 3, 3, 3, 2, 1, 0, 3 },
+        { 3, 0, 1, 2, 3, 3, 3, 3 }
+    };
+
+    int penalty = 0;
+    for (int file = fileK - 1; file < fileK + 2; ++file)
+    {
+        int rank = pEntry->m_ranks[file][side];
+        penalty += delta[side][rank];
+    }
+
+    if (penalty < 0)
+        penalty = 0;
+    if (penalty > 9)
+        penalty = 9;
+
+    return penalty;
+}
+
+int Hce::pawnStormPenalty(const PawnHashEntry* pEntry, int fileK, COLOR side)
+{
+    COLOR opp = side ^ 1;
+
+    static const int delta[2][8] =
+    {
+        { 0, 0, 0, 1, 2, 3, 0, 0 },
+        { 0, 0, 3, 2, 1, 0, 0, 0 }
+    };
+
+    int penalty = 0;
+    for (int file = fileK - 1; file < fileK + 2; ++file)
+    {
+        int rank = pEntry->m_ranks[file][opp];
+        penalty += delta[side][rank];
+    }
+
+    if (penalty < 0)
+        penalty = 0;
+    if (penalty > 9)
+        penalty = 9;
+
+    return penalty;
+}
+
+void PawnHashEntry::Read(const Position& pos)
+{
+    m_pawnHash = 0;
+
+    m_passedPawns[WHITE] = m_passedPawns[BLACK] = 0;
+    m_doubledPawns[WHITE] = m_doubledPawns[BLACK] = 0;
+    m_isolatedPawns[WHITE] = m_isolatedPawns[BLACK] = 0;
+    m_strongFields[WHITE] = m_strongFields[BLACK] = 0;
+    m_backwardPawns = 0;
+
+    for (int file = 0; file < 10; ++file)
+    {
+        m_ranks[file][WHITE] = 0;
+        m_ranks[file][BLACK] = 7;
+    }
+
+    U64 x, y;
+    FLD f;
+
+    // first pass
+
+    x = pos.Bits(PW);
+    m_strongFields[WHITE] = UpRight(x) | UpLeft(x);
+
+    while (x)
+    {
+        f = PopLSB(x);
+        int file = Col(f) + 1;
+        int rank = Row(f);
+        if (rank > m_ranks[file][WHITE])
+            m_ranks[file][WHITE] = rank;
+    }
+
+    x = pos.Bits(PB);
+    m_strongFields[BLACK] = DownRight(x) | DownLeft(x);
+
+    while (x)
+    {
+        f = PopLSB(x);
+        int file = Col(f) + 1;
+        int rank = Row(f);
+        if (rank < m_ranks[file][BLACK])
+            m_ranks[file][BLACK] = rank;
+    }
+
+    // second pass
+
+    x = pos.Bits(PW);
+    while (x)
+    {
+        f = PopLSB(x);
+        int file = Col(f) + 1;
+        int rank = Row(f);
+        if (rank <= m_ranks[file][WHITE] && rank < m_ranks[file][BLACK])
+        {
+            if (rank <= m_ranks[file - 1][BLACK] && rank <= m_ranks[file + 1][BLACK])
+                m_passedPawns[WHITE] |= BB_SINGLE[f];
+        }
+        if (rank != m_ranks[file][WHITE])
+            m_doubledPawns[WHITE] |= BB_SINGLE[f];
+        if (m_ranks[file - 1][WHITE] == 0 && m_ranks[file + 1][WHITE] == 0)
+            m_isolatedPawns[WHITE] |= BB_SINGLE[f];
+        else if (rank > m_ranks[file - 1][WHITE] && rank > m_ranks[file + 1][WHITE])
+            m_backwardPawns |= BB_SINGLE[f];
+
+        y = BB_DIR[f][DIR_U];
+        y = Left(y) | Right(y);
+        m_strongFields[BLACK] &= ~y;
+    }
+
+    x = pos.Bits(PB);
+    while (x)
+    {
+        f = PopLSB(x);
+        int file = Col(f) + 1;
+        int rank = Row(f);
+        if (rank >= m_ranks[file][BLACK] && rank > m_ranks[file][WHITE])
+        {
+            if (rank >= m_ranks[file - 1][WHITE] && rank >= m_ranks[file + 1][WHITE])
+                m_passedPawns[BLACK] |= BB_SINGLE[f];
+        }
+        if (rank != m_ranks[file][BLACK])
+            m_doubledPawns[BLACK] |= BB_SINGLE[f];
+        if (m_ranks[file - 1][BLACK] == 7 && m_ranks[file + 1][BLACK] == 7)
+            m_isolatedPawns[BLACK] |= BB_SINGLE[f];
+        else if (rank < m_ranks[file - 1][BLACK] && rank < m_ranks[file + 1][BLACK])
+            m_backwardPawns |= BB_SINGLE[f];
+
+        y = BB_DIR[f][DIR_D];
+        y = Left(y) | Right(y);
+        m_strongFields[WHITE] &= ~y;
+    }
+}
