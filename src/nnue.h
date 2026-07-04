@@ -105,8 +105,9 @@ public:
 class Evaluator
 {
 public:
-    static void initEval();
-    static void initEval(std::istream & stream);
+    static bool initEval();
+    static bool initEval(std::istream & stream);
+    static bool setEvalFile(const std::string & evalFile);
     EVAL evaluate(Position & pos);
 
 private:

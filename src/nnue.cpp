@@ -23,6 +23,8 @@
 #include "utils.h"
 #include <immintrin.h>
 #include <streambuf>
+#include <fstream>
+#include <iostream>
 
 #if !defined(PURE_HCE)
 #include "incbin/incbin.h"
@@ -52,7 +54,7 @@ EVAL Evaluator::evaluate(Position & pos)
 }
 
 #if !defined(PURE_HCE)
-void Evaluator::initEval()
+bool Evaluator::initEval()
 {
 #if !defined(_MSC_VER)
     class MemoryBuffer : public std::basic_streambuf<char> {
@@ -65,15 +67,19 @@ void Evaluator::initEval()
     std::ifstream stream("network_file", std::ios::binary);
 #endif
 
-    initEval(stream);
+    return initEval(stream);
 }
 
-/*static */void Evaluator::initEval(std::istream & stream) {
+/*static */bool Evaluator::initEval(std::istream & stream) {
 
     std::uint32_t version, size, hash_value;
     stream.read(reinterpret_cast<char*>(&version), sizeof(version));
     stream.read(reinterpret_cast<char*>(&hash_value), sizeof(hash_value));
     stream.read(reinterpret_cast<char*>(&size), sizeof(size));
+
+    if (!stream || size > 1024)
+        return false;
+
     std::string architecture;
     architecture.resize(size);
     stream.read(&(architecture)[0], size);
@@ -86,7 +92,27 @@ void Evaluator::initEval()
         m_networks.emplace_back(new LayeredNetwork(stream));
     }
 
-    assert(stream.peek() == std::ios::traits_type::eof());
+    return stream.good() && stream.peek() == std::ios::traits_type::eof();
+}
+
+/*static */bool Evaluator::setEvalFile(const std::string & evalFile)
+{
+    if (evalFile.empty() || evalFile == "<empty>") {
+        initEval();
+        std::cout << "info string default network loaded" << std::endl;
+        return true;
+    }
+
+    std::ifstream stream(evalFile, std::ios::binary);
+
+    if (stream && initEval(stream)) {
+        std::cout << "info string network " << evalFile << " loaded" << std::endl;
+        return true;
+    }
+
+    initEval();
+    std::cout << "info string unable to load network " << evalFile << ", default network restored" << std::endl;
+    return false;
 }
 
 int Evaluator::NnueEvaluate(Position & pos) {

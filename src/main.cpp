@@ -24,6 +24,8 @@
 #endif
 #include "uci.h"
 
+#include <iostream>
+
 #if !defined(UNIT_TEST)
 
 int main(int argc, const char* argv[])
@@ -39,7 +41,10 @@ int main(int argc, const char* argv[])
 #if defined(PURE_HCE)
     Hce::init();
 #else
-    Evaluator::initEval();
+    if (!Evaluator::initEval()) {
+        std::cout << "Fatal error: unable to load default network" << std::endl;
+        return 1;
+    }
 #endif
 
     std::unique_ptr<Search> searcher(new Search);
