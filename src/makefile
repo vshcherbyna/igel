@@ -6,9 +6,16 @@ CC  = g++
 EXE = igel
 SRC = *.cpp fathom/tbprobe.cpp
 
+#
+# NNUE network: embedded via INCBIN at compile time, and fetched by the
+# $(EVALFILE) rule below if it is missing. Change these to switch networks.
+#
+
+EVALFILE    = weights/3.6.14.nnue
+NETWORK_URL = https://github.com/vshcherbyna/igel/releases/download/0.8/3.6.14.nnue
+
 GCCDEFINES = $(shell echo | $(CC) -m64 -march=native -E -dM -)
 
-EVALFILE = weights/c049c117
 NNFLAGS  = -DEVALFILE=\"$(EVALFILE)\"
 
 LIBS   = -std=c++17 -mpopcnt -pthread -lstdc++ -lm
@@ -38,6 +45,7 @@ CFLAGS = $(WARN) $(LIBS) $(OPTIM) $(NNFLAGS)
 # Clang rejects gcc's -flto=auto and links LTO through lld. Override
 # CLANGCC / CLANGLD / PROFDATA if your toolchain uses unversioned names.
 #
+
 CLANGCC    = clang++-19
 CLANGLD    = lld-19
 PROFDATA   = llvm-profdata-19
@@ -47,7 +55,7 @@ CLANGFLAGS = $(WARN) $(LIBS) $(CLANGOPTIM) $(NNFLAGS)
 basic:
 	$(CC) $(CFLAGS) $(SRC) $(DEFS) -o $(EXE)
 
-pgo: download-network
+pgo: $(EVALFILE)
 ifeq ($(findstring g++, $(CC)), g++)
 	$(CC) $(CFLAGS) $(SRC) $(DEFS) -fprofile-generate=pgo -o $(EXE)
 	./$(EXE) bench 15 > pgo.out 2>&1
@@ -66,7 +74,8 @@ endif
 # A single 'make pgoclang' builds an instrumented binary, trains it on
 # bench, merges the profile with llvm-profdata, then rebuilds with it.
 #
-pgoclang: download-network
+
+pgoclang: $(EVALFILE)
 	$(CLANGCC) $(CLANGFLAGS) $(SRC) $(DEFS) -fprofile-generate -o $(EXE)
 	LLVM_PROFILE_FILE=igel.profraw ./$(EXE) bench 15 > pgo.out 2>&1
 	$(PROFDATA) merge -output=igel.profdata igel.profraw
@@ -75,9 +84,10 @@ pgoclang: download-network
 
 #
 # Same as the pgoclang target but builds the pure hand-crafted evaluator
-# (-DPURE_HCE). The HCE engine embeds no NNUE network, so there is no
-# download-network step.
+# (-DPURE_HCE). The HCE engine embeds no NNUE network, so it needs no
+# $(EVALFILE) prerequisite.
 #
+
 pgoclanghce:
 	$(CLANGCC) $(CLANGFLAGS) $(SRC) $(DEFS) -DPURE_HCE -fprofile-generate -o $(EXE)
 	LLVM_PROFILE_FILE=igel.profraw ./$(EXE) bench 15 > pgo.out 2>&1
@@ -85,6 +95,14 @@ pgoclanghce:
 	$(CLANGCC) $(CLANGFLAGS) $(SRC) $(DEFS) -DPURE_HCE -fprofile-use=igel.profdata -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date -o $(EXE)
 	@rm -rf igel.profraw igel.profdata pgo.out default*.profraw
 
-download-network:
-	mkdir weights; \
-	echo "Downloading latest Igel network with wget"; wget -P weights https://github.com/vshcherbyna/igel/releases/download/3.5.0/c049c117;
+#
+# Fetch the NNUE network once, only if it is missing (fresh checkout or CI). A
+# failed or interrupted download is removed by .DELETE_ON_ERROR and retried on
+# the next run, so a truncated network is never embedded.
+#
+
+.DELETE_ON_ERROR:
+
+$(EVALFILE):
+	mkdir -p $(dir $@)
+	wget -O $@ $(NETWORK_URL)
