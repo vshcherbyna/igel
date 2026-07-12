@@ -1064,6 +1064,9 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     uint64_t sumHits = 0;
     uint64_t nps = 0;
 
+    Move prevBest{};
+    int bestMoveStability = 0;
+
     for (m_depth = depth; m_depth < maxDepth; ++m_depth) {
 
         //
@@ -1111,6 +1114,17 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
             break;
 
         //
+        //  Track how many consecutive iterations kept the same best move
+        //
+
+        if (m_best && m_best == prevBest)
+            bestMoveStability = std::min(bestMoveStability + 1, 10);
+        else {
+            prevBest = m_best;
+            bestMoveStability = 0;
+        }
+
+        //
         //  Update node statistic from all workers
         //
 
@@ -1136,7 +1150,14 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         if (dt > 1000)
             nps = 1000 * sumNodes / dt;
 
-        if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= m_time.getSoftLimit()) {
+        //
+        //  Scale the soft limit by best move stability: an unsettled search earns more
+        //  time while a best move stable for many iterations is released early
+        //
+
+        U64 softLimit = static_cast<U64>(m_time.getSoftLimit()) * (130 - 5 * bestMoveStability) / 100;
+
+        if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= softLimit) {
             m_flags |= TERMINATED_BY_LIMIT;
             break;
         }
