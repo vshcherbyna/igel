@@ -81,6 +81,8 @@
         }
         else if (mv == killer0 || mv == killer1)
             mvlist[j].m_score = s_SortKiller;
+        else if (counterMove && mv == pSearch->m_counterTable[counterPiece][counterTo])
+            mvlist[j].m_score = s_SortCounter;
         else {
             mvlist[j].m_score = pSearch->m_history[side][mv.From()][mv.To()];
 

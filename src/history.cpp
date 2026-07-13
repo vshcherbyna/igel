@@ -73,6 +73,9 @@
 
 /*static */void History::setKillerMove(Search * pSearch, Move mv, int ply)
 {
+    if (ply >= 1 && pSearch->m_moveStack[ply - 1])
+        pSearch->m_counterTable[pSearch->m_pieceStack[ply - 1]][pSearch->m_moveStack[ply - 1].To()] = mv;
+
     if (pSearch->m_killerMoves[ply][0] != mv) {
         auto tmp = pSearch->m_killerMoves[ply][0];
         pSearch->m_killerMoves[ply][0] = mv;

@@ -124,6 +124,7 @@ private:
     Move m_pvPrev[MAX_PLY][MAX_PLY];
     int m_pvSizePrev[MAX_PLY];
     Move m_killerMoves[MAX_PLY][2];
+    Move m_counterTable[14][64] = {}; // refutation move of the previous [piece][to]
     int16_t m_history[2][64][64];
     Move m_moveStack[MAX_PLY + 4];
     PIECE m_pieceStack[MAX_PLY + 4];

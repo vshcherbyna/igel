@@ -671,9 +671,12 @@ void Search::clearHistory()
 void Search::clearKillers()
 {
     memset(m_killerMoves, 0, sizeof(m_killerMoves));
+    memset(m_counterTable, 0, sizeof(m_counterTable));
 
-    for (unsigned int i = 0; i < m_thc; ++i)
+    for (unsigned int i = 0; i < m_thc; ++i) {
         memset(m_threadParams[i].m_killerMoves, 0, sizeof(m_killerMoves));
+        memset(m_threadParams[i].m_counterTable, 0, sizeof(m_counterTable));
+    }
 }
 
 void Search::clearStacks()
