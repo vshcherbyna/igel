@@ -25,6 +25,7 @@
 #include <streambuf>
 #include <fstream>
 #include <iostream>
+#include <atomic>
 
 #if !defined(PURE_HCE)
 #include "incbin/incbin.h"
@@ -35,6 +36,9 @@ INCBIN(EmbeddedNNUE, EVALFILE);
 
 /*static */std::unique_ptr<Transformer> Evaluator::m_transformer;
 /*static */std::vector<std::unique_ptr<LayeredNetwork>> Evaluator::m_networks;
+
+// bumped on every network (re)load so per-thread refresh caches drop stale columns
+static std::atomic<int> s_networkGeneration{0};
 #endif // PURE_HCE
 
 EVAL Evaluator::evaluate(Position & pos)
@@ -91,6 +95,8 @@ bool Evaluator::initEval()
         stream.read(reinterpret_cast<char*>(&version), sizeof(version));
         m_networks.emplace_back(new LayeredNetwork(stream));
     }
+
+    ++s_networkGeneration;
 
     return stream.good() && stream.peek() == std::ios::traits_type::eof();
 }
@@ -280,6 +286,147 @@ std::int32_t Transformer::transform(Position & pos, std::uint8_t * outBuffer, co
     return pt;
 }
 
+//
+// Per-thread accumulator refresh cache: one entry per perspective and own-king square,
+// holding the accumulator last built for that king placement and the piece list it was
+// built from. A refresh then costs only the changed piece columns instead of a full
+// rebuild from biases (~30 columns), which pays off because any king move invalidates
+// every feature index of its perspective.
+//
+
+struct RefreshEntry {
+    alignas(CACHE_LINE) std::int16_t accumulation[Transformer::HalfDimensions];
+    alignas(CACHE_LINE) std::int32_t psqt[PSQT_BUCKETS];
+    PieceSquare pieces[EvalList::MAX_LENGTH];
+    bool valid;
+};
+
+struct RefreshTable {
+    RefreshEntry entry[COLOR_NB][SQUARE_NB];
+    int generation = -1;
+};
+
+static thread_local RefreshTable s_refreshTable;
+
+static void refreshPerspective(Transformer & t, Position & pos, COLOR c) {
+
+    auto & table = s_refreshTable;
+
+    if (table.generation != s_networkGeneration.load(std::memory_order_relaxed)) {
+        for (auto & perspective : table.entry)
+            for (auto & e : perspective)
+                e.valid = false;
+        table.generation = s_networkGeneration.load(std::memory_order_relaxed);
+    }
+
+    auto & entry       = table.entry[c][pos.King(c)];
+    auto & accumulator = pos.state()->accumulator;
+    const auto pieces  = c == WHITE ? pos.eval_list()->piece_list_fw() : pos.eval_list()->piece_list_fb();
+
+    if (!entry.valid) {
+        std::memcpy(entry.accumulation, t.biases, Transformer::HalfDimensions * sizeof(std::int16_t));
+
+        for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
+            entry.psqt[k] = 0;
+
+        for (int i = 0; i < EvalList::MAX_LENGTH; ++i)
+            entry.pieces[i] = PS_NONE;
+
+        entry.valid = true;
+    }
+
+    // Orient constants are fixed for a cache entry (same logic as getActiveIndexes)
+    const PieceId target = static_cast<PieceId>(PIECE_ID_KING + c);
+    Square kingSq = static_cast<Square>((pieces[target] - PS_KING) % SQUARE_NB);
+    kingSq = FLIP[c][kingSq];
+    const int flip_mask = (bool(c) * SQ_A8) ^ ((Col(kingSq) < FILE_E) * SQ_H1);
+    const std::uint32_t king_bucket_offset = PS_END * KingBuckets[Square(int(kingSq) ^ flip_mask)];
+
+    alignas(CACHE_LINE) std::uint32_t added[EvalList::MAX_LENGTH];
+    alignas(CACHE_LINE) std::uint32_t removed[EvalList::MAX_LENGTH];
+    std::uint32_t ca = 0;
+    std::uint32_t cr = 0;
+
+    for (int i = 0; i < EvalList::MAX_LENGTH; ++i) {
+        const auto oldPs = entry.pieces[i];
+        const auto newPs = pieces[i];
+
+        if (oldPs == newPs)
+            continue;
+
+        if (oldPs != PS_NONE) {
+            const Square sq = FLIP[c][static_cast<Square>((oldPs - PS_KING) % SQUARE_NB)];
+            removed[cr++] = static_cast<std::uint32_t>((int(sq) ^ flip_mask) + (oldPs - oldPs % SQUARE_NB) + king_bucket_offset);
+        }
+
+        if (newPs != PS_NONE) {
+            const Square sq = FLIP[c][static_cast<Square>((newPs - PS_KING) % SQUARE_NB)];
+            added[ca++] = static_cast<std::uint32_t>((int(sq) ^ flip_mask) + (newPs - newPs % SQUARE_NB) + king_bucket_offset);
+        }
+
+        entry.pieces[i] = newPs;
+    }
+
+#if defined(USE_AVX512)
+    using acc_vec_t = __m512i;
+    auto vadd16 = [](acc_vec_t a, acc_vec_t b) { return _mm512_add_epi16(a, b); };
+    auto vsub16 = [](acc_vec_t a, acc_vec_t b) { return _mm512_sub_epi16(a, b); };
+#elif defined(USE_AVX2)
+    using acc_vec_t = __m256i;
+    auto vadd16 = [](acc_vec_t a, acc_vec_t b) { return _mm256_add_epi16(a, b); };
+    auto vsub16 = [](acc_vec_t a, acc_vec_t b) { return _mm256_sub_epi16(a, b); };
+#endif
+
+#if defined(USE_AVX2)
+    const std::uint32_t chunks = Transformer::HalfDimensions / (sizeof(acc_vec_t) / sizeof(std::int16_t));
+    auto cacheAcc = reinterpret_cast<acc_vec_t*>(&entry.accumulation[0]);
+
+    for (std::uint32_t index = 0; index < cr; index++) {
+        std::uint32_t offset = Transformer::HalfDimensions * removed[index];
+
+        {
+            auto* p = reinterpret_cast<__m256i*>(&entry.psqt[0]);
+            *p = _mm256_sub_epi32(*p, _mm256_load_si256(reinterpret_cast<const __m256i*>(&t.psqts[removed[index] * PSQT_BUCKETS])));
+        }
+
+        auto column = reinterpret_cast<const acc_vec_t*>(&t.weights[offset]);
+        for (std::uint32_t j = 0; j < chunks; ++j)
+            cacheAcc[j] = vsub16(cacheAcc[j], column[j]);
+    }
+
+    for (std::uint32_t index = 0; index < ca; index++) {
+        std::uint32_t offset = Transformer::HalfDimensions * added[index];
+
+        {
+            auto* p = reinterpret_cast<__m256i*>(&entry.psqt[0]);
+            *p = _mm256_add_epi32(*p, _mm256_load_si256(reinterpret_cast<const __m256i*>(&t.psqts[added[index] * PSQT_BUCKETS])));
+        }
+
+        auto column = reinterpret_cast<const acc_vec_t*>(&t.weights[offset]);
+        for (std::uint32_t j = 0; j < chunks; ++j)
+            cacheAcc[j] = vadd16(cacheAcc[j], column[j]);
+    }
+#else
+    for (std::uint32_t index = 0; index < cr; index++)
+        for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
+            entry.psqt[k] -= t.psqts[removed[index] * PSQT_BUCKETS + k];
+
+    for (std::uint32_t index = 0; index < ca; index++)
+        for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
+            entry.psqt[k] += t.psqts[added[index] * PSQT_BUCKETS + k];
+#endif
+
+    std::memcpy(accumulator.accumulation[c], entry.accumulation, Transformer::HalfDimensions * sizeof(std::int16_t));
+
+#if defined(USE_AVX2)
+    _mm256_store_si256(reinterpret_cast<__m256i*>(&accumulator.psqtAccumulation[c][0]),
+        _mm256_load_si256(reinterpret_cast<const __m256i*>(&entry.psqt[0])));
+#else
+    for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
+        accumulator.psqtAccumulation[c][k] = entry.psqt[k];
+#endif
+}
+
 inline void Transformer::incremental(Position & pos, const Accumulator * baseAcc) {
     const auto & prev_accumulator = baseAcc ? *baseAcc : pos.state()->previous->accumulator;
     auto & accumulator = pos.state()->accumulator;
@@ -295,9 +442,7 @@ inline void Transformer::incremental(Position & pos, const Accumulator * baseAcc
 
         if (dp.dirty_num) { // a piece moved
             fullUpdate = dp.pieceId[0] == PIECE_ID_KING + c;
-            if (fullUpdate)
-                pa.first = pos.getActiveIndexes(c, added);
-            else
+            if (!fullUpdate)
                 pa = pos.getChangedIndexes(c, added, removed);
         }
 
@@ -317,34 +462,9 @@ inline void Transformer::incremental(Position & pos, const Accumulator * baseAcc
 #endif
 
         if (fullUpdate) {
-            std::memcpy(accumulator.accumulation[c], biases, HalfDimensions * sizeof(std::int16_t));
-
-#if defined(USE_AVX2)
-            _mm256_store_si256(reinterpret_cast<__m256i*>(&accumulator.psqtAccumulation[c][0]), _mm256_setzero_si256());
-#else
-            for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
-                accumulator.psqtAccumulation[c][k] = 0;
-#endif
-
-            for (std::uint32_t index = 0; index < pa.first; index++) {
-                std::uint32_t offset = HalfDimensions * added[index];
-
-#if defined(USE_AVX2)
-                {
-                    auto* p = reinterpret_cast<__m256i*>(&accumulator.psqtAccumulation[c][0]);
-                    *p = _mm256_add_epi32(*p, _mm256_load_si256(reinterpret_cast<const __m256i*>(&psqts[added[index] * PSQT_BUCKETS])));
-                }
-#else
-                for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
-                    accumulator.psqtAccumulation[c][k] += psqts[added[index] * PSQT_BUCKETS + k];
-#endif
-
-#if defined(USE_AVX2)
-                auto column = reinterpret_cast<const acc_vec_t*>(&weights[offset]);
-                for (std::uint32_t j = 0; j < chunks; ++j)
-                    accumulation[j] = vadd16(accumulation[j], column[j]);
-#endif
-            }
+            // a king move invalidates every feature index of this perspective;
+            // rebuild it through the per-king-square refresh cache
+            refreshPerspective(*this, pos, c);
         }
         else {
 #if defined(USE_AVX2)
@@ -443,78 +563,8 @@ inline void Transformer::incremental(Position & pos, const Accumulator * baseAcc
 }
 
 inline void Transformer::refresh(Position & pos) {
-    alignas(CACHE_LINE) std::uint32_t indexes[32];
-    auto & accumulator = pos.state()->accumulator;
-
-    for (COLOR c : { WHITE, BLACK }) {
-
-        std::uint32_t ci = pos.getActiveIndexes(c, indexes);
-
-#if defined(USE_AVX512)
-        constexpr std::uint32_t numRegs = TILE_HEIGHT / (sizeof(__m512i) / sizeof(std::int16_t));
-        __m512i acc[numRegs];
-
-        for (std::uint32_t j = 0; j < HalfDimensions / TILE_HEIGHT; ++j) {
-            auto biasesTile = reinterpret_cast<const __m512i*>(&biases[j * TILE_HEIGHT]);
-            for (std::uint32_t k = 0; k < numRegs; ++k)
-                acc[k] = biasesTile[k];
-
-            for (std::uint32_t index = 0; index < ci; index++) {
-                const std::uint32_t offset = HalfDimensions * indexes[index] + j * TILE_HEIGHT;
-                auto column = reinterpret_cast<const __m512i*>(&weights[offset]);
-
-                for (std::uint32_t k = 0; k < numRegs; ++k)
-                    acc[k] = _mm512_add_epi16(acc[k], column[k]);
-            }
-
-            auto accTile = reinterpret_cast<__m512i*>(&accumulator.accumulation[c][j * TILE_HEIGHT]);
-            for (std::uint32_t k = 0; k < numRegs; ++k)
-                accTile[k] = acc[k];
-        }
-#elif defined(USE_AVX2)
-        __m256i acc[NUM_REGS];
-
-        for (std::uint32_t j = 0; j < HalfDimensions / TILE_HEIGHT; ++j) {
-            auto biasesTile = reinterpret_cast<const __m256i*>(&biases[j * TILE_HEIGHT]);
-            for (std::uint32_t k = 0; k < NUM_REGS; ++k)
-                acc[k] = biasesTile[k];
-
-            for (std::uint32_t index = 0; index < ci; index++) {
-                const std::uint32_t offset = HalfDimensions * indexes[index] + j * TILE_HEIGHT;
-                auto column = reinterpret_cast<const __m256i*>(&weights[offset]);
-
-                for (unsigned k = 0; k < NUM_REGS; ++k)
-                    acc[k] = _mm256_add_epi16(acc[k], column[k]);
-            }
-
-            auto accTile = reinterpret_cast<__m256i*>(&accumulator.accumulation[c][j * TILE_HEIGHT]);
-            for (unsigned k = 0; k < NUM_REGS; k++)
-                _mm256_store_si256(&accTile[k], acc[k]);
-        }
-#endif
-
-#if defined(USE_AVX2)
-        __m256i psqt[NUM_PSQT_REGS];
-
-        for (std::uint32_t j = 0; j < PSQT_BUCKETS / PSQT_TILE_HEIGHT; ++j) {
-            for (std::size_t k = 0; k < NUM_PSQT_REGS; ++k)
-                psqt[k] = _mm256_setzero_si256();
-
-            for (std::uint32_t index = 0; index < ci; index++) {
-                const std::uint32_t offset = PSQT_BUCKETS * indexes[index] + j * PSQT_TILE_HEIGHT;
-                auto columnPsqt = reinterpret_cast<const __m256i*>(&psqts[offset]);
-
-                for (std::size_t k = 0; k < NUM_PSQT_REGS; ++k)
-                    psqt[k] = _mm256_add_epi32(psqt[k], columnPsqt[k]);
-            }
-
-            auto accTilePsqt = reinterpret_cast<__m256i*>(&accumulator.psqtAccumulation[c][j * PSQT_TILE_HEIGHT]);
-
-            for (std::size_t k = 0; k < NUM_PSQT_REGS; ++k)
-                _mm256_store_si256(&accTilePsqt[k], psqt[k]);
-        }
-#endif
-    }
+    refreshPerspective(*this, pos, WHITE);
+    refreshPerspective(*this, pos, BLACK);
 }
 
 template <std::int32_t OutputDimensions, std::int32_t InputDimensions>
