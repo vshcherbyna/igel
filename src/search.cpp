@@ -410,7 +410,10 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                 seeMargin[0] = SEENoisyMargin * depth * depth;
                 seeMargin[1] = SEEQuietMargin * depth;
 
-                if (MoveEval::SEE(this, mv) < seeMargin[quietMove])
+                const auto sortScore = mvlist[i].m_score;
+                const EVAL see = MoveEval::seeCached(mv, sortScore) ? MoveEval::cachedSee(sortScore) : MoveEval::SEE(this, mv);
+
+                if (see < seeMargin[quietMove])
                     continue;
             }
         }
@@ -621,7 +624,9 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
     for (size_t i = 0; i < mvSize; ++i) {
         Move mv = MoveEval::getNextBest(mvlist, i);
 
-        if (!inCheck && MoveEval::SEE(this, mv) < 0)
+        const auto sortScore = mvlist[i].m_score;
+
+        if (!inCheck && (MoveEval::seeCached(mv, sortScore) ? MoveEval::cachedSeeNegative(sortScore) : MoveEval::SEE(this, mv) < 0))
             continue;
 
         if (m_position.MakeMove(mv)) {

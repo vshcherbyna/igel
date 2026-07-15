@@ -37,6 +37,17 @@ public:
     static EVAL SEE_Exchange(Search * pSearch, FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ);
     static EVAL SEE(Search * pSearch, const Move & mv);
 
+    //
+    // sortMoves already ran SEE for every non-promotion capture and encoded the result
+    // in the sort score: losing captures score s_SortBadCapture + see, winning ones stay
+    // in the capture band. Reuse that instead of a second SEE call. Not valid for the
+    // hash move, which keeps s_SortHash whatever it is.
+    //
+
+    static FORCE_INLINE bool seeCached(const Move & mv, int sortScore) { return mv.Captured() && !mv.Promotion() && sortScore != s_SortHash; }
+    static FORCE_INLINE bool cachedSeeNegative(int sortScore) { return sortScore < s_SortKiller; }
+    static FORCE_INLINE EVAL cachedSee(int sortScore) { return sortScore < s_SortKiller ? sortScore - s_SortBadCapture : 0; } // exact when losing, lower bound 0 when winning
+
     static constexpr EVAL SORT_VALUE[14] = { 0, 0, VAL_P, VAL_P, VAL_N, VAL_N, VAL_B, VAL_B, VAL_R, VAL_R, VAL_Q, VAL_Q, VAL_K, VAL_K };
 
 private:
