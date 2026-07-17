@@ -351,6 +351,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     U8 type = HASH_ALPHA;
     Move bestMove = hashMove;
 
+    const auto ttCapture = hashMove && hashMove.Captured();
+
     MoveList& mvlist = m_lists[ply];
     if (inCheck)
         GenMovesInCheck(m_position, mvlist);
@@ -466,7 +468,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             if (depth >= 3 && quietMove && legalMoves > 1 + 2 * rootNode) {
                 reduction = m_logLMRTable[std::min(depth, 63)][std::min(legalMoves, 63)];
 
-                reduction += cutNode;
+                reduction += cutNode + ttCapture;
 
                 if (onPV)
                     reduction -= 2;
