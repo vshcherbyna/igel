@@ -193,7 +193,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     //
 
 #if defined (SYZYGY_SUPPORT)
-    if (!rootNode && TB_LARGEST && depth >= 2 && !m_position.Fifty() && !(m_position.CanCastle(m_position.Side(), KINGSIDE) || m_position.CanCastle(m_position.Side(), QUEENSIDE))) {
+    if (!rootNode && TB_LARGEST && depth >= 2 && !m_position.Fifty() && !m_position.Castlings()) {
         auto pieces = countBits(m_position.BitsAll());
 
         if ((pieces < TB_LARGEST) || (pieces == TB_LARGEST && depth >= m_syzygyDepth)) {
@@ -830,7 +830,7 @@ Move Search::tableBaseRootSearch()
             m_position.Bits(NW) | m_position.Bits(NB),
             m_position.Bits(PW) | m_position.Bits(PB),
             m_position.Fifty(),
-            m_position.CanCastle(m_position.Side(), KINGSIDE) || m_position.CanCastle(m_position.Side(), QUEENSIDE),
+            m_position.Castlings(),
             0,
             m_position.Side() == WHITE, nullptr);
 
