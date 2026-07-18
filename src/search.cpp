@@ -241,11 +241,11 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                 }
 
                 //
-                //  make sure we store result of tbprobe in tt with high depth
+                //  store tbprobe result with a depth bonus instead of MAX_PLY: wdl ignores the halfmove clock, so the entry must stay refutable by deeper searches
                 //
 
                 if ((type == HASH_EXACT) || (type == HASH_ALPHA ? (score <= alpha) : (score >= beta))) {
-                    TTable::instance().record(0, score, MAX_PLY - 1, 0, type, hash); // MAX_PLY truncates I8 depth to -128
+                    TTable::instance().record(0, score, static_cast<I8>(std::min(depth + 6, MAX_PLY - 1)), 0, type, hash);
                     return score;
                 }
             }
