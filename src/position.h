@@ -94,7 +94,6 @@ struct alignas(CACHE_LINE) Accumulator {
 struct Undo
 {
     U8   m_castlings;
-    FLD  m_castlingRookSq[2][2];
     FLD  m_ep;
     int  m_fifty;
     U64  m_hash;
@@ -109,10 +108,6 @@ struct Undo
     void reset()
     {
         m_castlings = 0;
-        m_castlingRookSq[0][0] = NF;
-        m_castlingRookSq[0][1] = NF;
-        m_castlingRookSq[1][0] = NF;
-        m_castlingRookSq[1][1] = NF;
         m_ep        = 0;
         m_fifty     = 0;
         m_hash      = 0;
@@ -212,6 +207,7 @@ private:
     PIECE m_board[64];
     U8    m_castlings;
     FLD   m_castlingRookSq[2][2];
+    U8    m_castlingRightsMask[64];
     int   m_count[14];
     FLD   m_ep;
     int   m_fifty;
