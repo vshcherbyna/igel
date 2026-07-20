@@ -114,6 +114,7 @@ void Position::Clear()
     m_castlingRookSq[WHITE][QUEENSIDE] = NF;
     m_castlingRookSq[BLACK][KINGSIDE]  = NF;
     m_castlingRookSq[BLACK][QUEENSIDE] = NF;
+    std::memset(m_castlingRightsMask, 0xff, sizeof(m_castlingRightsMask));
     m_ep = NF;
     m_fifty = 0;
     m_hash = 0;
@@ -270,10 +271,6 @@ bool Position::MakeMove(Move mv)
     Undo & undo = m_undos[m_undoSize++];
 
     undo.m_castlings = m_castlings;
-    undo.m_castlingRookSq[WHITE][KINGSIDE]  = m_castlingRookSq[WHITE][KINGSIDE];
-    undo.m_castlingRookSq[WHITE][QUEENSIDE] = m_castlingRookSq[WHITE][QUEENSIDE];
-    undo.m_castlingRookSq[BLACK][KINGSIDE]  = m_castlingRookSq[BLACK][KINGSIDE];
-    undo.m_castlingRookSq[BLACK][QUEENSIDE] = m_castlingRookSq[BLACK][QUEENSIDE];
     undo.m_ep = m_ep;
     undo.m_fifty = m_fifty;
     undo.m_hash = Hash();
@@ -433,23 +430,8 @@ bool Position::MakeMove(Move mv)
             break;
     }
 
-    //
-    // King movement clears all castling rights for that side.
-    //
-
-    if (piece == (KING | WHITE))
-        m_castlings &= ~(CASTLINGS[WHITE][KINGSIDE] | CASTLINGS[WHITE][QUEENSIDE]);
-    else if (piece == (KING | BLACK))
-        m_castlings &= ~(CASTLINGS[BLACK][KINGSIDE] | CASTLINGS[BLACK][QUEENSIDE]);
-
-    // Movement from / capture on a rook starting square clears that flank.
-    for (COLOR c = 0; c < 2; ++c) {
-        for (U8 fl = 0; fl < 2; ++fl) {
-            FLD rsq = m_castlingRookSq[c][fl];
-            if (rsq != NF && (from == rsq || to == rsq))
-                m_castlings &= ~CASTLINGS[c][fl];
-        }
-    }
+    m_castlings &= m_castlingRightsMask[from];
+    m_castlings &= m_castlingRightsMask[to];
 
     ++m_ply;
     m_side ^= 1;
@@ -477,10 +459,6 @@ void Position::UnmakeMove()
     PIECE captured = mv.Captured();
 
     m_castlings = undo.m_castlings;
-    m_castlingRookSq[WHITE][KINGSIDE]  = undo.m_castlingRookSq[WHITE][KINGSIDE];
-    m_castlingRookSq[WHITE][QUEENSIDE] = undo.m_castlingRookSq[WHITE][QUEENSIDE];
-    m_castlingRookSq[BLACK][KINGSIDE]  = undo.m_castlingRookSq[BLACK][KINGSIDE];
-    m_castlingRookSq[BLACK][QUEENSIDE] = undo.m_castlingRookSq[BLACK][QUEENSIDE];
     m_ep = undo.m_ep;
     m_fifty = undo.m_fifty;
 
@@ -908,6 +886,8 @@ bool Position::SetFEN(const std::string& fen)
 
         m_castlings |= CASTLINGS[cside][flank];
         m_castlingRookSq[cside][flank] = rookSq;
+        m_castlingRightsMask[kingSq] &= ~(CASTLINGS[cside][KINGSIDE] | CASTLINGS[cside][QUEENSIDE]);
+        m_castlingRightsMask[rookSq] &= ~CASTLINGS[cside][flank];
     }
 
     if (tokens.size() < 4)
