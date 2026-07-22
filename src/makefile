@@ -38,6 +38,11 @@ ifneq ($(findstring __AVX512VNNI__, $(GCCDEFINES)),)
     DEFS += -DUSE_VNNI=1
 endif
 
+ifneq ($(findstring __AVXVNNI__, $(GCCDEFINES)),)
+    LIBS += -mavxvnni
+    DEFS += -DUSE_AVXVNNI=1
+endif
+
 CFLAGS = $(WARN) $(LIBS) $(OPTIM) $(NNFLAGS)
 
 #
