@@ -170,6 +170,17 @@ inline __m256i vec_msb_pack_16(__m256i a, __m256i b) {
     return _mm256_permute4x64_epi64(compacted, 0b11011000);
 }
 
+#if defined(USE_AVX2)
+inline __m256i affine_acc_256(__m256i acc, __m256i a, __m256i b) {
+#if defined(USE_AVXVNNI)
+    return _mm256_dpbusd_epi32(acc, a, b);
+#else
+    const __m256i ones = _mm256_set1_epi16(1);
+    return _mm256_add_epi32(acc, _mm256_madd_epi16(_mm256_maddubs_epi16(a, b), ones));
+#endif
+}
+#endif
+
 #if defined(USE_AVX512)
 inline __m512i vec_msb_pack_16_512(__m512i a, __m512i b) {
     __m512i compacted = _mm512_packs_epi16(_mm512_srli_epi16(a, 7), _mm512_srli_epi16(b, 7));
@@ -622,7 +633,6 @@ inline std::int32_t * Layer<OutputDimensions, InputDimensions>::propagate(std::u
 
 #if defined(USE_AVX2)
     std::uint32_t chunks = InputDimensions / SIMD_WIDTH;
-    const __m256i ones = _mm256_set1_epi16(1);
     const auto input_vector = reinterpret_cast<const __m256i*>(features);
 #endif
 
@@ -643,10 +653,10 @@ inline std::int32_t * Layer<OutputDimensions, InputDimensions>::propagate(std::u
             const auto r3 = reinterpret_cast<const __m256i*>(&weights[(i+3) * InputDimensions]);
             for (std::uint32_t j = 0; j < chunks; ++j) {
                 const __m256i inp = _mm256_loadA_si256(&input_vector[j]);
-                s0 = _mm256_add_epi32(s0, _mm256_madd_epi16(_mm256_maddubs_epi16(inp, _mm256_load_si256(&r0[j])), ones));
-                s1 = _mm256_add_epi32(s1, _mm256_madd_epi16(_mm256_maddubs_epi16(inp, _mm256_load_si256(&r1[j])), ones));
-                s2 = _mm256_add_epi32(s2, _mm256_madd_epi16(_mm256_maddubs_epi16(inp, _mm256_load_si256(&r2[j])), ones));
-                s3 = _mm256_add_epi32(s3, _mm256_madd_epi16(_mm256_maddubs_epi16(inp, _mm256_load_si256(&r3[j])), ones));
+                s0 = affine_acc_256(s0, inp, _mm256_load_si256(&r0[j]));
+                s1 = affine_acc_256(s1, inp, _mm256_load_si256(&r1[j]));
+                s2 = affine_acc_256(s2, inp, _mm256_load_si256(&r2[j]));
+                s3 = affine_acc_256(s3, inp, _mm256_load_si256(&r3[j]));
             }
             const __m128i bias = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&biases[i]));
             _mm_storeu_si128(reinterpret_cast<__m128i*>(&output[i]), m256_haddx4(s0, s1, s2, s3, bias));
@@ -662,9 +672,7 @@ inline std::int32_t * Layer<OutputDimensions, InputDimensions>::propagate(std::u
         __m256i sum = _mm256_setzero_si256();
         const auto row = reinterpret_cast<const __m256i*>(&weights[offset]);
         for (std::uint32_t j = 0; j < chunks; ++j) {
-            __m256i product = _mm256_maddubs_epi16(_mm256_loadA_si256(&input_vector[j]), _mm256_load_si256(&row[j]));
-            product = _mm256_madd_epi16(product, ones);
-            sum = _mm256_add_epi32(sum, product);
+            sum = affine_acc_256(sum, _mm256_loadA_si256(&input_vector[j]), _mm256_load_si256(&row[j]));
         }
         __m128i sum128 = _mm_add_epi32(_mm256_castsi256_si128(sum), _mm256_extracti128_si256(sum, 1));
         sum128 = _mm_add_epi32(sum128, _mm_shuffle_epi32(sum128, _MM_PERM_BADC));

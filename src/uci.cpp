@@ -31,7 +31,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "3.6.24";
+const std::string VERSION = "3.6.25";
 #if defined(PURE_HCE)
 const std::string PROGRAM_NAME = "Igel HCE";
 #else
@@ -52,6 +52,9 @@ const std::string ARCHITECTURE = " 64 "
 #endif
 #elif defined(USE_AVX2)
 "AVX2"
+#if defined(USE_AVXVNNI)
+" VNNI256"
+#endif
 #endif
 ;
 
