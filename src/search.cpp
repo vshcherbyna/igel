@@ -380,8 +380,21 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         if (!rootNode && bestScore > MATED_IN_MAX) {
 
             if (quietMove) {
-                if (skipQuiets)
+                if (skipQuiets) {
+                    bool tacticalMoveLeft = false;
+                    for (size_t j = i + 1; j < mvSize; ++j) {
+                        const Move tailMove = mvlist[j].m_mv;
+                        if (tailMove != skipMove && MoveEval::isTacticalMove(tailMove)) {
+                            tacticalMoveLeft = true;
+                            break;
+                        }
+                    }
+
+                    if (!tacticalMoveLeft)
+                        break;
+
                     continue;
+                }
 
                 History::fetchHistory(this, mv, ply, history);
 
@@ -628,8 +641,16 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
 
         const auto sortScore = mvlist[i].m_score;
 
-        if (!inCheck && (MoveEval::seeCached(mv, sortScore) ? MoveEval::cachedSeeNegative(sortScore) : MoveEval::SEE(this, mv) < 0))
-            continue;
+        if (!inCheck) {
+            if (MoveEval::seeCached(mv, sortScore)) {
+                // Losing captures are sorted by exact SEE below every
+                // non-losing capture, so the remaining suffix is also losing.
+                if (MoveEval::cachedSeeNegative(sortScore))
+                    break;
+            }
+            else if (MoveEval::SEE(this, mv) < 0)
+                continue;
+        }
 
         if (m_position.MakeMove(mv)) {
 
