@@ -11,8 +11,8 @@ SRC = *.cpp fathom/tbprobe.cpp
 # $(EVALFILE) rule below if it is missing. Change these to switch networks.
 #
 
-EVALFILE    = weights/3.6.14.nnue
-NETWORK_URL = https://github.com/vshcherbyna/igel/releases/download/0.8/3.6.14.nnue
+EVALFILE    = weights/c049c117
+NETWORK_URL = https://github.com/vshcherbyna/igel/releases/download/3.5.0/c049c117
 
 GCCDEFINES = $(shell echo | $(CC) -m64 -march=native -E -dM -)
 
@@ -46,7 +46,7 @@ endif
 CFLAGS = $(WARN) $(LIBS) $(OPTIM) $(NNFLAGS)
 
 #
-# Clang full-LTO + PGO build settings (used by the pgoclang target below).
+# Clang full-LTO + PGO build settings (used by the pgo targets below).
 # Clang rejects gcc's -flto=auto and links LTO through lld. Override
 # CLANGCC / CLANGLD / PROFDATA if your toolchain uses unversioned names.
 #
@@ -60,27 +60,13 @@ CLANGFLAGS = $(WARN) $(LIBS) $(CLANGOPTIM) $(NNFLAGS)
 basic:
 	$(CC) $(CFLAGS) $(SRC) $(DEFS) -o $(EXE)
 
+#
+# Clang full-LTO + Profile-Guided Optimization build. A single 'make pgo'
+# builds an instrumented binary, trains it on bench, merges the profile with
+# llvm-profdata, then rebuilds with it.
+#
+
 pgo: $(EVALFILE)
-ifeq ($(findstring g++, $(CC)), g++)
-	$(CC) $(CFLAGS) $(SRC) $(DEFS) -fprofile-generate=pgo -o $(EXE)
-	./$(EXE) bench 15 > pgo.out 2>&1
-	$(CC) $(CFLAGS) $(SRC) $(DEFS) -fprofile-use=pgo -o $(EXE)
-	@rm -rf pgo pgo.out
-else ifeq ($(findstring clang, $(CC)), clang)
-	$(CC) $(CFLAGS) $(SRC) $(DEFS) -fprofile-instr-generate -o $(EXE)
-	./$(EXE) bench 15 > pgo.out 2>&1
-	llvm-profdata merge -output=igel.profdata *.profraw
-	$(CC) $(CFLAGS) $(SRC) $(DEFS) -fprofile-instr-use=igel.profdata -o $(EXE)
-	@rm -rf pgo pgo.out igel.profdata *.profraw
-endif
-
-#
-# Clang full-LTO + Profile-Guided Optimization build (sibling of 'pgo').
-# A single 'make pgoclang' builds an instrumented binary, trains it on
-# bench, merges the profile with llvm-profdata, then rebuilds with it.
-#
-
-pgoclang: $(EVALFILE)
 	$(CLANGCC) $(CLANGFLAGS) $(SRC) $(DEFS) -fprofile-generate -o $(EXE)
 	LLVM_PROFILE_FILE=igel.profraw ./$(EXE) bench 15 > pgo.out 2>&1
 	$(PROFDATA) merge -output=igel.profdata igel.profraw
@@ -88,12 +74,12 @@ pgoclang: $(EVALFILE)
 	@rm -rf igel.profraw igel.profdata pgo.out default*.profraw
 
 #
-# Same as the pgoclang target but builds the pure hand-crafted evaluator
+# Same as the pgo target but builds the pure hand-crafted evaluator
 # (-DPURE_HCE). The HCE engine embeds no NNUE network, so it needs no
 # $(EVALFILE) prerequisite.
 #
 
-pgoclanghce:
+pgo_hce:
 	$(CLANGCC) $(CLANGFLAGS) $(SRC) $(DEFS) -DPURE_HCE -fprofile-generate -o $(EXE)
 	LLVM_PROFILE_FILE=igel.profraw ./$(EXE) bench 15 > pgo.out 2>&1
 	$(PROFDATA) merge -output=igel.profdata igel.profraw

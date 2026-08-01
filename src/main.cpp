@@ -59,7 +59,7 @@ int main(int argc, const char* argv[])
     Uci handler(*searcher.get());
 
     if ((argc > 1) && !strcmp(argv[1], "bench"))
-        return handler.onBench(argv[2]);
+        return handler.onBench(argc > 2 ? argv[2] : nullptr, argc > 3 ? argv[3] : nullptr);
     else
         return handler.handleCommands();
 }

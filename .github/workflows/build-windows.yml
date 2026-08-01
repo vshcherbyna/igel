@@ -33,4 +33,14 @@ jobs:
     - name: Run the bench
       run: igel.exe bench
       working-directory: Release
+
+    - name: Configure CMake for HCE
+      run: cmake -DPURE_HCE=1 -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
+
+    - name: Build the HCE project
+      run: cmake --build . --config Release
+
+    - name: Run the HCE bench
+      run: igel.exe bench
+      working-directory: Release
       shell: cmd

@@ -1,16 +1,5 @@
 cmake_minimum_required (VERSION 3.7)
 
-#
-#  A PGO build (-DPGO=1) is Clang full-LTO + Profile-Guided Optimization, the
-#  same recipe as 'make pgoclang' in src/makefile. Select the LLVM 19 toolchain
-#  automatically so -DPGO=1 needs no extra flags; an explicit
-#  -DCMAKE_CXX_COMPILER=... still wins. Configure a PGO build in a clean tree.
-#
-IF (PGO AND NOT DEFINED CMAKE_CXX_COMPILER)
-    SET(CMAKE_C_COMPILER   clang-19)
-    SET(CMAKE_CXX_COMPILER clang++-19)
-ENDIF()
-
 SET(CMAKE_CXX_STANDARD 17)
 SET(CMAKE_CXX_STANDARD_REQUIRED ON)
 SET(CMAKE_CXX_EXTENSIONS OFF)
@@ -27,6 +16,10 @@ FILE(GLOB INCBIN_HDRFILES ${PROJECT_SOURCE_DIR}/src/incbin/*.h)
 
 IF (DEFINED EVALFILE)
     ADD_DEFINITIONS(-DEVALFILE=\"${EVALFILE}\")
+ENDIF()
+
+IF (DEFINED PURE_HCE)
+    ADD_DEFINITIONS(-DPURE_HCE=${PURE_HCE})
 ENDIF()
 
 IF (DEFINED USE_PEXT)
@@ -107,47 +100,5 @@ ELSE()
 
     SET(IGEL_SOURCES ${SRCFILES} ${HDRFILES} ${FATHOM_SRCFILES} ${FATHOM_HDRFILES} ${INCBIN_HDRFILES})
 
-    IF (PGO)
-        #
-        #  Profile-Guided Optimization: the same four steps as 'make pgoclang'
-        #  in src/makefile, run by a single 'make'. The clang full-LTO flags and
-        #  the LLVM 19 toolchain are set above, so only the profile flags differ
-        #  between the instrumented and the final build.
-        #
-        IF (NOT UNIX OR NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-            MESSAGE(FATAL_ERROR "PGO is a Clang-on-UNIX build; install the LLVM 19 toolchain (clang-19, lld-19, llvm-profdata-19) and configure in a clean tree.")
-        ENDIF()
-
-        FIND_PROGRAM(LLVM_PROFDATA NAMES llvm-profdata-19 llvm-profdata)
-        IF (NOT LLVM_PROFDATA)
-            MESSAGE(FATAL_ERROR "llvm-profdata not found - install the LLVM 19 tools for a PGO build")
-        ENDIF()
-
-        SET(PGO_RAW  ${CMAKE_BINARY_DIR}/igel.profraw)
-        SET(PGO_DATA ${CMAKE_BINARY_DIR}/igel.profdata)
-
-        # 1. Build an instrumented igel (-fprofile-generate); kept out of 'all'.
-        ADD_EXECUTABLE(igel_instrumented EXCLUDE_FROM_ALL ${IGEL_SOURCES})
-        TARGET_COMPILE_OPTIONS(igel_instrumented PRIVATE -fprofile-generate)
-        SET_TARGET_PROPERTIES(igel_instrumented PROPERTIES LINK_FLAGS "-fprofile-generate")
-
-        # 2. Train it on 'bench' and 3. merge the counters into igel.profdata.
-        ADD_CUSTOM_COMMAND(
-            OUTPUT ${PGO_DATA}
-            COMMAND ${CMAKE_COMMAND} -E env LLVM_PROFILE_FILE=${PGO_RAW} $<TARGET_FILE:igel_instrumented> bench 15
-            COMMAND ${LLVM_PROFDATA} merge -output=${PGO_DATA} ${PGO_RAW}
-            DEPENDS igel_instrumented
-            COMMENT "PGO: training on bench and merging profile"
-            VERBATIM)
-        ADD_CUSTOM_TARGET(igel_profile DEPENDS ${PGO_DATA})
-
-        # 4. Rebuild the real igel with the profile (-fprofile-use), at compile
-        #    and link so full-LTO code generation uses it too.
-        ADD_EXECUTABLE(igel ${IGEL_SOURCES})
-        ADD_DEPENDENCIES(igel igel_profile)
-        TARGET_COMPILE_OPTIONS(igel PRIVATE -fprofile-use=${PGO_DATA} -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date)
-        SET_TARGET_PROPERTIES(igel PROPERTIES LINK_FLAGS "-fprofile-use=${PGO_DATA}")
-    ELSE()
-        ADD_EXECUTABLE(igel ${IGEL_SOURCES})
-    ENDIF()
+    ADD_EXECUTABLE(igel ${IGEL_SOURCES})
 ENDIF()
