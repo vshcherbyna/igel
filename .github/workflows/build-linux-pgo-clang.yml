@@ -30,8 +30,14 @@ jobs:
         sudo ./llvm.sh 19
         sudo apt-get install -y clang-19 lld-19 llvm-19 libclang-rt-19-dev
 
-    - name: Run make pgoclang
-      run: cd src&&make pgoclang
+    - name: Run make pgo
+      run: cd src&&make pgo
 
     - name: Run the bench
       run: cd src&&./igel bench
+
+    - name: Run make pgo_hce
+      run: cd src&&make pgo_hce EXE=igel-hce
+
+    - name: Run the HCE bench
+      run: cd src&&./igel-hce bench

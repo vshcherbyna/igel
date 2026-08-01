@@ -31,7 +31,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "3.6.25";
+const std::string VERSION = "3.6.26";
 #if defined(PURE_HCE)
 const std::string PROGRAM_NAME = "Igel HCE";
 #else
@@ -158,10 +158,6 @@ void Uci::onUci()
         " max "         << MAX_PLY  << std::endl;
 #endif
 
-#if !defined(PURE_HCE)
-    std::cout << "option name EvalFile type string default <empty>" << std::endl;
-#endif
-
     std::cout << "option name Ponder type check" <<
         " default false" << std::endl;
 
@@ -226,12 +222,19 @@ static const char* benchmarkPositions[] = {
     ""
 };
 
-int Uci::onBench(const char * depth)
+int Uci::onBench(const char * depth, const char * evalFile)
 {
     std::cout << "Running benchmark" << std::endl;
 
     if (!depth)
-        depth = "10";
+        depth = "12";
+
+#if !defined(PURE_HCE)
+    if (evalFile && !Evaluator::setEvalFile(evalFile)) {
+        std::cout << "Fatal error: unable to load network " << evalFile << std::endl;
+        return 1;
+    }
+#endif
 
     auto & time = Time::instance();
 
@@ -362,15 +365,6 @@ void Uci::onSetOption(commandParams params)
         tb_init(value.c_str());
     else if (name == "SyzygyProbeDepth")
         m_searcher.setSyzygyDepth(atoi(value.c_str()));
-#endif
-#if !defined(PURE_HCE)
-    else if (name == "EvalFile") {
-        auto evalFile = value;
-        for (size_t i = 5; i < params.size(); ++i)
-            evalFile += " " + params[i]; // the network path may contain spaces
-        Evaluator::setEvalFile(evalFile);
-        onUciNewGame(); // drop accumulators and TT scores produced by the previous network
-    }
 #endif
     else if (name == "Ponder")
         ; // nothing to do, we are stateless here
