@@ -21,7 +21,8 @@ NNFLAGS  = -DEVALFILE=\"$(EVALFILE)\"
 LIBS   = -std=c++17 -mpopcnt -pthread -lstdc++ -lm
 WARN   = -Wall
 OPTIM  = -O3 -march=native -flto=auto -funroll-loops
-DEFS   = -DNDEBUG -D_BTYPE=0 -DSYZYGY_SUPPORT=TRUE
+BTYPE  = 0
+DEFS   = -DNDEBUG -D_BTYPE=$(BTYPE) -DSYZYGY_SUPPORT=TRUE
 
 ifneq ($(findstring __AVX2__, $(GCCDEFINES)),)
     LIBS += -mavx2
@@ -41,6 +42,15 @@ endif
 ifneq ($(findstring __AVXVNNI__, $(GCCDEFINES)),)
     LIBS += -mavxvnni
     DEFS += -DUSE_AVXVNNI=1
+endif
+
+ifneq ($(findstring __BMI2__, $(GCCDEFINES)),)
+ifeq ($(findstring __znver1, $(GCCDEFINES)),)
+ifeq ($(findstring __znver2, $(GCCDEFINES)),)
+    BTYPE = 1
+    LIBS += -mbmi2
+endif
+endif
 endif
 
 CFLAGS = $(WARN) $(LIBS) $(OPTIM) $(NNFLAGS)
