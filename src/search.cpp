@@ -317,13 +317,15 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
             auto captureMovesSize = captureMoves.Size();
             for (size_t i = 0; i < captureMovesSize; ++i) {
-                if (skipMove == captureMoves[i].m_mv)
+                const Move captureMove = MoveEval::getNextBest(captureMoves, i);
+
+                if (skipMove == captureMove)
                     continue;
 
-                if (MoveEval::SEE(this, captureMoves[i].m_mv) < betaCut - staticEval)
+                if (MoveEval::SEE(this, captureMove) < betaCut - staticEval)
                     continue;
 
-                if (m_position.MakeMove(captureMoves[i].m_mv)) {
+                if (m_position.MakeMove(captureMove)) {
 
                     auto score = -qSearch(-betaCut, -betaCut + 1, ply, 0);
 
