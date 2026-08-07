@@ -135,7 +135,12 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     if (depth <= 0 && m_level > MEDIUM_LEVEL)
         return qSearch(alpha, beta, ply, 0, isNull);
 
-    const U64 hash = m_position.Hash();
+    //
+    //  an excluded-move search asks a different question about the same position, so it gets its own key
+    //
+
+    const U64 skipKey = skipMove ? 0x9E3779B97F4A7C15ull * static_cast<U64>(static_cast<U32>(skipMove)) : 0;
+    const U64 hash = m_position.Hash() ^ skipKey;
     TTable::instance().prefetchEntry(hash);
 
     ++m_nodes;
@@ -170,7 +175,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
     EVAL ttScore = 0;
     auto onPV    = (beta - alpha > 1);
-    auto ttHit   = !skipMove && ProbeHash(hEntry, hash);
+    auto ttHit   = ProbeHash(hEntry, hash);
 
     if (ttHit) {
         ttScore = hEntry.m_data.score;
@@ -553,8 +558,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
     assert((m_position.Fifty() >= 100) == false); // we must cut off at the begining of a node search for draws
 
-    if (!skipMove)
-        TTable::instance().record(bestMove, bestScore, depth, ply, type, hash);
+    TTable::instance().record(bestMove, bestScore, depth, ply, type, hash);
 
     return bestScore;
 }
