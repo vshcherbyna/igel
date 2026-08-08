@@ -413,7 +413,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
                 auto futilityMargin = staticEval + 90 * depth;
 
-                if (futilityMargin <= alpha
+                if (!inCheck
+                    && futilityMargin <= alpha
                     && depth <= 8
                     && history.history + history.cmhistory + history.fmhistory < m_fpHistoryLimit[improving])
                     skipQuiets = true;
