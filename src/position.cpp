@@ -94,9 +94,7 @@ void Position::Clear()
     std::memset(evalList.pieceListFb,   0, sizeof(evalList.pieceListFb));
 #endif
 
-    for (unsigned int i = 0; i < sizeof(m_undos) / sizeof(Undo); ++i)
-        m_undos->reset();
-
+    m_undos[0].reset();
     m_state = &m_undos[0];
 
     for (FLD f = 0; f < 64; ++f)
