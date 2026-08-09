@@ -360,7 +360,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
     const auto ttCapture = hashMove && hashMove.Captured();
 
-    MoveList& mvlist = m_lists[ply];
+    auto & mvlist = ply == m_singularPly ? m_singularLists[ply] : m_lists[ply];
+
     if (inCheck)
         GenMovesInCheck(m_position, mvlist);
     else
@@ -450,7 +451,10 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
         if (depth >= 8 && !skipMove && hashMove == mv && !rootNode && !isCheckMateScore(hEntry.m_data.score) && hEntry.m_data.type == HASH_BETA && hEntry.m_data.depth >= depth - 3) {
             auto betaCut = hEntry.m_data.score - depth;
-            auto score = abSearch(betaCut - 1, betaCut, depth / 2, ply + 1, false, false, cutNode, mv);
+            const auto savedSingularPly = m_singularPly;
+            m_singularPly = ply;
+            auto score = abSearch(betaCut - 1, betaCut, depth / 2, ply, false, false, cutNode, mv);
+            m_singularPly = savedSingularPly;
 
             if (score < betaCut) {
                 extension = 1;
@@ -632,7 +636,8 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
             alpha = bestScore;
     }
 
-    MoveList& mvlist = m_lists[ply];
+    auto & mvlist = ply == m_singularPly ? m_singularLists[ply] : m_lists[ply];
+
     if (inCheck)
         GenMovesInCheck(m_position, mvlist);
     else
