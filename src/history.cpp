@@ -94,6 +94,9 @@
     auto colour = pSearch->m_position.Side();
     hh.history = pSearch->m_history[colour][from][to];
 
+    if (ply < 1)
+        return;
+
     auto counterMove = pSearch->m_moveStack[ply - 1];
     auto counterPiece = pSearch->m_pieceStack[ply - 1];
     auto counterTo = counterMove.To();
