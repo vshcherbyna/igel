@@ -119,6 +119,8 @@ private:
     int m_syzygyDepth;
     int m_selDepth;
     MoveList m_lists[MAX_PLY];
+    MoveList m_singularLists[MAX_PLY];  // excluded search runs at the parent's ply
+    int m_singularPly = -1;             // every frame at that ply uses the parallel list
     Move m_pv[MAX_PLY][MAX_PLY];
     int m_pvSize[MAX_PLY];
     Move m_pvPrev[MAX_PLY][MAX_PLY];
