@@ -55,7 +55,20 @@ void TTable::record(Move mv, EVAL score, I8 depth, int ply, U8 type, U64 hash0)
 
     for (auto i = 0; i < 4; ++i) {
         // empty bucket or a matched hash
-        if ((!cluster.entry[i].m_key) || ((cluster.entry[i].m_key ^ cluster.entry[i].m_data.raw) == hash0)) {
+        if (!cluster.entry[i].m_key) {
+            replaceEntry = &cluster.entry[i];
+            break;
+        }
+
+        if ((cluster.entry[i].m_key ^ cluster.entry[i].m_data.raw) == hash0) {
+
+            //
+            //  a key match from this generation is kept unless the new result is exact or nearly as deep
+            //
+
+            if (type != HASH_EXACT && cluster.entry[i].m_data.age == curAge && depth + 4 < cluster.entry[i].m_data.depth)
+                return;
+
             replaceEntry = &cluster.entry[i];
             break;
         }

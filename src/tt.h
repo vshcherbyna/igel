@@ -22,6 +22,10 @@
 
 #include "position.h"
 
+const U8 HASH_ALPHA = 0;
+const U8 HASH_EXACT = 1;
+const U8 HASH_BETA  = 2;
+
 class TEntry
 {
 public:
