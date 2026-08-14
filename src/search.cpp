@@ -34,10 +34,6 @@
 #include <map>
 #include <utility>
 
-const U8 HASH_ALPHA = 0;
-const U8 HASH_EXACT = 1;
-const U8 HASH_BETA = 2;
-
 /*static */constexpr int Search::m_lmpDepth;
 /*static */constexpr int Search::m_lmpPruningTable[2][9];
 /*static */constexpr int Search::m_cmpDepth[2];
