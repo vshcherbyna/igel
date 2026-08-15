@@ -296,9 +296,18 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         if (!isNull && depth >= 3 && bestScore >= beta && (!ttHit || !(hEntry.m_data.type == HASH_BETA) || ttScore >= beta) && m_position.NonPawnMaterial()) {
             int R = 5 + depth / 6 + std::min(3, (bestScore - beta) / 100);
 
+            const auto savedMove  = m_moveStack[ply];
+            const auto savedPiece = m_pieceStack[ply];
+
+            m_moveStack[ply]  = Move{};
+            m_pieceStack[ply] = 0;
+
             m_position.MakeNullMove();
             EVAL nullScore = -abSearch(-beta, -beta + 1, depth - R, ply + 1, true, false, !cutNode);
             m_position.UnmakeNullMove();
+
+            m_moveStack[ply]  = savedMove;
+            m_pieceStack[ply] = savedPiece;
 
             if (nullScore >= beta)
                 return isCheckMateScore(nullScore) ? beta : nullScore;
