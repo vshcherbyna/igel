@@ -454,8 +454,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //  singular extensions
         //
 
-        if (depth >= 8 && !skipMove && hashMove == mv && !rootNode && !isCheckMateScore(hEntry.m_data.score) && hEntry.m_data.type == HASH_BETA && hEntry.m_data.depth >= depth - 3) {
-            auto betaCut = hEntry.m_data.score - depth;
+        if (depth >= 8 && !skipMove && hashMove == mv && !rootNode && !isCheckMateScore(ttScore) && hEntry.m_data.type == HASH_BETA && hEntry.m_data.depth >= depth - 3) {
+            auto betaCut = ttScore - depth;
             const auto savedSingularPly = m_singularPly;
             m_singularPly = ply;
             auto score = abSearch(betaCut - 1, betaCut, depth / 2, ply, false, false, cutNode, mv);
