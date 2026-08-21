@@ -605,7 +605,7 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
         if (hEntry.m_data.depth >= tteDepth) {
             auto onPV = (beta - alpha > 1);
 
-            if (!onPV && (hEntry.m_data.type == HASH_EXACT
+            if (!onPV && (m_position.Fifty() < 90) && (hEntry.m_data.type == HASH_EXACT
                 || (hEntry.m_data.type == HASH_BETA && ttScore >= beta)
                 || (hEntry.m_data.type == HASH_ALPHA && ttScore <= alpha)))
                 return ttScore;
