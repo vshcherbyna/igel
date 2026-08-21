@@ -319,7 +319,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
         auto betaCut = beta + 100;
 
-        if (depth >= 5 && !(ttHit && hEntry.m_data.depth >= (depth - 4) && hEntry.m_data.score < betaCut)) {
+        if (depth >= 5 && !(ttHit && hEntry.m_data.depth >= (depth - 4) && ttScore < betaCut)) {
             MoveList captureMoves;
 
             GenCapturesAndPromotions(m_position, captureMoves);
