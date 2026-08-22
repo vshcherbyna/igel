@@ -65,7 +65,7 @@
 
         if (followMove) {
             int fentry = pSearch->m_followTable[1][followPiece][followTo][mv.Piece()][to];
-            fentry += s_historyMultiplier * delta - fentry * abs(bonus) / s_historyDivisor;
+            fentry += s_historyMultiplier * delta - fentry * abs(delta) / s_historyDivisor;
             pSearch->m_followTable[1][followPiece][followTo][piece][to] = static_cast<int16_t>(fentry);
         }
     }
