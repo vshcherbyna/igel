@@ -111,7 +111,7 @@ bool Search::checkLimits()
 
 bool Search::isDraw()
 {
-    if ((m_position.Repetitions() >= 2) || (m_position.Fifty() >= 100))
+    if (m_position.isDrawByRepetition() || (m_position.Fifty() >= 100))
         return true;
 
     if (!m_position.Count(PW) && !m_position.Count(PB)) {
@@ -1023,6 +1023,8 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     m_tbHits = 0;
     m_limitCheck = 1023;
 
+    m_position.setSearchRoot();
+
     if (!m_ponderHit) {
         m_t0 = GetProcTime();
         m_time = time;
@@ -1137,13 +1139,10 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
             if (m_pvSize[0] && m_pv[0][0]) {
                 m_best = m_pv[0][0];
 
-                if (m_pvSize[0] > 1 && m_pv[0][1]) {
-                    m_ponder = m_pv[0][1];
-                    memcpy(m_pvPrev, m_pv, sizeof(m_pv));
-                    memcpy(m_pvSizePrev, m_pvSize, sizeof(m_pvSize));
-                }
-                else
-                    m_ponder = 0;
+                memcpy(m_pvPrev, m_pv, sizeof(m_pv));
+                memcpy(m_pvSizePrev, m_pvSize, sizeof(m_pvSize));
+
+                m_ponder = (m_pvSize[0] > 1 && m_pv[0][1]) ? m_pv[0][1] : Move{};
             }
 
             aspiration += 2 + aspiration / 2;
