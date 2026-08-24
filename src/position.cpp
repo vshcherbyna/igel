@@ -121,6 +121,7 @@ void Position::Clear()
     m_ply = 0;
     m_side = WHITE;
     m_undoSize = 0;
+    m_searchRoot = 0;
 }
 
 std::string Position::FEN() const
@@ -749,6 +750,52 @@ int Position::Repetitions() const
             break;
     }
     return r;
+}
+
+bool Position::isDrawByRepetition() const
+{
+    //
+    //  A position needs four reversible plies behind it before it can possibly repeat
+    //
+
+    if (m_fifty < 4)
+        return false;
+
+    const auto hash0 = Hash();
+    int        seen  = 0;
+
+    for (int i = m_undoSize - 1; i >= 0; --i) {
+
+        if (m_undos[i].m_hash == hash0) {
+
+            //
+            //  A position met again inside the search tree is scored as a draw on the first repetition
+            //
+
+            if (i > m_searchRoot)
+                return true;
+
+            //
+            //  A position that occurred at the root or earlier in the actual game only becomes a draw once it is about to occur for the third time
+            //
+
+            if (++seen >= 2)
+                return true;
+        }
+
+        auto mv = m_undos[i].m_mv;
+
+        if (mv == 0)
+            break;
+
+        if (mv.Captured())
+            break;
+
+        if (mv.Piece() <= PB)
+            break;
+    }
+
+    return false;
 }
 
 bool Position::SetFEN(const std::string& fen)

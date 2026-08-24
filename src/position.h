@@ -164,6 +164,8 @@ public:
     int    Ply() const { return m_ply; }
     void   Print() const;
     int    Repetitions() const;
+    bool   isDrawByRepetition() const;
+    void   setSearchRoot() { m_searchRoot = m_undoSize; }
     bool   SetFEN(const std::string& fen);
     void   SetInitial();
     COLOR  Side() const { return m_side; }
@@ -220,6 +222,7 @@ private:
     enum { MAX_UNDO = 2048 };
     Undo m_undos[MAX_UNDO];
     int m_undoSize;
+    int m_searchRoot;
     bool m_initialPosition;
 #if !defined(PURE_HCE)
     EvalList evalList;
