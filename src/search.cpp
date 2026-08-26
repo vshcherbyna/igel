@@ -57,6 +57,7 @@ Search::Search() :
     m_threadParams(nullptr),
     m_lazyDepth(0),
     m_smpThreadExit(false),
+    m_stopRequested(false),
     m_lazyPonder(false),
     m_terminateSmp(false),
     m_level(DEFAULT_LEVEL),
@@ -987,6 +988,19 @@ void Search::waitUntilCompletion()
         ; // we must wait explicitely for stop command or a ponderhit
 }
 
+void Search::stopAndWait() {
+    m_ponderHit     = false;
+    m_stopRequested = true;
+
+    while (m_lazyDepth) {
+        indicateWorkersStop();
+        m_flags |= TERMINATED_BY_USER;
+        std::this_thread::yield();
+    }
+
+    std::unique_lock<std::mutex> lk(m_readyMutex);
+}
+
 void Search::isReady()
 {
     indicateWorkersStop();
@@ -998,6 +1012,7 @@ void Search::isReady()
 void Search::stopPrincipalSearch()
 {
     m_ponderHit = false;
+    m_stopRequested = true;
     m_flags |= TERMINATED_BY_USER;
 }
 
@@ -1007,6 +1022,7 @@ void Search::startPrincipalSearch(Time time, bool ponder)
 
     m_readyMutex.lock();
     setTime(time);
+    m_stopRequested = false;
     m_lazyDepth = 1;
     m_lazyPonder = ponder;
     m_readyMutex.unlock();
@@ -1043,6 +1059,9 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
                 m_time.setPonderMode(true); // always run smp threads in analyze mode
         }
     }
+
+    if (m_stopRequested)
+        m_flags |= TERMINATED_BY_USER;
 
     memset(m_pvPrev, 0, sizeof(m_pvPrev));
     memset(m_pvSizePrev, 0, sizeof(m_pvSizePrev));

@@ -24,6 +24,17 @@ As of late 2020 Igel adoped NNUE and uses own NNUE implementation and own networ
 
 In January 2023 last bits of HCE code were removed from Igel and the evaluation is fully based on NNUE as of Igel 3.4.0.
 
+### Evaluation
+
+- NNUE
+  - Horizontally Mirrored 32 King Buckets
+  - HalfKAv2_hm + FullThreats
+  - 2x(22528 + 60144 -> 1024) -> 16 -> 32 -> 1
+  - 8 Output Buckets
+  - 8 PSQT Buckets
+  - Using Igel evaluation and search data
+- Igel HCE (-DPURE_HCE)
+
 ### Acknowledgements
 
 I would like to thank the authors and the community involved in the creation of the open source projects listed below. Their work influences development of Igel, and without them, this project wouldn't exist. Special thanks to Andrew Grant and Bojun Guo for supporting Igel development on OpenBench.
@@ -43,7 +54,7 @@ I would like to thank the authors and the community involved in the creation of 
 
 ### Compiling
 
-Official compilation method involves cmake and gcc/Visual Studio 2019 and assumes a modern CPU with AVX2 support (most of the computers produced in last 9 years).
+Official compilation method involves cmake and gcc/Visual Studio 2022 and assumes a modern CPU with AVX2 support (most of the computers produced in last 9 years).
 
 Using cmake/Visual Studio 2022:
 
@@ -60,7 +71,7 @@ Using cmake/gcc:
 git clone https://github.com/vshcherbyna/igel.git ./igel
 cd igel
 git submodule update --init --recursive
-wget https://github.com/vshcherbyna/igel/releases/download/3.5.0/c049c117 -O ./network_file
+wget https://github.com/vshcherbyna/igel/releases/download/0.8/020217C0.network -O ./network_file
 cmake -DEVALFILE=network_file -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
 make -j
 ```
@@ -71,20 +82,15 @@ To compile with AVX512 and VNNI support use -DUSE_VNNI=1 -DUSE_AVX512=1, for exa
 git clone https://github.com/vshcherbyna/igel.git ./igel
 cd igel
 git submodule update --init --recursive
-wget https://github.com/vshcherbyna/igel/releases/download/3.5.0/c049c117 -O ./network_file
+wget https://github.com/vshcherbyna/igel/releases/download/0.8/020217C0.network -O ./network_file
 cmake -DEVALFILE=network_file -DUSE_AVX2=1 -DUSE_AVX512=1 -DUSE_VNNI=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
 make -j
 ```
 
-On Linux you can also build with clang and full LTO. This uses the LLVM 19 toolchain - clang-19 and the lld-19 linker.
+You can also compile using MSYS2 CLANG64 on Windows:
 
 ```
-git clone https://github.com/vshcherbyna/igel.git ./igel
-cd igel
-git submodule update --init --recursive
-wget https://github.com/vshcherbyna/igel/releases/download/3.5.0/c049c117 -O ./network_file
-cmake -DCMAKE_C_COMPILER=clang-19 -DCMAKE_CXX_COMPILER=clang++-19 -DEVALFILE=network_file -DUSE_AVX2=1 -DUSE_AVX512=1 -DUSE_VNNI=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
-make -j
+mingw32-make pgo CLANGCC=clang++ CLANGLD=lld PROFDATA=llvm-profdata
 ```
 
 Important! If you make a custom build of Igel you need to validate the bench using command:
@@ -101,4 +107,4 @@ or if you are running Linux:
 
 The 'Nodes' must match the 'BENCH :' value from the last commit message.
 
-It is also possible to compile using gcc and a traditional makefile, please consult ./src/makefile for more details.
+It is also possible to compile using gcc and a traditional makefile on Linux and Windows with MSYS2 CLANG64 , please consult ./src/makefile for more details.

@@ -2,17 +2,30 @@
 # This makefile is used to compile Igel for OpenBench and TCEC
 #
 
-CC  = g++
-EXE = igel
-SRC = *.cpp fathom/tbprobe.cpp
+#
+# Toolchain. CC builds the "basic" target; the CLANG* names are the LLVM
+# programs the pgo targets drive. Override any of them on the command line
+# when your toolchain spells them differently - an MSYS2 clang64 install,
+# for instance, ships them unversioned:
+#
+#     make pgo CLANGCC=clang++ CLANGLD=lld PROFDATA=llvm-profdata
+#
+
+CC       = g++
+CLANGCC  = clang++-19
+CLANGLD  = lld-19
+PROFDATA = llvm-profdata-19
+
+EXE      = igel
+SRC      = *.cpp fathom/tbprobe.cpp
 
 #
 # NNUE network: embedded via INCBIN at compile time, and fetched by the
 # $(EVALFILE) rule below if it is missing. Change these to switch networks.
 #
 
-EVALFILE    = weights/c049c117
-NETWORK_URL = https://github.com/vshcherbyna/igel/releases/download/3.5.0/c049c117
+EVALFILE    = weights/020217C0.network
+NETWORK_URL = https://github.com/vshcherbyna/igel/releases/download/0.8/020217C0.network
 
 GCCDEFINES = $(shell echo | $(CC) -m64 -march=native -E -dM -)
 
@@ -53,17 +66,18 @@ endif
 endif
 endif
 
+ifneq ($(findstring __MINGW32__, $(GCCDEFINES)),)
+    LIBS += -static
+endif
+
 CFLAGS = $(WARN) $(LIBS) $(OPTIM) $(NNFLAGS)
 
 #
 # Clang full-LTO + PGO build settings (used by the pgo targets below).
-# Clang rejects gcc's -flto=auto and links LTO through lld. Override
-# CLANGCC / CLANGLD / PROFDATA if your toolchain uses unversioned names.
+# Clang rejects gcc's -flto=auto and links LTO through lld. The program
+# names themselves are declared at the top of this file.
 #
 
-CLANGCC    = clang++-19
-CLANGLD    = lld-19
-PROFDATA   = llvm-profdata-19
 CLANGOPTIM = -O3 -march=native -flto -fuse-ld=$(CLANGLD) -funroll-loops
 CLANGFLAGS = $(WARN) $(LIBS) $(CLANGOPTIM) $(NNFLAGS)
 

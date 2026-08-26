@@ -35,6 +35,7 @@
 U64 BB_SINGLE[64];
 U64 BB_DIR[64][8];
 U64 BB_BETWEEN[64][64];
+U64 BB_RAY[64][64];
 
 U64 BB_PAWN_ATTACKS[64][2];
 U64 BB_KNIGHT_ATTACKS[64];
@@ -530,7 +531,7 @@ void InitBitboards()
     for (from = 0; from < 64; ++from)
     {
         for (to = 0; to < 64; ++to)
-            BB_BETWEEN[from][to] = 0;
+            BB_BETWEEN[from][to] = BB_RAY[from][to] = 0;
 
         for (int dir = 0; dir < 8; ++dir)
         {
@@ -547,7 +548,13 @@ void InitBitboards()
             }
             BB_DIR[from][dir] = y;
         }
-        
+
+        for (int dir = 0; dir < 8; ++dir) {
+            U64 ray = BB_DIR[from][dir];
+            for (U64 b = ray; b;)
+                BB_RAY[from][PopLSB(b)] = ray;
+        }
+
         BB_BISHOP_ATTACKS[from] =
             BB_DIR[from][DIR_UR] |
             BB_DIR[from][DIR_UL] |

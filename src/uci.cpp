@@ -31,7 +31,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "3.6.39";
+const std::string VERSION = "3.7.0";
 #if defined(PURE_HCE)
 const std::string PROGRAM_NAME = "Igel HCE";
 #else
@@ -57,23 +57,6 @@ const std::string ARCHITECTURE = " 64 "
 #endif
 #endif
 ;
-
-/*
-#if defined(ENV64BIT)
-    #if defined(_BTYPE)
-        #if _BTYPE==0
-            const std::string ARCHITECTURE = " 64 POPCNT AVX2";
-        #else
-            const std::string ARCHITECTURE = " 64 BMI2 AVX2";
-    #endif
-    #else
-        const std::string ARCHITECTURE = " 64";
-    #endif
-#else
-    const std::string ARCHITECTURE = " CUSTOM";
-#endif
-*/
-
 #if defined(__linux__) && !defined(__ANDROID__)
 const int MIN_HASH_SIZE = 2;
 #else
@@ -89,7 +72,7 @@ const int MAX_THREADS     = 1024;
 
 int Uci::handleCommands()
 {
-    std::cout << PROGRAM_NAME << " " << VERSION << ARCHITECTURE << " by V. Shcherbyna (Igel author 2018-2025), V. Medvedev (GreKo author 2002-2018)" << std::endl;
+    std::cout << PROGRAM_NAME << " " << VERSION << ARCHITECTURE << " by V. Shcherbyna (Igel author 2018-2026), V. Medvedev (GreKo author 2002-2018)" << std::endl;
 
     if (!TTable::instance().setHashSize(DEFAULT_HASH_SIZE, DEFAULT_THREADS)) {
         std::cout << "Fatal error: unable to allocate memory for transposition table" << std::endl;
@@ -116,7 +99,7 @@ int Uci::handleCommands()
         else if (startsWith(cmd, "ponderhit"))
             onPonderHit();
         else if (startsWith(cmd, "quit"))
-            exit(0);
+            onQuit();
         else if (startsWith(cmd, "ucinewgame"))
             onUciNewGame();
         else if (startsWith(cmd, "uci"))
@@ -127,7 +110,7 @@ int Uci::handleCommands()
             onGenerate(split(cmd));
         else {
             std::cout << "Unknown command. Good bye." << std::endl;
-            exit(0); // important to exit when stdin is gone to prevent issues in OpenBench
+            onQuit(); // important to exit when stdin is gone to prevent issues in OpenBench
         }
     }
 
@@ -203,6 +186,11 @@ void Uci::onGo(commandParams params)
 void Uci::onStop()
 {
     m_searcher.stopPrincipalSearch();
+}
+
+void Uci::onQuit() {
+    m_searcher.stopAndWait();
+    exit(0);
 }
 
 void Uci::onPonderHit()

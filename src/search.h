@@ -78,6 +78,7 @@ public:
     void startPrincipalSearch(Time time, bool ponder);
     void stopPrincipalSearch();
     void isReady();
+    void stopAndWait();
     void setLevel(int level);
     bool setFEN(const std::string& fen);
     bool setInitialPosition();
@@ -151,6 +152,7 @@ private:
     std::condition_variable m_lazycv;
     volatile int m_lazyDepth;
     volatile bool m_smpThreadExit;
+    volatile bool m_stopRequested;
     bool m_lazyPonder;
     static constexpr int m_lmpDepth = 8;
     static constexpr int m_lmpPruningTable[2][9] =

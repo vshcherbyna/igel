@@ -22,10 +22,20 @@
 #include "hce.h"
 #include "utils.h"
 #include <immintrin.h>
+#include <new>
+#include <cstdlib>
 #include <streambuf>
 #include <fstream>
 #include <iostream>
 #include <atomic>
+
+#if defined(__linux__) && !defined(__ANDROID__)
+#include <sys/mman.h>
+#endif
+
+#if defined(_WIN32)
+#include <malloc.h>
+#endif
 
 #if !defined(PURE_HCE)
 #include "incbin/incbin.h"
@@ -34,7 +44,7 @@
 INCBIN(EmbeddedNNUE, EVALFILE);
 #endif // _MSC_VER
 
-/*static */std::unique_ptr<Transformer> Evaluator::m_transformer;
+/*static */TransformerPtr Evaluator::m_transformer;
 /*static */std::vector<std::unique_ptr<LayeredNetwork>> Evaluator::m_networks;
 
 // bumped on every network (re)load so per-thread refresh caches drop stale columns
@@ -88,7 +98,11 @@ bool Evaluator::initEval()
     architecture.resize(size);
     stream.read(&(architecture)[0], size);
 
-    m_transformer.reset(new Transformer(stream));
+    m_transformer = makeTransformer(stream);
+
+    if (!m_transformer)
+        return false;
+
     m_networks.clear();
 
     for (auto i = 0; i < LAYERED_NETWORKS; ++i) {
@@ -157,12 +171,152 @@ int Evaluator::NnueEvaluate(Position & pos) {
     return accumulator.score;
 }
 
+//
+// Allocate the transformer on huge pages
+//
+
+static constexpr std::size_t HugePage = 2 * 1024 * 1024;
+
+TransformerPtr makeTransformer(std::istream & s) {
+
+    const std::size_t bytes = (sizeof(Transformer) + HugePage - 1) / HugePage * HugePage;
+
+#if defined(_WIN32)
+    void * raw = _aligned_malloc(bytes, HugePage);
+#else
+    void * raw = std::aligned_alloc(HugePage, bytes);
+#endif
+
+    if (!raw)
+        return TransformerPtr();
+
+#if defined(__linux__) && !defined(__ANDROID__)
+    // same idea as the transposition table, see TTable::setHashSize
+    madvise(raw, bytes, MADV_HUGEPAGE);
+#endif
+
+    return TransformerPtr(new (raw) Transformer(s));
+}
+
+void TransformerDeleter::operator()(Transformer * t) const noexcept {
+
+    if (!t)
+        return;
+
+    t->~Transformer();
+
+#if defined(_WIN32)
+    _aligned_free(t);
+#else
+    std::free(t);
+#endif
+}
+
+static void readStrided(std::istream & s, std::int8_t * out, std::size_t rows, std::size_t width, std::size_t stride) {
+
+    for (std::size_t r = 0; r < rows; ++r)
+        s.read(reinterpret_cast<char*>(out + r * stride), width);
+}
+
 Transformer::Transformer(std::istream & s) {
     std::uint32_t header;
     s.read(reinterpret_cast<char*>(&header), sizeof(header));
     s.read(reinterpret_cast<char*>(biases), sizeof(biases));
-    s.read(reinterpret_cast<char*>(weights), sizeof(weights));
-    s.read(reinterpret_cast<char*>(psqts), sizeof(psqts));
+
+    if (header == ThreatHeader) {
+        readStrided(s, threatBlock, ThreatDimensions, HalfDimensions, ThreatStride);
+        s.read(reinterpret_cast<char*>(weights), sizeof(weights));
+        readStrided(s, threatBlock + ThreatPsqtOffset, ThreatDimensions, PSQT_BUCKETS * sizeof(std::int32_t), ThreatStride);
+        s.read(reinterpret_cast<char*>(psqts), sizeof(psqts));
+    }
+    else {
+        s.read(reinterpret_cast<char*>(weights), sizeof(weights));
+        s.read(reinterpret_cast<char*>(psqts), sizeof(psqts));
+
+        std::memset(threatBlock, 0, sizeof(threatBlock));
+    }
+}
+
+static const ThreatList EmptyThreats{};
+
+static inline void applyThreats(const Transformer & t, std::int16_t * accumulation, std::int32_t * psqt, const ThreatList & removed, const ThreatList & added) {
+
+    if (!removed.size() && !added.size())
+        return;
+
+#if defined(USE_AVX512)
+    using acc_vec_t = __m512i;
+    using col_vec_t = __m256i;
+
+    auto vadd16  = [](acc_vec_t a, acc_vec_t b) { return _mm512_add_epi16(a, b); };
+    auto vsub16  = [](acc_vec_t a, acc_vec_t b) { return _mm512_sub_epi16(a, b); };
+    auto vwiden8 = [](const col_vec_t * c) { return _mm512_cvtepi8_epi16(_mm256_load_si256(c)); };
+#elif defined(USE_AVX2)
+    using acc_vec_t = __m256i;
+    using col_vec_t = __m128i;
+
+    auto vadd16  = [](acc_vec_t a, acc_vec_t b) { return _mm256_add_epi16(a, b); };
+    auto vsub16  = [](acc_vec_t a, acc_vec_t b) { return _mm256_sub_epi16(a, b); };
+    auto vwiden8 = [](const col_vec_t * c) { return _mm256_cvtepi8_epi16(_mm_load_si128(c)); };
+#endif
+
+#if defined(USE_AVX2)
+#if defined(USE_AVX512)
+    constexpr std::uint32_t ThreatRegs = NUM_REGS;
+#else
+    constexpr std::uint32_t ThreatRegs = NUM_REGS / 2;
+#endif
+
+    constexpr std::uint32_t TileHeight = ThreatRegs * sizeof(acc_vec_t) / sizeof(std::int16_t);
+    constexpr std::uint32_t NumTiles   = Transformer::HalfDimensions / TileHeight;
+
+    static_assert(Transformer::HalfDimensions % TileHeight == 0);
+
+    const std::int8_t * columns[2 * ThreatList::MAX_LENGTH];
+    const size_t        columnCount = removed.size() + added.size();
+
+    for (size_t i = 0; i < removed.size(); ++i)
+        columns[i] = t.threatWeights(removed[i]);
+
+    for (size_t i = 0; i < added.size(); ++i)
+        columns[removed.size() + i] = t.threatWeights(added[i]);
+
+    for (std::uint32_t tile = 0; tile < NumTiles; ++tile) {
+
+        const std::uint32_t offset = tile * TileHeight;
+        auto accTile = reinterpret_cast<acc_vec_t*>(accumulation + offset);
+
+        acc_vec_t acc[ThreatRegs];
+
+        for (std::uint32_t k = 0; k < ThreatRegs; ++k)
+            acc[k] = accTile[k];
+
+        for (size_t i = 0; i < removed.size(); ++i) {
+            auto column = reinterpret_cast<const col_vec_t*>(columns[i] + offset);
+            for (std::uint32_t k = 0; k < ThreatRegs; ++k)
+                acc[k] = vsub16(acc[k], vwiden8(&column[k]));
+        }
+
+        for (size_t i = removed.size(); i < columnCount; ++i) {
+            auto column = reinterpret_cast<const col_vec_t*>(columns[i] + offset);
+            for (std::uint32_t k = 0; k < ThreatRegs; ++k)
+                acc[k] = vadd16(acc[k], vwiden8(&column[k]));
+        }
+
+        for (std::uint32_t k = 0; k < ThreatRegs; ++k)
+            accTile[k] = acc[k];
+    }
+
+    __m256i psqtAcc = _mm256_load_si256(reinterpret_cast<const __m256i*>(psqt));
+
+    for (size_t i = 0; i < removed.size(); ++i)
+        psqtAcc = _mm256_sub_epi32(psqtAcc, _mm256_load_si256(reinterpret_cast<const __m256i*>(t.threatPsqts(removed[i]))));
+
+    for (size_t i = 0; i < added.size(); ++i)
+        psqtAcc = _mm256_add_epi32(psqtAcc, _mm256_load_si256(reinterpret_cast<const __m256i*>(t.threatPsqts(added[i]))));
+
+    _mm256_store_si256(reinterpret_cast<__m256i*>(psqt), psqtAcc);
+#endif
 }
 
 inline __m256i vec_msb_pack_16(__m256i a, __m256i b) {
@@ -436,6 +590,10 @@ static void refreshPerspective(Transformer & t, Position & pos, COLOR c) {
     for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
         accumulator.psqtAccumulation[c][k] = entry.psqt[k];
 #endif
+
+    ThreatList active;
+    getActiveThreatIndexes(pos, c, active);
+    applyThreats(t, accumulator.accumulation[c], accumulator.psqtAccumulation[c], EmptyThreats, active);
 }
 
 inline void Transformer::incremental(Position & pos, const Accumulator * baseAcc) {
@@ -569,6 +727,9 @@ inline void Transformer::incremental(Position & pos, const Accumulator * baseAcc
 #if defined(USE_AVX2)
             }
 #endif
+            ThreatList thrRemoved, thrAdded;
+            getChangedThreatIndexes(c, pos.King(c), pos.state()->dirtyThreats, thrRemoved, thrAdded);
+            applyThreats(*this, accumulator.accumulation[c], accumulator.psqtAccumulation[c], thrRemoved, thrAdded);
         }
     }
 }

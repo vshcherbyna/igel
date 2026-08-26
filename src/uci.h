@@ -68,6 +68,7 @@ private:
     void onPosition(commandParams params);
     void onSetOption(commandParams params);
     void onEval();
+    void onQuit();
     bool startsWith(const std::string & str, const std::string & ptrn);
     void onGenerate(commandParams params);
 
