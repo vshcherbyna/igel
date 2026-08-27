@@ -26,6 +26,7 @@
 #include <immintrin.h>
 
 #include "types.h"
+#include "threats.h"
 
 class Position;
 struct Accumulator;
@@ -60,14 +61,39 @@ public:
     inline void incremental(Position & pos, const Accumulator * baseAcc = nullptr);
 
 public:
-    static constexpr int HalfDimensions  = 1024;
-    static constexpr int InputDimensions = 22528;
+    static constexpr int HalfDimensions   = 1024;
+    static constexpr int InputDimensions  = 22528;
+    static constexpr int ThreatDimensions = THREAT_DIMENSIONS;
+
+    static constexpr std::uint32_t HalfKaHashValue = 0x7f234cb8u;
+    static constexpr std::uint32_t ThreatHeader    = (((THREAT_HASH_VALUE << 1) | (THREAT_HASH_VALUE >> 31)) ^ HalfKaHashValue) ^ (HalfDimensions * 2);
 
 public:
     alignas(CACHE_LINE) int16_t biases[HalfDimensions];
     alignas(CACHE_LINE) int16_t weights[HalfDimensions * InputDimensions];
     alignas(CACHE_LINE) int32_t psqts[InputDimensions  * PSQT_BUCKETS];
+
+    static constexpr int ThreatPsqtOffset = HalfDimensions;
+    static constexpr int ThreatStride     = (HalfDimensions + PSQT_BUCKETS * int(sizeof(int32_t)) + CACHE_LINE - 1) / CACHE_LINE * CACHE_LINE;
+
+    alignas(CACHE_LINE) int8_t threatBlock[std::size_t(ThreatDimensions) * ThreatStride];
+
+    const int8_t * threatWeights(std::size_t index) const {
+        return &threatBlock[index * ThreatStride];
+    }
+
+    const int32_t * threatPsqts(std::size_t index) const {
+        return reinterpret_cast<const int32_t*>(&threatBlock[index * ThreatStride + ThreatPsqtOffset]);
+    }
 };
+
+struct TransformerDeleter {
+    void operator()(Transformer * t) const noexcept;
+};
+
+using TransformerPtr = std::unique_ptr<Transformer, TransformerDeleter>;
+
+TransformerPtr makeTransformer(std::istream & s);
 
 template <std::int32_t WeightScaleBits, std::int32_t InputDimensions> class ClippedReLU {
 
@@ -114,7 +140,7 @@ private:
     int NnueEvaluate(Position & pos);
 
 private:
-    static std::unique_ptr<Transformer> m_transformer;
+    static TransformerPtr m_transformer;
     static std::vector<std::unique_ptr<LayeredNetwork>> m_networks;
 
 public:

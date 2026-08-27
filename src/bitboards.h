@@ -30,6 +30,7 @@
 extern U64 BB_SINGLE[64];
 extern U64 BB_DIR[64][8];
 extern U64 BB_BETWEEN[64][64];
+extern U64 BB_RAY[64][64];
 
 extern U64 BB_PAWN_ATTACKS[64][2];
 extern U64 BB_KNIGHT_ATTACKS[64];

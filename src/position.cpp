@@ -36,10 +36,6 @@ U64 Position::s_hashCastlings[256];
 U64 Position::s_hashEP[256];
 
 const int Position::s_matIndexDelta[14] = { 0, 0, 0, 0, 3, 3, 3, 3, 5, 5, 10, 10, 0, 0 };
-#if !defined(PURE_HCE)
-static Piece PieceAdapter[] = { NO_PIECE, NO_PIECE, W_PAWN, B_PAWN, W_KNIGHT, B_KNIGHT, W_BISHOP, B_BISHOP, W_ROOK, B_ROOK, W_QUEEN, B_QUEEN, W_KING, B_KING };
-#endif
-
 bool Position::CanCastle(COLOR side, U8 flank) const
 {
     if (InCheck())
@@ -212,8 +208,6 @@ U64 Position::GetAttacks(FLD to, COLOR side, U64 occ) const
     return att;
 }
 
-
-
 void Position::InitHashNumbers()
 {
     RandSeed(30147);
@@ -285,6 +279,11 @@ bool Position::MakeMove(Move mv)
     PieceId dp1 = PIECE_ID_NONE;
     auto & dp = m_state->dirtyPiece;
     dp.dirty_num = 1;
+
+    auto * const threats = &m_state->dirtyThreats;
+    threats->clear();
+#else
+    DirtyThreats * const threats = nullptr;
 #endif
 
     FLD from = mv.From();
@@ -309,9 +308,9 @@ bool Position::MakeMove(Move mv)
 #endif
         m_fifty = 0;
         if (to == m_ep)
-            Remove(to + 8 - 16 * side);
+            Remove(to + 8 - 16 * side, threats);
         else
-            Remove(to);
+            Remove(to, threats);
 
 #if !defined(PURE_HCE)
         dp.dirty_num = 2; // 2 pieces moved
@@ -341,7 +340,7 @@ bool Position::MakeMove(Move mv)
 #endif
 
     if (!castling)
-        MovePiece(piece, from, to);
+        MovePiece(piece, from, to, threats);
 
     m_ep = NF;
 
@@ -355,7 +354,14 @@ bool Position::MakeMove(Move mv)
             else if (promotion)
             {
                 Remove(to);
+
+                if (threats)
+                    updateThreats<false>(piece, false, to, threats);
+
                 Put(to, promotion);
+
+                if (threats)
+                    updateThreats<false>(promotion, true, to, threats);
 #if !defined(PURE_HCE)
                 dp0 = piece_id_on(to);
                 evalList.put_piece(dp0, to, PieceAdapter[promotion]);
@@ -399,10 +405,10 @@ bool Position::MakeMove(Move mv)
                 // Order handles FRC edge cases where destinations overlap with starts
                 //
 
-                Remove(from);
-                Remove(rfrom);
-                Put(kto, KING | side);
-                Put(rto, ROOK | side);
+                Remove(from, threats);
+                Remove(rfrom, threats);
+                Put(kto, KING | side, threats);
+                Put(rto, ROOK | side, threats);
                 m_Kings[side] = kto;
 
 #if !defined(PURE_HCE)
@@ -560,6 +566,7 @@ void Position::MakeNullMove()
     m_state->accumulator.computed_accumulation = false;
     m_state->dirtyPiece.dirty_num = 0;
     m_state->dirtyPiece.pieceId[0] = PIECE_ID_NONE;
+    m_state->dirtyThreats.clear();
 #endif
 
     m_ep = NF;
@@ -587,13 +594,17 @@ void Position::UnmakeNullMove()
         m_state = &m_undos[0];
 }
 
-void Position::MovePiece(PIECE p, FLD from, FLD to)
-{
+void Position::MovePiece(PIECE p, FLD from, FLD to, DirtyThreats * threats) {
     assert(from >= 0 && from < 64);
     assert(to >= 0 && to < 64);
     assert(p == m_board[from]);
 
     COLOR side = GetColor(p);
+
+    const U64 moveMask = BB_SINGLE[from] | BB_SINGLE[to];
+
+    if (threats)
+        updateThreats(p, false, from, threats, moveMask);
 
     m_bits[p] ^= BB_SINGLE[from];
     m_bits[p] ^= BB_SINGLE[to];
@@ -606,6 +617,113 @@ void Position::MovePiece(PIECE p, FLD from, FLD to)
 
     m_hash ^= s_hash[from][p];
     m_hash ^= s_hash[to][p];
+
+    if (threats)
+        updateThreats(p, true, to, threats, moveMask);
+}
+
+static inline bool canSliderThreat(PIECE attacked, PIECE slider) {
+    return GetPieceType(attacked) != QUEEN || GetPieceType(slider) == QUEEN;
+}
+
+template <bool Discovered>
+void Position::updateThreats(PIECE p, bool placing, FLD f, DirtyThreats * threats, U64 moveMask) const
+{
+    const U64 occupied        = BitsAll();
+    const U64 occupiedNoKings = occupied ^ (m_bits[KW] | m_bits[KB]);
+    const U64 queens          = m_bits[QW] | m_bits[QB];
+    const U64 rookQueens      = m_bits[RW] | m_bits[RB] | queens;
+    const U64 bishopQueens    = m_bits[BW] | m_bits[BB] | queens;
+
+    const U64 bishopAttacks = BishopAttacks(f, occupied);
+    const U64 rookAttacks   = RookAttacks(f, occupied);
+
+    const PIECE type     = GetPieceType(p);
+    const Piece attacker = PieceAdapter[p];
+
+    U64 sliders = (rookQueens & rookAttacks) | (bishopQueens & bishopAttacks);
+
+    auto processSliders = [&](bool addDirectAttacks) {
+        while (sliders) {
+            const FLD   sliderSq = PopLSB(sliders);
+            const PIECE slider   = m_board[sliderSq];
+
+            //
+            // Taking a piece off a ray uncovers the attack of the slider behind it on
+            // the next piece along that ray, putting one there hides that attack again
+            //
+
+            const U64 ray        = BB_RAY[sliderSq][f];
+            const U64 discovered = ray & (rookAttacks | bishopAttacks) & occupiedNoKings;
+
+            if (discovered && (ray & moveMask) != moveMask) {
+                const FLD   attackedSq = LSB(discovered);
+                const PIECE attacked   = m_board[attackedSq];
+
+                if (canSliderThreat(attacked, slider))
+                    threats->add(PieceAdapter[slider], PieceAdapter[attacked], sliderSq, attackedSq, !placing);
+            }
+
+            if (addDirectAttacks && canSliderThreat(p, slider))
+                threats->add(PieceAdapter[slider], attacker, sliderSq, f, placing);
+        }
+    };
+
+    //
+    // a king is never part of a threat pair, only the rays it blocks matter
+    //
+
+    if (type == KING) {
+        if constexpr (Discovered)
+            processSliders(false);
+
+        return;
+    }
+
+    //
+    // The attack set of a slider is the one the discovered attacks above were worked
+    // out from, so it is taken from there rather than probed a second time
+    //
+
+    U64 attacked = (type == BISHOP) ? bishopAttacks
+                 : (type == ROOK)   ? rookAttacks
+                 : (type == QUEEN)  ? (bishopAttacks | rookAttacks)
+                                    : Attacks(f, occupied, p);
+
+    attacked &= occupiedNoKings;
+
+    U64 incoming = BB_KNIGHT_ATTACKS[f] & (m_bits[NW] | m_bits[NB]);
+
+    if (type == PAWN || type == KNIGHT || type == ROOK)
+        incoming |= (BB_PAWN_ATTACKS[f][WHITE] & m_bits[PB]) | (BB_PAWN_ATTACKS[f][BLACK] & m_bits[PW]);
+
+    switch (type)
+    {
+        case PAWN:
+            attacked &= m_bits[PW] | m_bits[PB] | m_bits[NW] | m_bits[NB] | m_bits[RW] | m_bits[RB];
+            break;
+        case BISHOP:
+        case ROOK:
+            attacked &= ~queens;
+            break;
+        default:
+            break;
+    }
+
+    while (attacked) {
+        const FLD to = PopLSB(attacked);
+        threats->add(attacker, PieceAdapter[m_board[to]], f, to, placing);
+    }
+
+    if constexpr (Discovered)
+        processSliders(true);
+    else
+        incoming |= (type == QUEEN) ? (sliders & queens) : sliders;
+
+    while (incoming) {
+        const FLD from = PopLSB(incoming);
+        threats->add(PieceAdapter[m_board[from]], attacker, from, f, placing);
+    }
 }
 
 void Position::Print() const
@@ -632,7 +750,7 @@ void Position::Print() const
     }
 }
 
-void Position::Put(FLD f, PIECE p)
+void Position::Put(FLD f, PIECE p, DirtyThreats * threats)
 {
     assert(f >= 0 && f < 64);
     assert(p >= 2 && p < 14);
@@ -645,6 +763,9 @@ void Position::Put(FLD f, PIECE p)
     m_hash ^= s_hash[f][p];
     m_matIndex[side] += s_matIndexDelta[p];
     ++m_count[p];
+
+    if (threats)
+        updateThreats(p, true, f, threats);
 }
 
 #if !defined(PURE_HCE)
@@ -715,11 +836,14 @@ void Position::Put(FLD f, PIECE p, PieceId & next_piece_id)
 }
 #endif
 
-void Position::Remove(FLD f)
+void Position::Remove(FLD f, DirtyThreats * threats)
 {
     assert(f >= 0 && f < 64);
     PIECE p = m_board[f];
     assert(p >= 2 && p < 14);
+
+    if (threats)
+        updateThreats(p, false, f, threats);
 
     COLOR side = GetColor(p);
     m_bits[p] ^= BB_SINGLE[f];

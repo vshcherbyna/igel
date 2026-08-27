@@ -102,6 +102,7 @@ struct Undo
 #if !defined(PURE_HCE)
     Accumulator accumulator;
     DirtyPiece dirtyPiece;
+    DirtyThreats dirtyThreats;
 #endif
     Undo* previous;
 
@@ -125,6 +126,8 @@ struct Undo
         dirtyPiece.dirty_num  = 0;
         dirtyPiece.pieceId[0] = PIECE_ID_ZERO;
         dirtyPiece.pieceId[1] = PIECE_ID_ZERO;
+
+        dirtyThreats.clear();
 
         for (unsigned int i = 0; i < sizeof(dirtyPiece.old_piece) / sizeof(ExtPieceSquare); ++i)
             for (unsigned int j = 0; j < sizeof(dirtyPiece.old_piece[i].from) / sizeof(PieceSquare); ++j)
@@ -192,10 +195,13 @@ public:
 
 private:
     void Clear();
-    void Put(FLD f, PIECE p);
+    void Put(FLD f, PIECE p, DirtyThreats * threats = nullptr);
     void Put(FLD f, PIECE p, PieceId & next_piece_id);
-    void Remove(FLD f);
-    void MovePiece(PIECE p, FLD from, FLD to);
+    void Remove(FLD f, DirtyThreats * threats = nullptr);
+    void MovePiece(PIECE p, FLD from, FLD to, DirtyThreats * threats = nullptr);
+
+    template <bool Discovered = true>
+    void updateThreats(PIECE p, bool placing, FLD f, DirtyThreats * threats, U64 moveMask = ~0ull) const;
 
     static U64 s_hash[64][14];
     static U64 s_hashSide[2];

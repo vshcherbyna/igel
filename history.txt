@@ -1,7 +1,52 @@
 Igel - open source chess engine forked from GreKo 2018.01.
 
-(c) 2018-2025 Volodymyr Shcherbyna <volodymyr@shcherbyna.com> (Igel author)
+(c) 2018-2026 Volodymyr Shcherbyna <volodymyr@shcherbyna.com> (Igel author)
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru> (GreKo author)
+
+Igel 3.7.0
+-------------
+26.08.2026
+
+- fix draw detection
+- fix history overflow
+- fix mate score for probcut
+- use fifty move guard on tt in qsearch
+- update piece stack for null move pruning
+- improve tt replace strategy
+- fix ply coherence in singular search
+- fix undefined behavior in history
+- fix undo bug
+- apply incheck futility guard
+- use tt for skipmove positions
+- order moves during probcut
+- detect bmi2 in basic makefile
+- support vnni256
+- optimize quiets pickup
+- speed-up castling
+- store tt wdl result as a bonus
+- fix tb probing with wrong castling rights
+- reduce tt captures
+- minimize see calls
+- implement finny table
+- implement counter move table
+- track best move stability
+- use tt for null moves
+- release new standard network
+- implement evalfile parameter
+- fix tb tt bug
+- restore hce build for tcec
+- probe dtz
+- fix tt castling bit for frc
+- cache hash entry
+- speed-up inferencing code
+- implement avx512 support
+- improve voting system
+- fix gcc14 build
+- implement frc mode
+- improve speed
+- support longer games
+- optimize sort
+- penalize bad captures
 
 Igel 3.6.0
 -------------

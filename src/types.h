@@ -226,6 +226,64 @@ struct DirtyPiece {
     ExtPieceSquare new_piece[2];
 };
 
+static constexpr Piece PieceAdapter[14] = {
+    NO_PIECE, NO_PIECE,
+    W_PAWN,   B_PAWN,
+    W_KNIGHT, B_KNIGHT,
+    W_BISHOP, B_BISHOP,
+    W_ROOK,   B_ROOK,
+    W_QUEEN,  B_QUEEN,
+    W_KING,   B_KING
+};
+
+class DirtyThreat
+{
+public:
+    DirtyThreat() = default;
+    DirtyThreat(Piece attacker, Piece attacked, Square from, Square to, bool added) :
+        m_data((std::uint32_t(added) << ADDED_SHIFT)
+             | (std::uint32_t(attacker) << ATTACKER_SHIFT)
+             | (std::uint32_t(attacked) << ATTACKED_SHIFT)
+             | (std::uint32_t(to) << TO_SHIFT)
+             | (std::uint32_t(from) << FROM_SHIFT)) {}
+
+    Piece  attacker() const { return static_cast<Piece>((m_data >> ATTACKER_SHIFT) & 0x0f); }
+    Piece  attacked() const { return static_cast<Piece>((m_data >> ATTACKED_SHIFT) & 0x0f); }
+    Square from() const { return static_cast<Square>((m_data >> FROM_SHIFT) & 0xff); }
+    Square to() const { return static_cast<Square>((m_data >> TO_SHIFT) & 0xff); }
+    bool   added() const { return m_data >> ADDED_SHIFT; }
+
+private:
+    enum {
+        FROM_SHIFT     = 0,
+        TO_SHIFT       = 8,
+        ATTACKED_SHIFT = 16,
+        ATTACKER_SHIFT = 20,
+        ADDED_SHIFT    = 31
+    };
+
+    std::uint32_t m_data;
+};
+
+class DirtyThreats
+{
+public:
+    enum { MAX_LENGTH = 192 };
+
+    void clear() { m_size = 0; }
+    size_t size() const { return m_size; }
+    const DirtyThreat & operator[](size_t i) const { return m_data[i]; }
+
+    void add(Piece attacker, Piece attacked, Square from, Square to, bool added) {
+        assert(m_size < MAX_LENGTH);
+        m_data[m_size++] = DirtyThreat(attacker, attacked, from, to, added);
+    }
+
+private:
+    DirtyThreat m_data[MAX_LENGTH];
+    size_t      m_size;
+};
+
 static constexpr std::uint32_t PieceSquareIndex[COLOR_NB][PIECE_NB] = {
 
     { PS_NONE, PS_W_PAWN, PS_W_KNIGHT, PS_W_BISHOP, PS_W_ROOK, PS_W_QUEEN, PS_KING, PS_NONE,
