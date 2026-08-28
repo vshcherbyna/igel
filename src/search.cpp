@@ -855,7 +855,7 @@ bool Search::ProbeHash(TEntry & hentry, U64 hash)
 }
 
 #if defined (SYZYGY_SUPPORT)
-Move Search::tableBaseRootSearch()
+Move Search::tableBaseRootSearch(EVAL & tbScore)
 {
     if (!TB_LARGEST || countBits(m_position.BitsAll()) > TB_LARGEST)
         return 0;
@@ -879,6 +879,20 @@ Move Search::tableBaseRootSearch()
 
     if (result == TB_RESULT_FAILED || result == TB_RESULT_CHECKMATE || result == TB_RESULT_STALEMATE)
         return 0;
+
+    EVAL wdlScore;
+
+    switch (TB_GET_WDL(result)) {
+    case TB_WIN:
+        wdlScore = TBBASE_SCORE - MAX_PLY;
+        break;
+    case TB_LOSS:
+        wdlScore = -TBBASE_SCORE + MAX_PLY;
+        break;
+    default:
+        wdlScore = DRAW_SCORE;
+        break;
+    }
 
     //
     // Different board representation
@@ -931,8 +945,10 @@ Move Search::tableBaseRootSearch()
 
     auto mvSize = moves.Size();
     for (size_t i = 0; i < mvSize; ++i) {
-        if (moves[i].m_mv == tableBaseMove)
+        if (moves[i].m_mv == tableBaseMove) {
+            tbScore = wdlScore;
             return tableBaseMove;
+        }
     }
 
     assert(false);
@@ -1103,10 +1119,24 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         //  Probe tablebases/tt at root
         //
 
-        auto bestTb = tableBaseRootSearch();
+        EVAL tbScore = DRAW_SCORE;
+        auto bestTb = tableBaseRootSearch(tbScore);
 
         if (bestTb) {
             waitUntilCompletion();
+
+            //
+            //  Update statistics even when playing tb moves
+            //
+
+            ++m_nodes;
+            ++m_tbHits;
+
+            if (!(m_flags & MODE_SILENT)) {
+                auto dt = GetProcTime() - m_t0;
+                printPV(m_position, 1, 1, tbScore, m_pv[0], 0, bestTb, m_nodes, m_tbHits, dt ? 1000 * m_nodes / dt : 1000 * m_nodes);
+            }
+
             printBestMove(this, m_position, bestTb, m_ponder);
             return 1;
         }
