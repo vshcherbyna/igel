@@ -860,6 +860,13 @@ Move Search::tableBaseRootSearch(EVAL & tbScore)
     if (!TB_LARGEST || countBits(m_position.BitsAll()) > TB_LARGEST)
         return 0;
 
+    FLD epSquare = m_position.EP();
+
+    if (epSquare == NF)
+        epSquare = 0;
+    else
+        epSquare = static_cast<FLD>(abs(int(epSquare) - 63));
+
     auto result =
         tb_probe_root(m_position.BitsAll(WHITE), m_position.BitsAll(BLACK),
             m_position.Bits(KW) | m_position.Bits(KB),
@@ -870,7 +877,7 @@ Move Search::tableBaseRootSearch(EVAL & tbScore)
             m_position.Bits(PW) | m_position.Bits(PB),
             m_position.Fifty(),
             m_position.Castlings(),
-            0,
+            epSquare,
             m_position.Side() == WHITE, nullptr);
 
     //
@@ -905,12 +912,12 @@ Move Search::tableBaseRootSearch(EVAL & tbScore)
 
     Move tableBaseMove;
 
-    assert(!ep);
-
     PIECE piece = m_position[from];
-    PIECE capture = m_position[to];
+    PIECE capture = ep ? static_cast<PIECE>(piece ^ 1) : m_position[to];
 
-    if (!promoted && !ep)
+    if (ep)
+        tableBaseMove = Move(from, to, piece, capture);
+    else if (!promoted)
         tableBaseMove = Move(from, to, piece, capture);
     else {
         switch (promoted)
