@@ -90,7 +90,7 @@ private:
     void lazySmpSearcher();
     void indicateWorkersStop();
 #if defined (SYZYGY_SUPPORT)
-    Move tableBaseRootSearch();
+    Move tableBaseRootSearch(EVAL & tbScore);
 #endif
     EVAL abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool rootNode, bool cutNode, Move skipMove = 0);
     EVAL qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull = false);
