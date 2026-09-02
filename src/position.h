@@ -168,6 +168,7 @@ public:
     void   Print() const;
     int    Repetitions() const;
     bool   isDrawByRepetition() const;
+    bool   isInsufficientMaterial() const;
     void   setSearchRoot() { m_searchRoot = m_undoSize; }
     bool   SetFEN(const std::string& fen);
     void   SetInitial();

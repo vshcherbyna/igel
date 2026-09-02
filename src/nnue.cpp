@@ -78,7 +78,7 @@ bool Evaluator::initEval()
     MemoryBuffer buffer(const_cast<char*>(reinterpret_cast<const char*>(gEmbeddedNNUEData)), size_t(gEmbeddedNNUESize));
     std::istream stream(&buffer);
 #else
-    std::ifstream stream("network_file", std::ios::binary);
+    std::ifstream stream("C:\\020217C0.network", std::ios::binary);
 #endif
 
     return initEval(stream);

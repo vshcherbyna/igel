@@ -115,10 +115,8 @@ bool Search::isDraw()
     if (m_position.isDrawByRepetition() || (m_position.Fifty() >= 100))
         return true;
 
-    if (!m_position.Count(PW) && !m_position.Count(PB)) {
-        if (m_position.MatIndex(WHITE) < 5 && m_position.MatIndex(BLACK) < 5)
-            return true;
-    }
+    if (m_position.isInsufficientMaterial())
+        return true;
 
     return false;
 }
@@ -770,15 +768,6 @@ bool Search::isGameOver(Position & pos, std::string & result, std::string & comm
         }
     }
 
-    if (pos.Count(PW) == 0 && pos.Count(PB) == 0) {
-        if (pos.MatIndex(WHITE) < 5 && pos.MatIndex(BLACK) < 5)
-        {
-            result = "1/2-1/2";
-            comment = "{Insufficient material}";
-            return true;
-        }
-    }
-
     if (legalMoves == 1) {
         bestMove = lastLegal;
     }
@@ -801,6 +790,12 @@ bool Search::isGameOver(Position & pos, std::string & result, std::string & comm
             comment = "{Stalemate}";
         }
 
+        return true;
+    }
+
+    if (pos.isInsufficientMaterial()) {
+        result = "1/2-1/2";
+        comment = "{Insufficient material}";
         return true;
     }
 
