@@ -1136,6 +1136,27 @@ bool Position::NonPawnMaterial()
     return false;
 }
 
+bool Position::isInsufficientMaterial() const {
+    if (Count(PW) || Count(PB) || Count(RW) || Count(RB) || Count(QW) || Count(QB))
+        return false;
+
+    const auto bishops = Bits(BW)  | Bits(BB);
+    const auto knights = Count(NW) + Count(NB);
+
+    //
+    // A lone knight cannot mate
+    //
+
+    if (knights)
+        return !bishops && knights == 1;
+
+    //
+    // The position is dead when every bishop is confined to the same square colour
+    //
+
+    return !(bishops & BB_WHITE_FIELDS) || !(bishops & BB_BLACK_FIELDS);
+}
+
 EVAL Position::nonPawnMaterial()
 {
     return nonPawnMaterial(WHITE)
