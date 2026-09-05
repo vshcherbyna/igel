@@ -22,62 +22,160 @@
 
 #include "position.h"
 
+#include <algorithm>
+#include <atomic>
+
 const U8 HASH_ALPHA = 0;
 const U8 HASH_EXACT = 1;
 const U8 HASH_BETA  = 2;
+const U8 HASH_NONE  = 3;
 
-class TEntry
+const int DEPTH_NONE       = -128;
+const int DEPTH_UNSEARCHED = -127;
+const int DEPTH_MAX        =  127;
+
+inline bool isValidScore(EVAL v)    { return v > -NO_SCORE && v < NO_SCORE; }
+inline bool isValidEval(EVAL v)     { return v > -DECISIVE_SCORE && v < DECISIVE_SCORE; }
+inline bool isDecisiveScore(EVAL v) { return isValidScore(v) && !isValidEval(v); }
+
+inline EVAL scoreToTT(EVAL score, int ply) {
+
+    if (!isValidScore(score))
+        return score;
+
+    if (score >= DECISIVE_SCORE)
+        return score + ply;
+
+    if (score <= -DECISIVE_SCORE)
+        return score - ply;
+
+    return score;
+}
+
+inline EVAL scoreFromTT(EVAL score, int ply) {
+
+    if (!isValidScore(score))
+        return score;
+
+    if (score >= DECISIVE_SCORE)
+        return score - ply;
+
+    if (score <= -DECISIVE_SCORE)
+        return score + ply;
+
+    return score;
+}
+
+struct TEntry {
+    Move move  {};
+    EVAL score { NO_SCORE };
+    EVAL eval  { NO_SCORE };
+    int  depth { DEPTH_NONE };
+    U8   type  { HASH_NONE };
+    bool pv    { false };
+};
+
+template <typename T>
+class Relaxed
 {
 public:
-    typedef union {
-        struct {
-            U32 move:25, age:7, type:2;
-            I32 score:22, depth:8;
-        };
-        U64 raw;
-    }HashEntry;
-    static_assert(sizeof(HashEntry) == 8, "HashEntry must be 8 bytes");
+    Relaxed() = default;
+    operator T() const       { return m_v.load(std::memory_order_relaxed); }
+    Relaxed & operator=(T x) { m_v.store(x, std::memory_order_relaxed); return *this; }
 
-    TEntry()
-    {
-        m_data.raw  = 0;
-        m_key       = 0;
-    }
-
-public:
-
-    void store(Move mv, EVAL score, I8 depth, U8 type, U64 hash0, U8 age)
-    {
-        assert(type >= 0 && type <= 2);
-        assert(age >= 0 && age <= 255);
-        assert(depth >= -128 && depth <= 127);
-        assert(score >= -50000 && score <= 50000);
-        assert(mv >= 0 && mv <= 33554431);
-
-        m_data.age   = age;
-        m_data.type  = type;
-        m_data.move  = mv;
-        m_data.depth = depth;
-        m_data.score = score;
-
-        m_key = hash0 ^ m_data.raw;
-
-        // when debugging a multi cpu configuration these may give you a trouble:
-        assert(age == m_data.age);
-        assert(type == m_data.type);
-        assert(mv == m_data.move);
-        assert(depth == m_data.depth);
-        assert(score == m_data.score);
-    }
-
-public:
-    HashEntry m_data;
-    U64  m_key;
+private:
+    std::atomic<T> m_v;
 };
-static_assert(sizeof(TEntry) == 16, "TEntry must be 16 bytes");
+
+class TTEntry 
+{
+public:
+    static U16 keyOf(U64 hash) { return static_cast<U16>(hash >> 48); }
+
+    static constexpr U8 GENERATION_BITS = 5;
+    static constexpr U8 GENERATION_MASK = (1u << GENERATION_BITS) - 1;
+    static constexpr U8 BOUND_SHIFT     = GENERATION_BITS;
+    static constexpr U8 BOUND_MASK      = 0x03u << BOUND_SHIFT;
+    static constexpr U8 PV_SHIFT        = BOUND_SHIFT + 2;
+    static constexpr U8 PV_MASK         = 1u << PV_SHIFT;
+
+public:
+    bool isOccupied() const { return U8(m_depth8) != 0; }
+    U16  key()        const { return m_key16; }
+    int  depth()      const { return int(U8(m_depth8)) + DEPTH_NONE; }
+    U8   type()       const { return U8((U8(m_genBound8) & BOUND_MASK) >> BOUND_SHIFT); }
+    U8   age()        const { return U8(U8(m_genBound8) & GENERATION_MASK); }
+    bool pv()         const { return (U8(m_genBound8) & PV_MASK) != 0; }
+
+    TEntry read() const {
+
+        TEntry e;
+
+        const U8 genBound = m_genBound8;
+
+        e.move  = Move(U32(m_move32));
+        e.score = EVAL(I16(m_value16));
+        e.eval  = EVAL(I16(m_eval16));
+        e.depth = int(U8(m_depth8)) + DEPTH_NONE;
+        e.type  = U8((genBound & BOUND_MASK) >> BOUND_SHIFT);
+        e.pv    = (genBound & PV_MASK) != 0;
+
+        return e;
+    }
+
+    void store(U64 hash0, Move mv, EVAL score, EVAL eval, int depth, U8 type, bool pv, U8 age)     {
+
+        assert(type <= HASH_NONE);
+        assert(age <= GENERATION_MASK);
+        assert(isValidScore(score) || score == NO_SCORE);
+        assert(isValidEval(eval) || eval == NO_SCORE);
+
+        depth = std::max(DEPTH_UNSEARCHED, std::min(depth, DEPTH_MAX));
+
+        const U16 k = keyOf(hash0);
+
+        const bool samePosition = isOccupied() && k == U16(m_key16);
+
+        if (mv || !samePosition)
+            m_move32 = U32(mv);
+
+        if (eval != NO_SCORE || !samePosition)
+            m_eval16 = I16(eval);
+
+        m_key16   = k;
+        m_depth8  = U8(depth - DEPTH_NONE);
+        m_value16 = I16(score);
+
+        m_genBound8 = U8(age | U8(type << BOUND_SHIFT) | U8(U8(pv) << PV_SHIFT));
+    }
+
+    //
+    //  Refresh a cached eval on an entry we decided not to overwrite
+    //
+
+    void refreshEval(EVAL eval) { m_eval16 = I16(eval); }
+
+    //
+    //  Generations are counted like hours on a clock, so 0 - 1 == 31
+    //
+
+    U8 relativeAge(U8 curAge) const { return U8((curAge - U8(m_genBound8)) & GENERATION_MASK); }
+
+private:
+    Relaxed<U16> m_key16;
+    Relaxed<U8>  m_depth8;
+    Relaxed<U8>  m_genBound8;
+    Relaxed<U32> m_move32;
+    Relaxed<I16> m_value16;
+    Relaxed<I16> m_eval16;
+};
+static_assert(sizeof(TTEntry) == 12, "TTEntry must be 12 bytes");
+
+const int TT_CLUSTER_SIZE = 5;
 
 struct TTCluster {
-    TEntry entry[4];
+    TTEntry entry[TT_CLUSTER_SIZE];
+    char    padding[4];
 };
 
 static_assert(sizeof(TTCluster) == 64, "TTCluster must be 64 bytes");
@@ -91,7 +189,7 @@ public:
 public:
     bool setHashSize(double mb, unsigned int threads);
     bool clearHash(unsigned int threads);
-    void record(Move mv, EVAL score, I8 depth, int ply, U8 type, U64 hash0);
+    void record(Move mv, EVAL score, EVAL eval, int depth, int ply, U8 type, bool pv, U64 hash0);
     bool retrieve(U64 hash, TEntry & hentry);
     bool increaseAge();
     void clearAge();

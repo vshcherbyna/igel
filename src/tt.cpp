@@ -23,9 +23,39 @@
 #include <algorithm>
 #include <thread>
 
+#if defined(_WIN32)
+#include <malloc.h>
+#endif
+
 #if defined(__linux__) && !defined(__ANDROID__)
 #include <sys/mman.h>
 #endif
+
+static TTCluster * allocClusters(size_t bytes) {
+#if defined(__linux__) && !defined(__ANDROID__)
+    // idea comes from Sami Kiminki as used in Ethereal
+    auto * p = reinterpret_cast<TTCluster*>(aligned_alloc(2 * (1ull << 20), bytes));
+    if (p)
+        madvise(p, bytes, MADV_HUGEPAGE);
+    return p;
+#elif defined(_WIN32)
+    return reinterpret_cast<TTCluster*>(_aligned_malloc(bytes, sizeof(TTCluster)));
+#else
+    void * p = nullptr;
+    if (posix_memalign(&p, sizeof(TTCluster), bytes))
+        return nullptr;
+    return reinterpret_cast<TTCluster*>(p);
+#endif
+}
+
+static void freeClusters(TTCluster * p)
+{
+#if defined(_WIN32) && !(defined(__linux__) && !defined(__ANDROID__))
+    _aligned_free(p);
+#else
+    free(p);
+#endif
+}
 
 TTable::TTable() : m_hash(nullptr), m_hashSize(0), m_hashMask(0), m_hashAge(0)
 {
@@ -37,7 +67,7 @@ TTable & TTable::instance()
     return instance;
 }
 
-void TTable::record(Move mv, EVAL score, I8 depth, int ply, U8 type, U64 hash0)
+void TTable::record(Move mv, EVAL score, EVAL eval, int depth, int ply, U8 type, bool pv, U64 hash0)
 {
     assert(m_hash);
     assert(m_hashSize);
@@ -47,43 +77,79 @@ void TTable::record(Move mv, EVAL score, I8 depth, int ply, U8 type, U64 hash0)
     auto * replaceEntry = &cluster.entry[0];
 
     //
-    // m_data.age is a 7-bit field, so reduce the generation counter the same way
-    // before comparing; this lets the counter wrap cleanly every 128 generations
+    // the generation is a 5-bit field, so reduce the counter the same way before
+    // comparing; this lets the counter wrap cleanly every 32 generations
     //
 
-    const U8 curAge = static_cast<U8>(m_hashAge & 0x7F);
+    const U8  curAge = static_cast<U8>(m_hashAge & TTEntry::GENERATION_MASK);
+    const U16 key16  = TTEntry::keyOf(hash0);
 
-    for (auto i = 0; i < 4; ++i) {
+    for (auto i = 0; i < TT_CLUSTER_SIZE; ++i) {
         // empty bucket or a matched hash
-        if (!cluster.entry[i].m_key) {
+        if (!cluster.entry[i].isOccupied()) {
             replaceEntry = &cluster.entry[i];
             break;
         }
 
-        if ((cluster.entry[i].m_key ^ cluster.entry[i].m_data.raw) == hash0) {
+        if (cluster.entry[i].key() == key16) {
+
+            //
+            //  an eval-only write carries no move, no score and no depth: all it can add is
+            //  the eval, so it refreshes and never displaces a real result of any generation
+            //
+
+            if (type == HASH_NONE) {
+                if (eval != NO_SCORE)
+                    cluster.entry[i].refreshEval(eval);
+
+                return;
+            }
 
             //
             //  a key match from this generation is kept unless the new result is exact or nearly as deep
             //
 
-            if (type != HASH_EXACT && cluster.entry[i].m_data.age == curAge && depth + 4 < cluster.entry[i].m_data.depth)
+            if (type != HASH_EXACT && cluster.entry[i].age() == curAge && depth + 4 < cluster.entry[i].depth()) {
+
+                //
+                //  the entry stays, but a static eval it is missing is still worth having
+                //
+
+                if (eval != NO_SCORE)
+                    cluster.entry[i].refreshEval(eval);
+
                 return;
+            }
 
             replaceEntry = &cluster.entry[i];
             break;
         }
 
-        if ((cluster.entry[i].m_data.age == curAge) - (replaceEntry->m_data.age == curAge) - (cluster.entry[i].m_data.depth < replaceEntry->m_data.depth) < 0)
+        if ((cluster.entry[i].age() == curAge) - (replaceEntry->age() == curAge) - (cluster.entry[i].depth() < replaceEntry->depth()) < 0)
             replaceEntry = &cluster.entry[i];
     }
 
-    if (score > CHECKMATE_SCORE - 50 && score <= CHECKMATE_SCORE)
-        score += ply;
+    if (type == HASH_NONE && replaceEntry->isOccupied() && replaceEntry->age() == curAge
+        && replaceEntry->type() != HASH_NONE) {
 
-    if (score < -CHECKMATE_SCORE + 50 && score >= -CHECKMATE_SCORE)
-        score -= ply;
+        TTEntry * cheapest = nullptr;
 
-    replaceEntry->store(mv, score, depth, type, hash0, curAge);
+        for (auto i = 0; i < TT_CLUSTER_SIZE; ++i) {
+            auto & candidate = cluster.entry[i];
+
+            if (candidate.type() == HASH_NONE || candidate.age() != curAge) {
+                cheapest = &candidate;
+                break;
+            }
+        }
+
+        if (!cheapest)
+            return;             //  every slot holds a live result; leave them all alone
+
+        replaceEntry = cheapest;
+    }
+
+    replaceEntry->store(hash0, mv, scoreToTT(score, ply), eval, depth, type, pv, curAge);
 }
 
 bool TTable::retrieve(U64 hash, TEntry & hentry)
@@ -91,13 +157,20 @@ bool TTable::retrieve(U64 hash, TEntry & hentry)
     assert(m_hash);
     assert(m_hashSize);
 
+    hentry = TEntry{};   // a miss leaves nothing usable behind
+
     size_t index = hash & m_hashMask;
     auto pCluster = m_hash + index;
+    const U16 key16 = TTEntry::keyOf(hash);
 
-    for (auto i = 0; i < 4; ++i) {
-        hentry = pCluster->entry[i]; // make a copy of entry because a race conditon may occure between 'if' and 'return'
-        if ((hentry.m_key ^ hentry.m_data.raw) == hash)
+    for (auto i = 0; i < TT_CLUSTER_SIZE; ++i) {
+
+        const TTEntry & entry = pCluster->entry[i];
+
+        if (entry.isOccupied() && entry.key() == key16) {
+            hentry = entry.read();
             return true;
+        }
     }
 
     return false;
@@ -159,7 +232,7 @@ bool TTable::setHashSize(double mb, unsigned int threads)
         return false;
 
     if (m_hash)
-        free(m_hash);
+        freeClusters(m_hash);
 
     m_hashSize = static_cast<size_t>(static_cast<size_t>(1024 * 1024) * mb / sizeof(TTCluster));
 
@@ -171,15 +244,14 @@ bool TTable::setHashSize(double mb, unsigned int threads)
     }
     m_hashMask = m_hashSize - 1;
 
-#if defined(__linux__) && !defined(__ANDROID__)
-    // on linux systems we align on 2MB boundaries and request Huge Pages
-    // idea comes from Sami Kiminki as used in Ethereal
-    m_hash = reinterpret_cast<TTCluster*>(aligned_alloc(2 * MB, sizeof(TTCluster) * m_hashSize));
-    madvise(m_hash, sizeof(TTCluster) * m_hashSize, MADV_HUGEPAGE);
-#else
-    // otherwise, we simply allocate as usual and make no requests
-    m_hash = reinterpret_cast<TTCluster*>(malloc(sizeof(TTCluster) * m_hashSize));
-#endif
+    //
+    //  the verification key lives in the top 16 bits of the hash, so the index must never
+    //  reach that far
+    //
+
+    assert(m_hashMask < (1ull << 48));
+
+    m_hash = allocClusters(sizeof(TTCluster) * m_hashSize);
 
     clearHash(threads);
 
@@ -208,4 +280,4 @@ void TTable::prefetchEntry(U64 hash)
     auto pCluster = m_hash + index;
 
     prefetch(pCluster);
-}
+}

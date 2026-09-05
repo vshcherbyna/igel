@@ -135,6 +135,9 @@ public:
     static bool initEval(std::istream & stream);
     static bool setEvalFile(const std::string & evalFile);
     EVAL evaluate(Position & pos);
+    EVAL evaluateRaw(Position & pos);
+    static EVAL fromRaw(EVAL raw, int fifty);
+    static EVAL bound(EVAL v);
 
 private:
     int NnueEvaluate(Position & pos);
