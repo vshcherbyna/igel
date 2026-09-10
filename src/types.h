@@ -158,10 +158,15 @@ enum
     DIR_DR = 7
 };
 
-const EVAL CHECKMATE_SCORE  = 32767;
+const EVAL CHECKMATE_SCORE  = 32000;
 const EVAL TBBASE_SCORE     = 22767;
 const EVAL DRAW_SCORE       = 0;
 const EVAL UNKNOWN_SCORE    = CHECKMATE_SCORE + /*MAX_PLY*/ 129;
+const EVAL NO_SCORE         = CHECKMATE_SCORE + 200;
+const int MAX_PLY           = 128;
+const EVAL DECISIVE_SCORE   = TBBASE_SCORE - 2 * MAX_PLY;
+
+static_assert(NO_SCORE > UNKNOWN_SCORE&& NO_SCORE <= 32767, "NO_SCORE must be a distinct int16_t");
 
 #define SQUARE_ZERO 0
 #define SQUARE_NB   64

@@ -37,8 +37,6 @@ const int MAX_LEVEL = 20;
 const int DEFAULT_LEVEL = MAX_LEVEL;
 const int MEDIUM_LEVEL = MAX_LEVEL / 2;
 
-const int MAX_PLY = 128;
-
 const U8 TERMINATED_BY_USER		= 0x01;
 const U8 TERMINATED_BY_LIMIT	= 0x02;
 const U8 SEARCH_TERMINATED		= TERMINATED_BY_USER | TERMINATED_BY_LIMIT;
@@ -127,7 +125,8 @@ private:
     Move m_pvPrev[MAX_PLY][MAX_PLY];
     int m_pvSizePrev[MAX_PLY];
     Move m_killerMoves[MAX_PLY][2];
-    Move m_counterTable[14][64] = {}; // refutation move of the previous [piece][to]
+    bool m_ttPvStack[MAX_PLY];          // per-ply pv flag, carried into the transposition table
+    Move m_counterTable[14][64] = {};   // refutation move of the previous [piece][to]
     int16_t m_history[2][64][64];
     Move m_moveStack[MAX_PLY + 4];
     PIECE m_pieceStack[MAX_PLY + 4];

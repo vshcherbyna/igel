@@ -22,6 +22,7 @@
 #include "hce.h"
 #include "utils.h"
 #include <immintrin.h>
+#include <algorithm>
 #include <new>
 #include <cstdlib>
 #include <streambuf>
@@ -51,20 +52,34 @@ INCBIN(EmbeddedNNUE, EVALFILE);
 static std::atomic<int> s_networkGeneration{0};
 #endif // PURE_HCE
 
-EVAL Evaluator::evaluate(Position & pos)
-{
+/*static */EVAL Evaluator::bound(EVAL v) {
+    return std::max(-DECISIVE_SCORE + 1, std::min(v, DECISIVE_SCORE - 1));
+}
+
+static FORCE_INLINE EVAL bounded(EVAL v) { return Evaluator::bound(v); }
+
+EVAL Evaluator::evaluateRaw(Position & pos) {
 #if defined(PURE_HCE)
     // Pure hand-crafted evaluation, selected at compile time with -DPURE_HCE.
     Pair base = Hce::baseScore(pos);
-    return Hce::evaluate(pos, base);
+    return bounded(Hce::evaluate(pos, base));
 #else
     EVAL scale = 600 + 20 * pos.nonPawnMaterial() / 1024;
-    EVAL v = static_cast<EVAL>(NnueEvaluate(pos) * scale / 1024);
-
-    v = v * (208 - pos.Fifty()) / 208;
-
-    return v + Tempo;
+    return bounded(static_cast<EVAL>(NnueEvaluate(pos) * scale / 1024));
 #endif
+}
+
+/*static */EVAL Evaluator::fromRaw(EVAL raw, int fifty) {
+#if defined(PURE_HCE)
+    (void)fifty;
+    return bounded(raw);
+#else
+    return bounded(raw * (208 - fifty) / 208 + Tempo);
+#endif
+}
+
+EVAL Evaluator::evaluate(Position & pos) {
+    return fromRaw(evaluateRaw(pos), pos.Fifty());
 }
 
 #if !defined(PURE_HCE)
