@@ -45,7 +45,7 @@ struct CorrectionKeys
 };
 
 CorrectionKeys keysOf(const Position & pos) {
-    return { pos.PawnHash(), pos.MinorHash(), { pos.NonPawnHash(WHITE), pos.NonPawnHash(BLACK) } };
+    return { pos.pawnHash(), pos.minorHash(), { pos.nonPawnHash(WHITE), pos.nonPawnHash(BLACK) } };
 }
 
 //
