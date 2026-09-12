@@ -25,6 +25,7 @@
 #include "position.h"
 #include "time.h"
 #include "tt.h"
+#include "utils.h"
 
 #include <thread>
 #include <memory>
@@ -101,6 +102,24 @@ private:
         return 0;
     }
     bool ProbeHash(TEntry & hentry, U64 hash);
+    int correctionValue(int ply) const;
+    EVAL correctedStaticEval(EVAL eval, int ply) const;
+    void updateCorrectionHistory(int ply, int bonus);
+    void clearCorrectionHistory();
+
+    static FORCE_INLINE int correctionIndex(U64 key) {
+        return static_cast<int>((key * 0x9E3779B97F4A7C15ull) >> (64 - m_correctionHistoryBits));
+    }
+
+    FORCE_INLINE void prefetchCorrection() {
+        const COLOR side = m_position.Side();
+        auto & history   = *m_correctionHistory;
+
+        prefetch(&history.pawn[side][correctionIndex(m_position.pawnHash())]);
+        prefetch(&history.minor[side][correctionIndex(m_position.minorHash())]);
+        prefetch(&history.nonPawn[side][WHITE][correctionIndex(m_position.nonPawnHash(WHITE))]);
+        prefetch(&history.nonPawn[side][BLACK][correctionIndex(m_position.nonPawnHash(BLACK))]);
+    }
     void printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv, uint64_t sumNodes, uint64_t sumHits, uint64_t nps);
     bool isDraw();
 
@@ -130,13 +149,36 @@ private:
     int16_t m_history[2][64][64];
     Move m_moveStack[MAX_PLY + 4];
     PIECE m_pieceStack[MAX_PLY + 4];
-    EVAL m_evalStack[MAX_PLY + 4];
+    EVAL m_evalStack[MAX_PLY + 4];      // corrected, what search works with
+    EVAL m_rawEvalStack[MAX_PLY + 4];   // uncorrected, what a null move child derives its own from
     int16_t m_followTable[2][14][64][14][64];
     int m_logLMRTable[64][64];
     Time m_time, m_ponderTime;
     std::unique_ptr<std::thread> m_principalThread;
     std::mutex m_readyMutex;
     std::unique_ptr<Evaluator> m_evaluator;
+
+    static constexpr int m_correctionHistoryBits = 16;
+    static constexpr int m_correctionHistorySize = 1 << m_correctionHistoryBits;
+    static constexpr int m_correctionHistoryLimit = 1024;
+
+    static constexpr int s_pawnWeight         = 8598;
+    static constexpr int s_minorWeight        = 2451;
+    static constexpr int s_nonPawnWhiteWeight = 6396;
+    static constexpr int s_nonPawnBlackWeight = 9136;
+    static constexpr int s_cont2Weight        = 9844;
+    static constexpr int s_cont4Weight        = 2438;
+    static constexpr int s_noPrevMoveBias     = 144109;
+    static constexpr int s_correctionGrain    = 294912;
+
+    struct CorrectionHistoryTable {
+        I16 pawn[COLORS][m_correctionHistorySize];
+        I16 minor[COLORS][m_correctionHistorySize];
+        I16 nonPawn[COLORS][COLORS][m_correctionHistorySize];
+        I16 continuation[14][64][14][64];
+    };
+
+    std::unique_ptr<CorrectionHistoryTable> m_correctionHistory;
 
 public:
     bool m_principalSearcher;

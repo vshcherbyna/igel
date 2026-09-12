@@ -112,6 +112,9 @@ void Position::Clear()
     m_ep = NF;
     m_fifty = 0;
     m_hash = 0;
+    m_pawnHash = 0;
+    m_minorHash = 0;
+    m_nonPawnHash[WHITE] = m_nonPawnHash[BLACK] = 0;
     m_Kings[WHITE] = m_Kings[BLACK] = NF;
     m_matIndex[WHITE] = m_matIndex[BLACK] = 0;
     m_ply = 0;
@@ -618,8 +621,25 @@ void Position::MovePiece(PIECE p, FLD from, FLD to, DirtyThreats * threats) {
     m_hash ^= s_hash[from][p];
     m_hash ^= s_hash[to][p];
 
+    updateCorrectionHashes(p, from);
+    updateCorrectionHashes(p, to);
+
     if (threats)
         updateThreats(p, true, to, threats, moveMask);
+}
+
+void Position::updateCorrectionHashes(PIECE p, FLD f) {
+    const U64 key = s_hash[f][p];
+    const PIECE type = GetPieceType(p);
+
+    if (type == PAWN)
+        m_pawnHash ^= key;
+    else {
+        m_nonPawnHash[GetColor(p)] ^= key;
+
+        if (type == KNIGHT || type == BISHOP)
+            m_minorHash ^= key;
+    }
 }
 
 static inline bool canSliderThreat(PIECE attacked, PIECE slider) {
@@ -761,6 +781,7 @@ void Position::Put(FLD f, PIECE p, DirtyThreats * threats)
     m_board[f] = p;
 
     m_hash ^= s_hash[f][p];
+    updateCorrectionHashes(p, f);
     m_matIndex[side] += s_matIndexDelta[p];
     ++m_count[p];
 
@@ -780,6 +801,7 @@ void Position::Put(FLD f, PIECE p, PieceId & next_piece_id)
     m_board[f] = p;
 
     m_hash ^= s_hash[f][p];
+    updateCorrectionHashes(p, f);
     m_matIndex[side] += s_matIndexDelta[p];
     ++m_count[p];
 
@@ -851,6 +873,7 @@ void Position::Remove(FLD f, DirtyThreats * threats)
     m_board[f] = NOPIECE;
 
     m_hash ^= s_hash[f][p];
+    updateCorrectionHashes(p, f);
     m_matIndex[side] -= s_matIndexDelta[p];
     --m_count[p];
 }
