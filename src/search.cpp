@@ -464,7 +464,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                     m_moveStack[ply]  = captureMove;
                     m_pieceStack[ply] = captureMove.Piece();
 
-                    auto score = -qSearch(-betaCut, -betaCut + 1, ply + 1, 0);
+                    auto score = -qSearch(-betaCut, -betaCut + 1, ply, 0);
 
                     if (score >= betaCut)
                         score = -abSearch(-betaCut, -betaCut + 1, depth - 4, ply + 1, false, false, !cutNode);
