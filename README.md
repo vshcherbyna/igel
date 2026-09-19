@@ -2,34 +2,34 @@
 
 ![Logo](https://raw.githubusercontent.com/vshcherbyna/igel/master/igel.bmp)
 
-Igel is a free UCI chess engine from Ukraine. It is not a complete chess program and requires some UCI compatible GUI software in order to be used.
+Igel is a free UCI chess engine from Ukraine. It is not a complete chess program: it needs a UCI-compatible GUI to be used.
 
 ### History
 
-Igel started as a hobby project in early 2018 to learn chess programming. The name 'Igel' is a German translation of 'Hedgehog' and was chosen to represent numerios hedgehogs living in my garden.
+Igel began as a hobby project in early 2018, as a way to learn chess programming. 'Igel' is German for 'hedgehog', and the name was chosen after the many hedgehogs living in my garden.
 
-Igel was forked from GreKo 2018.01 and the main reason for the fork was to study the existing chess engine and improve its strength over time and learn new things. GreKo was chosen because it had a clean code, it supported Visual Studio and it was not a very strong engine so further improvements would be possible.
+Igel was forked from GreKo 2018.01. The aim of the fork was to study an existing chess engine, improve its strength over time and learn along the way. GreKo was chosen because it had clean code, it supported Visual Studio, and it was not yet very strong, which left plenty of room for improvement.
 
-The first versions of Igel were actually regressions and had less strength than the original version of GreKo that were used to fork Igel. After trying a few things and lacking any experience in chess engine development the work on Igel was halted by late 2018.
+The first versions of Igel were in fact regressions: they were weaker than the version of GreKo they had been forked from. After trying a few ideas, and with no experience in chess engine development, I halted the work in late 2018.
 
-In March 2019 Igel was invited to a prestigious chess tournament for top chess engines - TCEC to participate in season 15 and it took last place in Division 4a. Seeing poor performance of Igel it was a great motivation factor to improve the engine and active development work has begun. By late 2019 Igel had surpassed 3000 elo in CCRL Blitz and entered the top 50 engines in CCRL list.
+In March 2019 Igel was invited to TCEC, a prestigious tournament for top chess engines, to take part in season 15, where it finished last in Division 4a. That result turned out to be a strong motivation to improve the engine, and active development began. By late 2019 Igel had passed 3000 Elo in CCRL Blitz and entered the top 50 of the list.
 
-By mid 2020 Igel 2.5.0 64-bit 4CPU reached 3245 elo in CCRL Blitz on 4CPU and entered the top 30 engines of the list.
+By mid-2020, Igel 2.5.0 64-bit reached 3245 Elo on four CPUs in CCRL Blitz and entered the top 30 of the list.
 
-In June 2020 Igel was invited by Andrew Grant to participate in OpenBench testing framework and this has further accelerated the strength improvement of the engine.
+In June 2020 Andrew Grant invited Igel to the OpenBench testing framework, which accelerated the engine's progress considerably.
 
-In August 2020 Igel experimened with NNUE using Dietrich Kappe's NiNu network file in it's initial releases.
+In August 2020 Igel experimented with NNUE, using Dietrich Kappe's NiNu network in its first NNUE releases.
 
-As of late 2020 Igel adoped NNUE and uses own NNUE implementation and own network file trained on Igel data.
+Since late 2020 Igel has used its own NNUE implementation, with its own network trained on Igel data.
 
-In January 2023 last bits of HCE code were removed from Igel and the evaluation is fully based on NNUE as of Igel 3.4.0.
+In January 2023 the last of the hand-crafted evaluation was removed from the default build, and from Igel 3.4.0 the evaluation is entirely NNUE. A pure HCE build was later restored for TCEC and is still available through `-DPURE_HCE`.
 
 ### Evaluation
 
 - NNUE
   - Horizontally Mirrored 32 King Buckets
   - HalfKAv2_hm + FullThreats
-  - 2x(22528 + 60144 -> 1024) -> 16 -> 32 -> 1
+  - 2x(22528 + 60144 -> 1024) -> 16 -> 32 -> 1
   - 8 Output Buckets
   - 8 PSQT Buckets
   - Using Igel evaluation and search data
@@ -37,7 +37,7 @@ In January 2023 last bits of HCE code were removed from Igel and the evaluation 
 
 ### Acknowledgements
 
-I would like to thank the authors and the community involved in the creation of the open source projects listed below. Their work influences development of Igel, and without them, this project wouldn't exist. Special thanks to Andrew Grant and Bojun Guo for supporting Igel development on OpenBench.
+I would like to thank the authors and the communities behind the open source projects listed below. Their work has shaped the development of Igel, and without them this project would not exist. Special thanks to Andrew Grant and Bojun Guo for supporting Igel development on OpenBench.
 
 * [OpenBench](https://github.com/AndyGrant/OpenBench/)
 * [nnue-pytorch](https://github.com/glinscott/nnue-pytorch)
@@ -48,63 +48,100 @@ I would like to thank the authors and the community involved in the creation of 
 * [Stockfish](https://github.com/official-stockfish/Stockfish/)
 * [Fathom](https://github.com/jdart1/Fathom/)
 * [Syzygy](https://github.com/syzygy1/tb)
-* [Dietrich Kappe](https://www.patreon.com/badgyal) for creating Night Nurse network and allowing it to use in Igel 2.7.0 and 2.8.0 releases
-* [Dietrich Kappe](https://www.patreon.com/badgyal) for sharing his knowledge/tooling for NNUE networks training
-* Yu Nasu for creating NNUE and Hisayori Noda and others for integrating it in Stockfish
+* [Dietrich Kappe](https://www.patreon.com/badgyal) for creating the Night Nurse network and allowing its use in the Igel 2.7.0 and 2.8.0 releases
+* [Dietrich Kappe](https://www.patreon.com/badgyal) for sharing his knowledge and tooling for NNUE network training
+* Yu Nasu for creating NNUE, and Hisayori Noda and others for integrating it into Stockfish
 
 ### Compiling
 
-Official compilation method involves cmake and gcc/Visual Studio 2022 and assumes a modern CPU with AVX2 support (most of the computers produced in last 9 years).
+Igel can be built either with the makefile in `src/` or with CMake. Both need a C++17 compiler and a CPU with AVX2 support, which means Intel Haswell (2013) or AMD Zen (2017) and later.
 
-Using cmake/Visual Studio 2022:
-
-```
-git clone https://github.com/vshcherbyna/igel.git ./igel
-cd igel
-git submodule update --init --recursive
-cmake -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE -G "Visual Studio 17 2022" -A x64 .
-```
-
-Using cmake/gcc:
+Start by cloning the repository together with its submodules:
 
 ```
 git clone https://github.com/vshcherbyna/igel.git ./igel
 cd igel
 git submodule update --init --recursive
-wget https://github.com/vshcherbyna/igel/releases/download/0.8/020217C0.network -O ./network_file
-cmake -DEVALFILE=network_file -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
+```
+
+#### Using the makefile
+
+This is how the released binaries and the CI builds are produced. The `pgo` target applies
+profile-guided optimisation, which gives the fastest binary, and it downloads the network for you
+the first time it runs:
+
+```
+cd src
+make pgo
+```
+
+It needs Clang and the matching LLVM tools. The makefile expects them under their versioned names
+(`clang++-19`, `lld-19`, `llvm-profdata-19`); where they are installed without a version suffix, as
+in an MSYS2 CLANG64 environment on Windows, name them explicitly. Override `CC` there as well: the
+makefile runs it to discover which instruction sets your CPU supports, and a CLANG64 environment has
+no `g++` unless you install one, which would leave the build without AVX2:
+
+```
+mingw32-make pgo CC=clang++ CLANGCC=clang++ CLANGLD=lld PROFDATA=llvm-profdata
+```
+
+To build against the Fischer Random network instead of the standard one, name `frc` alongside the
+build target:
+
+```
+make pgo frc
+```
+
+Two other targets are available. `make pgo_hce` builds the hand-crafted evaluator, which needs no
+network at all. `make basic` is a plain GCC build without profile-guided optimisation; it downloads
+nothing, so point it at a network you already have, for example `make basic EVALFILE=../network_file`.
+
+#### Using CMake
+
+On GCC and Clang the network is embedded into the binary at compile time, so CMake has to be told
+which file to use:
+
+```
+wget https://github.com/vshcherbyna/igel/releases/download/0.8/6b953e78.standard -O ./network_file
+cmake -DEVALFILE=network_file -DUSE_AVX2=1 -DSYZYGY_SUPPORT=TRUE .
 make -j
 ```
 
-To compile with AVX512 and VNNI support use -DUSE_VNNI=1 -DUSE_AVX512=1, for example:
+A Visual Studio build does **not** embed the network. It opens a file named `network_file` in the
+working directory when it starts, so download that file and keep it next to `igel.exe`:
 
 ```
-git clone https://github.com/vshcherbyna/igel.git ./igel
-cd igel
-git submodule update --init --recursive
-wget https://github.com/vshcherbyna/igel/releases/download/0.8/020217C0.network -O ./network_file
-cmake -DEVALFILE=network_file -DUSE_AVX2=1 -DUSE_AVX512=1 -DUSE_VNNI=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
-make -j
+curl -L -o network_file https://github.com/vshcherbyna/igel/releases/download/0.8/6b953e78.standard
+cmake -DUSE_AVX2=1 -DSYZYGY_SUPPORT=TRUE -G "Visual Studio 17 2022" -A x64 .
+cmake --build . --config Release
 ```
 
-You can also compile using MSYS2 CLANG64 on Windows:
+The options CMake understands:
+
+| Option | Meaning |
+|---|---|
+| `-DEVALFILE=<file>` | Network to embed. Required for GCC and Clang builds. Visual Studio ignores it and reads `network_file` at startup instead |
+| `-DUSE_AVX2=1` | AVX2, the baseline for every released binary |
+| `-DUSE_AVX512=1` | AVX-512. Add `-DUSE_VNNI=1` for VNNI-512 |
+| `-DUSE_AVXVNNI=1` | AVX-VNNI, the 256-bit form |
+| `-D_BTYPE=1` | Use `pext` for sliding piece lookups. This is faster on Intel Haswell and later and on AMD Zen 3 and later, but **slower on Zen 1 and Zen 2**, which emulate `pext` in microcode, so leave it out on those. The makefile detects this on its own |
+| `-DSYZYGY_SUPPORT=TRUE` | Syzygy endgame tablebase support |
+| `-DPURE_HCE=1` | Build the hand-crafted evaluator instead of NNUE. Needs no network |
+
+#### Checking your build
+
+Any build you make yourself should be checked against the reference node count:
 
 ```
-mingw32-make pgo CLANGCC=clang++ CLANGLD=lld PROFDATA=llvm-profdata
+igel bench
 ```
 
-Important! If you make a custom build of Igel you need to validate the bench using command:
-
-```
-igel.exe bench
-```
-
-or if you are running Linux:
+on Windows, or:
 
 ```
 ./igel bench
 ```
 
-The 'Nodes' must match the 'BENCH :' value from the last commit message.
-
-It is also possible to compile using gcc and a traditional makefile on Linux and Windows with MSYS2 CLANG64 , please consult ./src/makefile for more details.
+on Linux. The `Nodes` figure it prints must match the `bench:` value in the latest commit message.
+If the two differ, your binary is not searching the same tree as the reference build, and any result
+it produces cannot be compared with published ones.

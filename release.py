@@ -56,7 +56,7 @@ if __name__ == '__main__':
         os.system('mkdir local')
         os.system('mkdir local\\cmake64')
         os.chdir('local\\cmake64')
-        os.system('cmake -D_BTYPE=POPCNT -G "Visual Studio 16 2019" -A x64 ..\..')
+        os.system('cmake -D_BTYPE=0 -G "Visual Studio 16 2019" -A x64 ..\..')
         os.system('cmake --build . --target ALL_BUILD --config Release')
         os.chdir('..\\..\\')
         os.system('copy local\\cmake64\\Release\\igel.exe igel-' + version + '.bin\\windows\\igel-x64_popcnt.exe')

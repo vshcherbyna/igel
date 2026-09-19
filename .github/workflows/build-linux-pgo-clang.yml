@@ -36,6 +36,12 @@ jobs:
     - name: Run the bench
       run: cd src&&./igel bench
 
+    - name: Run make pgo frc
+      run: cd src&&make pgo frc EXE=igel-frc
+
+    - name: Run the FRC bench
+      run: cd src&&./igel-frc bench
+
     - name: Run make pgo_hce
       run: cd src&&make pgo_hce EXE=igel-hce
 

@@ -1,0 +1,63 @@
+name: Igel Windows Build MSYS2 CLANG64
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+  workflow_dispatch:  # Allow manual triggering of the workflow
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    # CLANG64 is the only MSYS2 environment this builds under, and the pgo targets need the
+    # LLVM programs under their unversioned names, which is what CLANG64 ships. The makefile's
+    # basic target is not usable here: it passes gcc's -flto=auto, which clang rejects.
+    - name: Set up MSYS2 CLANG64
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: CLANG64
+        update: true
+        install: >-
+          wget
+          mingw-w64-clang-x86_64-clang
+          mingw-w64-clang-x86_64-lld
+          mingw-w64-clang-x86_64-llvm
+          mingw-w64-clang-x86_64-make
+
+    # CC is overridden as well, and it is not cosmetic. The makefile runs $(CC) once to read
+    # back -march=native's own macro definitions, and that is where -DUSE_AVX2=1 comes from.
+    # CC defaults to g++, which a CLANG64 environment does not have unless
+    # mingw-w64-clang-x86_64-gcc-compat is installed, and nothing above depends on it. With the
+    # probe dead the build loses USE_AVX2 and then does not compile at all, so point it at the
+    # compiler that is doing the work.
+    - name: Run mingw32-make pgo
+      run: cd src && mingw32-make pgo CC=clang++ CLANGCC=clang++ CLANGLD=lld PROFDATA=llvm-profdata
+
+    - name: Run the bench
+      run: cd src && ./igel bench
+
+    - name: Run mingw32-make pgo frc
+      run: cd src && mingw32-make pgo frc EXE=igel-frc CC=clang++ CLANGCC=clang++ CLANGLD=lld PROFDATA=llvm-profdata
+
+    - name: Run the FRC bench
+      run: cd src && ./igel-frc bench
+
+    # The hand-crafted evaluator. It embeds no network at all, so this target has no
+    # $(EVALFILE) prerequisite and downloads nothing.
+    - name: Run mingw32-make pgo_hce
+      run: cd src && mingw32-make pgo_hce EXE=igel-hce CC=clang++ CLANGCC=clang++ CLANGLD=lld PROFDATA=llvm-profdata
+
+    - name: Run the HCE bench
+      run: cd src && ./igel-hce bench

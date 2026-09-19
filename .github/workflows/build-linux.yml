@@ -21,15 +21,15 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Install GCC versions
+    - name: Install GCC
       run: |
         sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
         sudo apt-get update
-        sudo apt-get install -y gcc-12 g++-12 gcc-13 g++-13
+        sudo apt-get install -y gcc-13 g++-13
 
     - name: Set GCC version
       run: |
-        # Set GCC 14 as the default version
+        # Set GCC 13 as the default version
         sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 60
         sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 60
 
@@ -37,7 +37,7 @@ jobs:
       run: sudo apt-get install -y cmake
 
     - name: Download network file
-      run: wget https://github.com/vshcherbyna/igel/releases/download/3.5.0/c049c117 -O ./network_file
+      run: wget https://github.com/vshcherbyna/igel/releases/download/0.8/6b953e78.standard -O ./network_file
 
     - name: Configure CMake
       run: cmake -DEVALFILE=network_file -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
@@ -46,6 +46,45 @@ jobs:
       run: make -j
 
     - name: Run the bench
+      run: ./igel bench | tee bench_bmi2.txt
+
+    - name: Configure CMake for popcnt
+      run: cmake -DEVALFILE=network_file -DUSE_AVX2=1 -D_BTYPE=0 -DSYZYGY_SUPPORT=TRUE .
+
+    - name: Build the popcnt project
+      run: make -j
+
+    # _BTYPE selects pext against multiply-and-shift for slider indexing, and the two
+    # index the same range into the same table layout - so the popcnt build must search
+    # exactly the same tree as the BMI2 one. Only nps may differ. A mismatch here means
+    # the magics have diverged, which no other job in this repository would notice.
+    - name: Run the popcnt bench and compare it with BMI2
+      run: |
+        ./igel bench | tee bench_popcnt.txt
+        bmi2=$(sed -n 's/^Nodes *: *//p' bench_bmi2.txt | tr -d '\r')
+        popcnt=$(sed -n 's/^Nodes *: *//p' bench_popcnt.txt | tr -d '\r')
+        echo "BMI2   (_BTYPE=1): ${bmi2:-<none>} nodes"
+        echo "popcnt (_BTYPE=0): ${popcnt:-<none>} nodes"
+        if [ -z "$bmi2" ] || [ -z "$popcnt" ]; then
+          echo "could not read a node count from the bench output"
+          exit 1
+        fi
+        if [ "$bmi2" != "$popcnt" ]; then
+          echo "pext and multiply-and-shift magics disagree - they must index the same table"
+          exit 1
+        fi
+        echo "magics agree"
+
+    - name: Download FRC network file
+      run: wget https://github.com/vshcherbyna/igel/releases/download/0.8/020217c0.frc -O ./network_file_frc
+
+    - name: Configure CMake for FRC
+      run: cmake -DEVALFILE=network_file_frc -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
+
+    - name: Build the FRC project
+      run: make -j
+
+    - name: Run the FRC bench
       run: ./igel bench
 
     - name: Configure CMake for HCE
@@ -56,3 +95,38 @@ jobs:
 
     - name: Run the HCE bench
       run: ./igel bench
+
+  avx512:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Install GCC
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+        sudo apt-get update
+        sudo apt-get install -y gcc-13 g++-13
+
+    - name: Set GCC version
+      run: |
+        # Set GCC 13 as the default version
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 60
+        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 60
+
+    - name: Install CMake
+      run: sudo apt-get install -y cmake
+
+    - name: Download network file
+      run: wget https://github.com/vshcherbyna/igel/releases/download/0.8/6b953e78.standard -O ./network_file
+
+    - name: Configure CMake for AVX512 and VNNI512
+      run: cmake -DEVALFILE=network_file -DUSE_AVX2=1 -DUSE_AVX512=1 -DUSE_VNNI=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
+
+    # Build only, deliberately no bench. Both of these ship as releases
+    # (igel-x64_bmi2_avx512 and igel-x64_bmi2_avx512_vnni512) but the hosted runners are a
+    # mix of parts with and without AVX512, so a binary built here cannot be relied on to
+    # run. Compiling is deterministic everywhere, and compiling is what was missing.
+    - name: Build the AVX512 project
+      run: make -j
