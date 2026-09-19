@@ -126,9 +126,9 @@ void Search::updateCorrectionHistory(int ply, int bonus)
     };
 
     update(history.pawn[side][correctionIndex(m_position.pawnHash())], bonus);
-    update(history.minor[side][correctionIndex(m_position.minorHash())], bonus * 150 / 128);
-    update(history.nonPawn[side][WHITE][correctionIndex(m_position.nonPawnHash(WHITE))], bonus * 186 / 128);
-    update(history.nonPawn[side][BLACK][correctionIndex(m_position.nonPawnHash(BLACK))], bonus * 186 / 128);
+    update(history.minor[side][correctionIndex(m_position.minorHash())], bonus * s_minorUpdate / 128);
+    update(history.nonPawn[side][WHITE][correctionIndex(m_position.nonPawnHash(WHITE))], bonus * s_nonPawnWhiteUpdate / 128);
+    update(history.nonPawn[side][BLACK][correctionIndex(m_position.nonPawnHash(BLACK))], bonus * s_nonPawnBlackUpdate / 128);
 
     if (ply == 0 || !m_moveStack[ply - 1])
         return;
@@ -139,13 +139,13 @@ void Search::updateCorrectionHistory(int ply, int bonus)
     if (ply >= 2 && m_moveStack[ply - 2]) {
         const Move context = m_moveStack[ply - 2];
         const PIECE contextPiece = context.Promotion() ? context.Promotion() : context.Piece();
-        update(history.continuation[contextPiece][context.To()][previousPiece][previous.To()], bonus * 130 / 128);
+        update(history.continuation[contextPiece][context.To()][previousPiece][previous.To()], bonus * s_cont2Update / 128);
     }
 
     if (ply >= 4 && m_moveStack[ply - 4]) {
         const Move context = m_moveStack[ply - 4];
         const PIECE contextPiece = context.Promotion() ? context.Promotion() : context.Piece();
-        update(history.continuation[contextPiece][context.To()][previousPiece][previous.To()], bonus * 70 / 128);
+        update(history.continuation[contextPiece][context.To()][previousPiece][previous.To()], bonus * s_cont4Update / 128);
     }
 }
 
@@ -398,14 +398,14 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //   razoring
         //
 
-        if (depth <= 2 && staticEval + 150 < alpha)
+        if (depth <= 2 && staticEval + s_razoringMargin < alpha)
             return qSearch(alpha, beta, ply, 0);
 
         //
         //  static null move pruning
         //
 
-        if (depth <= 8 && bestScore - 85 * (depth - improving) >= beta)
+        if (depth <= 8 && bestScore - s_staticNmpMargin * (depth - improving) >= beta)
             return bestScore;
 
         //
@@ -413,7 +413,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //
 
         if (!isNull && depth >= 3 && bestScore >= beta && (!(ttHit && hEntry.type == HASH_BETA && isValidScore(ttScore)) || ttScore >= beta) && m_position.NonPawnMaterial()) {
-            int R = 5 + depth / 6 + std::min(3, (bestScore - beta) / 100);
+            int R = 5 + depth / 6 + std::min(3, (bestScore - beta) / s_nmpEvalDivisor);
 
             const auto savedMove  = m_moveStack[ply];
             const auto savedPiece = m_pieceStack[ply];
@@ -438,7 +438,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //  probcut
         //
 
-        auto betaCut = beta + 100;
+        auto betaCut = beta + s_probcutMargin;
 
         if (depth >= 5 && !(ttHit && hEntry.depth >= (depth - 4) && isValidScore(ttScore) && ttScore < betaCut)) {
             MoveList captureMoves;
@@ -706,9 +706,12 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     const auto hasBestMove = type != HASH_ALPHA;
 
     if (legalMoves && !inCheck && !(hasBestMove && bestMove.Captured()) && (bestScore > staticEval) == hasBestMove) {
-        int bonus = (bestScore - staticEval) * std::max(depth, 1) * (hasBestMove ? 12 : 18) / 128;
-        bonus = std::max(-m_correctionHistoryLimit / 4, std::min(bonus, m_correctionHistoryLimit / 4));
-        updateCorrectionHistory(ply, 1061 * bonus / 1024);
+        const int weight  = hasBestMove ? int(s_bonusBestMove) : int(s_bonusFailLow);
+        const int maximum = s_bonusMax;
+
+        int bonus = (bestScore - staticEval) * std::max(depth, 1) * weight / 128;
+        bonus = std::max(-maximum, std::min(bonus, maximum));
+        updateCorrectionHistory(ply, s_bonusScale * bonus / 1024);
     }
 
     return bestScore;

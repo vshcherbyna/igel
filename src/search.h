@@ -25,6 +25,7 @@
 #include "position.h"
 #include "time.h"
 #include "tt.h"
+#include "tune.h"
 #include "utils.h"
 
 #include <thread>
@@ -162,14 +163,31 @@ private:
     static constexpr int m_correctionHistorySize = 1 << m_correctionHistoryBits;
     static constexpr int m_correctionHistoryLimit = 1024;
 
-    static constexpr int s_pawnWeight         = 8598;
-    static constexpr int s_minorWeight        = 2451;
-    static constexpr int s_nonPawnWhiteWeight = 6396;
-    static constexpr int s_nonPawnBlackWeight = 9136;
-    static constexpr int s_cont2Weight        = 9844;
-    static constexpr int s_cont4Weight        = 2438;
-    static constexpr int s_noPrevMoveBias     = 144109;
-    static constexpr int s_correctionGrain    = 294912;
+    static constexpr int s_correctionGrain = 294912;
+
+    TUNABLE(s_pawnWeight,         "CorrPawnWeight",           8598,   0,  24000,  430.00, 0.0020);
+    TUNABLE(s_minorWeight,        "CorrMinorWeight",          2451,   0,  24000,  123.00, 0.0020);
+    TUNABLE(s_nonPawnWhiteWeight, "CorrNonPawnWhiteWeight",   6396,   0,  24000,  320.00, 0.0020);
+    TUNABLE(s_nonPawnBlackWeight, "CorrNonPawnBlackWeight",   9136,   0,  24000,  457.00, 0.0020);
+    TUNABLE(s_cont2Weight,        "CorrCont2Weight",          9844,   0,  24000,  492.00, 0.0020);
+    TUNABLE(s_cont4Weight,        "CorrCont4Weight",          2438,   0,  24000,  122.00, 0.0020);
+    TUNABLE(s_noPrevMoveBias,     "CorrNoPrevMoveBias",     144109,   0, 400000, 7205.00, 0.0020);
+
+    TUNABLE(s_minorUpdate,        "CorrMinorUpdate",           150,   0,    512,    8.00, 0.0020);
+    TUNABLE(s_nonPawnWhiteUpdate, "CorrNonPawnWhiteUpdate",    186,   0,    512,    9.00, 0.0020);
+    TUNABLE(s_nonPawnBlackUpdate, "CorrNonPawnBlackUpdate",    186,   0,    512,    9.00, 0.0020);
+    TUNABLE(s_cont2Update,        "CorrCont2Update",           130,   0,    512,    7.00, 0.0020);
+    TUNABLE(s_cont4Update,        "CorrCont4Update",            70,   0,    512,    4.00, 0.0020);
+
+    TUNABLE(s_bonusBestMove,      "CorrBonusBestMove",          12,   1,     64,    1.00, 0.0020);
+    TUNABLE(s_bonusFailLow,       "CorrBonusFailLow",           18,   1,     64,    1.00, 0.0020);
+    TUNABLE(s_bonusScale,         "CorrBonusScale",           1061, 128,   4096,   53.00, 0.0020);
+    TUNABLE(s_bonusMax,           "CorrBonusMax",              256,  16,   1024,   13.00, 0.0020);
+
+    TUNABLE(s_razoringMargin,     "RazoringMargin",            150,  50,    400,    8.00, 0.0020);
+    TUNABLE(s_staticNmpMargin,    "StaticNmpMargin",            85,  30,    200,    4.00, 0.0020);
+    TUNABLE(s_nmpEvalDivisor,     "NmpEvalDivisor",            100,  40,    300,    5.00, 0.0020);
+    TUNABLE(s_probcutMargin,      "ProbcutMargin",             100,  30,    300,    5.00, 0.0020);
 
     struct CorrectionHistoryTable {
         I16 pawn[COLORS][m_correctionHistorySize];

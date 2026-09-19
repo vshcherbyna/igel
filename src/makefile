@@ -53,6 +53,22 @@ OPTIM  = -O3 -march=native -flto=auto -funroll-loops
 BTYPE  = 0
 DEFS   = -DNDEBUG -D_BTYPE=$(BTYPE) -DSYZYGY_SUPPORT=TRUE
 
+#
+# SPSA tuning build. TUNE=1 exposes the correction history parameters as UCI
+# spin options and makes the engine answer the 'spsa' command with the input
+# block an OpenBench tune expects; TUNE=0 folds them back into constants.
+# OpenBench builds an engine with a bare 'make', so a branch that is meant to
+# be tuned keeps this at 1 - set it to 0 before running an SPRT or merging:
+#
+#     make TUNE=0
+#
+
+TUNE = 1
+
+ifeq ($(TUNE),1)
+    DEFS += -DIGEL_TUNE
+endif
+
 ifneq ($(findstring __AVX2__, $(GCCDEFINES)),)
     LIBS += -mavx2
     DEFS += -DUSE_AVX2=1
