@@ -24,15 +24,15 @@ jobs:
     - name: Checkout submodules
       run: git submodule update --init --recursive
 
-    - name: Install GCC versions
+    - name: Install GCC
       run: |
         sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
         sudo apt-get update
-        sudo apt-get install -y gcc-12 g++-12 gcc-13 g++-13
+        sudo apt-get install -y gcc-13 g++-13
 
     - name: Set GCC version
       run: |
-        # Set GCC 14 as the default version
+        # Set GCC 13 as the default version
         sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 60
         sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 60
 
@@ -40,7 +40,7 @@ jobs:
       run: sudo apt-get install -y cmake
 
     - name: Download network file
-      run: wget https://github.com/vshcherbyna/igel/releases/download/3.5.0/c049c117 -O ./network_file
+      run: wget https://github.com/vshcherbyna/igel/releases/download/0.8/6b953e78.standard -O ./network_file
 
     - name: Configure CMake for the UTs
       run: cmake -DEVALFILE=network_file -D_MAKE_UNIT_TEST=UNIT_TEST -D_BTYPE=1 -DUSE_AVX2=1 .

@@ -1,0 +1,49 @@
+name: Igel Windows Build MSYS2 CLANG64
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+  workflow_dispatch:  # Allow manual triggering of the workflow
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    # CLANG64 is the only MSYS2 environment this builds under, and the pgo targets need the
+    # LLVM programs under their unversioned names, which is what CLANG64 ships. The makefile's
+    # basic target is not usable here: it passes gcc's -flto=auto, which clang rejects.
+    - name: Set up MSYS2 CLANG64
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: CLANG64
+        update: true
+        install: >-
+          wget
+          mingw-w64-clang-x86_64-clang
+          mingw-w64-clang-x86_64-lld
+          mingw-w64-clang-x86_64-llvm
+          mingw-w64-clang-x86_64-make
+
+    - name: Run mingw32-make pgo
+      run: cd src && mingw32-make pgo CLANGCC=clang++ CLANGLD=lld PROFDATA=llvm-profdata
+
+    - name: Run the bench
+      run: cd src && ./igel bench
+
+    - name: Run mingw32-make pgo frc
+      run: cd src && mingw32-make pgo frc EXE=igel-frc CLANGCC=clang++ CLANGLD=lld PROFDATA=llvm-profdata
+
+    - name: Run the FRC bench
+      run: cd src && ./igel-frc bench

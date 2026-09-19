@@ -71,7 +71,7 @@ Using cmake/gcc:
 git clone https://github.com/vshcherbyna/igel.git ./igel
 cd igel
 git submodule update --init --recursive
-wget https://github.com/vshcherbyna/igel/releases/download/0.8/020217C0.network -O ./network_file
+wget https://github.com/vshcherbyna/igel/releases/download/0.8/6b953e78.standard -O ./network_file
 cmake -DEVALFILE=network_file -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
 make -j
 ```
@@ -82,7 +82,7 @@ To compile with AVX512 and VNNI support use -DUSE_VNNI=1 -DUSE_AVX512=1, for exa
 git clone https://github.com/vshcherbyna/igel.git ./igel
 cd igel
 git submodule update --init --recursive
-wget https://github.com/vshcherbyna/igel/releases/download/0.8/020217C0.network -O ./network_file
+wget https://github.com/vshcherbyna/igel/releases/download/0.8/6b953e78.standard -O ./network_file
 cmake -DEVALFILE=network_file -DUSE_AVX2=1 -DUSE_AVX512=1 -DUSE_VNNI=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
 make -j
 ```
@@ -91,6 +91,12 @@ You can also compile using MSYS2 CLANG64 on Windows:
 
 ```
 mingw32-make pgo CLANGCC=clang++ CLANGLD=lld PROFDATA=llvm-profdata
+```
+
+To build against the Fischer Random network instead of the standard one, name `frc` alongside the build target:
+
+```
+make pgo frc
 ```
 
 Important! If you make a custom build of Igel you need to validate the bench using command:

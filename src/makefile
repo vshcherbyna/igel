@@ -20,12 +20,28 @@ EXE      = igel
 SRC      = *.cpp fathom/tbprobe.cpp
 
 #
-# NNUE network: embedded via INCBIN at compile time, and fetched by the
-# $(EVALFILE) rule below if it is missing. Change these to switch networks.
+# NNUE networks: embedded via INCBIN at compile time, and fetched by the
+# $(EVALFILE) rule below if it is missing. Two networks are kept side by
+# side - the standard one and the Fischer Random one. Naming 'frc' as a
+# goal builds against the latter, so one target serves both:
+#
+#     make pgo                     # standard network
+#     make pgo frc                 # Fischer Random network
+#     make pgo frc EXE=igel-frc    # ... under its own name
+#
+# Change the pair below to switch either network.
 #
 
-EVALFILE    = weights/020217C0.network
-NETWORK_URL = https://github.com/vshcherbyna/igel/releases/download/0.8/020217C0.network
+EVALFILE        = weights/6b953e78.standard
+NETWORK_URL     = https://github.com/vshcherbyna/igel/releases/download/0.8/6b953e78.standard
+
+FRC_EVALFILE    = weights/020217c0.frc
+FRC_NETWORK_URL = https://github.com/vshcherbyna/igel/releases/download/0.8/020217c0.frc
+
+ifneq ($(filter frc,$(MAKECMDGOALS)),)
+    EVALFILE    = $(FRC_EVALFILE)
+    NETWORK_URL = $(FRC_NETWORK_URL)
+endif
 
 GCCDEFINES = $(shell echo | $(CC) -m64 -march=native -E -dM -)
 
@@ -109,6 +125,16 @@ pgo_hce:
 	$(PROFDATA) merge -output=igel.profdata igel.profraw
 	$(CLANGCC) $(CLANGFLAGS) $(SRC) $(DEFS) -DPURE_HCE -fprofile-use=igel.profdata -Wno-profile-instr-unprofiled -Wno-profile-instr-out-of-date -o $(EXE)
 	@rm -rf igel.profraw igel.profdata pgo.out default*.profraw
+
+#
+# 'frc' only selects the network above - it builds nothing on its own and is
+# meant to be named alongside a build target, as in 'make pgo frc'.
+#
+
+.PHONY: frc
+
+frc:
+	@:
 
 #
 # Fetch the NNUE network once, only if it is missing (fresh checkout or CI). A
