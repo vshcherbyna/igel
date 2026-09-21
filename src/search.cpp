@@ -127,8 +127,8 @@ void Search::updateCorrectionHistory(int ply, int bonus)
 
     update(history.pawn[side][correctionIndex(m_position.pawnHash())], bonus);
     update(history.minor[side][correctionIndex(m_position.minorHash())], bonus * 145 / 128);
-    update(history.nonPawn[side][WHITE][correctionIndex(m_position.nonPawnHash(WHITE))], bonus * 199 / 128);
-    update(history.nonPawn[side][BLACK][correctionIndex(m_position.nonPawnHash(BLACK))], bonus * 185 / 128);
+    update(history.nonPawn[side][WHITE][correctionIndex(m_position.nonPawnHash(WHITE))], bonus * 200 / 128);
+    update(history.nonPawn[side][BLACK][correctionIndex(m_position.nonPawnHash(BLACK))], bonus * 184 / 128);
 
     if (ply == 0 || !m_moveStack[ply - 1])
         return;
@@ -139,7 +139,7 @@ void Search::updateCorrectionHistory(int ply, int bonus)
     if (ply >= 2 && m_moveStack[ply - 2]) {
         const Move context = m_moveStack[ply - 2];
         const PIECE contextPiece = context.Promotion() ? context.Promotion() : context.Piece();
-        update(history.continuation[contextPiece][context.To()][previousPiece][previous.To()], bonus * 136 / 128);
+        update(history.continuation[contextPiece][context.To()][previousPiece][previous.To()], bonus * 135 / 128);
     }
 
     if (ply >= 4 && m_moveStack[ply - 4]) {
@@ -398,14 +398,14 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //   razoring
         //
 
-        if (depth <= 2 && staticEval + 143 < alpha)
+        if (depth <= 2 && staticEval + 141 < alpha)
             return qSearch(alpha, beta, ply, 0);
 
         //
         //  static null move pruning
         //
 
-        if (depth <= 8 && bestScore - 66 * (depth - improving) >= beta)
+        if (depth <= 8 && bestScore - 65 * (depth - improving) >= beta)
             return bestScore;
 
         //
@@ -413,7 +413,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //
 
         if (!isNull && depth >= 3 && bestScore >= beta && (!(ttHit && hEntry.type == HASH_BETA && isValidScore(ttScore)) || ttScore >= beta) && m_position.NonPawnMaterial()) {
-            int R = 5 + depth / 6 + std::min(3, (bestScore - beta) / 102);
+            int R = 5 + depth / 6 + std::min(3, (bestScore - beta) / 101);
 
             const auto savedMove  = m_moveStack[ply];
             const auto savedPiece = m_pieceStack[ply];
@@ -438,7 +438,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //  probcut
         //
 
-        auto betaCut = beta + 99;
+        auto betaCut = beta + 98;
 
         if (depth >= 5 && !(ttHit && hEntry.depth >= (depth - 4) && isValidScore(ttScore) && ttScore < betaCut)) {
             MoveList captureMoves;
@@ -707,8 +707,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
     if (legalMoves && !inCheck && !(hasBestMove && bestMove.Captured()) && (bestScore > staticEval) == hasBestMove) {
         int bonus = (bestScore - staticEval) * std::max(depth, 1) * (hasBestMove ? 13 : 16) / 128;
-        bonus = std::max(-263, std::min(bonus, 263));
-        updateCorrectionHistory(ply, 1107 * bonus / 1024);
+        bonus = std::max(-262, std::min(bonus, 262));
+        updateCorrectionHistory(ply, 1105 * bonus / 1024);
     }
 
     return bestScore;
