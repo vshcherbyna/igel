@@ -162,13 +162,13 @@ private:
     static constexpr int m_correctionHistorySize = 1 << m_correctionHistoryBits;
     static constexpr int m_correctionHistoryLimit = 1024;
 
-    static constexpr int s_pawnWeight         = 8598;
-    static constexpr int s_minorWeight        = 2451;
-    static constexpr int s_nonPawnWhiteWeight = 6396;
-    static constexpr int s_nonPawnBlackWeight = 9136;
-    static constexpr int s_cont2Weight        = 9844;
-    static constexpr int s_cont4Weight        = 2438;
-    static constexpr int s_noPrevMoveBias     = 144109;
+    static constexpr int s_pawnWeight         = 8509;
+    static constexpr int s_minorWeight        = 2494;
+    static constexpr int s_nonPawnWhiteWeight = 6310;
+    static constexpr int s_nonPawnBlackWeight = 9453;
+    static constexpr int s_cont2Weight        = 9223;
+    static constexpr int s_cont4Weight        = 2352;
+    static constexpr int s_noPrevMoveBias     = 150051;
     static constexpr int s_correctionGrain    = 294912;
 
     struct CorrectionHistoryTable {
