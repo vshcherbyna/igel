@@ -51,6 +51,7 @@ Search::Search() :
     m_depth(0),
     m_syzygyDepth(0),
     m_selDepth(0),
+    m_correctionHistory(new CorrectionHistoryTable),
     m_principalSearcher(false),
     m_thc(0),
     m_threads(nullptr),
@@ -67,11 +68,89 @@ Search::Search() :
     m_ponder(0)
 {
     m_evaluator.reset(new Evaluator);
+    clearCorrectionHistory();
     memset(&m_logLMRTable, 0, sizeof(m_logLMRTable));
 
     for (int depth = 1; depth < 64; ++depth)
         for (int moves = 1; moves < 64; ++moves)
             m_logLMRTable[depth][moves] = 0.75 + log(depth) * log(moves) / 2.25;
+}
+
+int Search::correctionValue(int ply) const {
+
+    const auto side = m_position.Side();
+    const auto & history = *m_correctionHistory;
+
+    const int pawn         = history.pawn[side][correctionIndex(m_position.pawnHash())];
+    const int minor        = history.minor[side][correctionIndex(m_position.minorHash())];
+    const int whiteNonPawn = history.nonPawn[side][WHITE][correctionIndex(m_position.nonPawnHash(WHITE))];
+    const int blackNonPawn = history.nonPawn[side][BLACK][correctionIndex(m_position.nonPawnHash(BLACK))];
+
+    int continuation = s_noPrevMoveBias;
+
+    if (ply > 0 && m_moveStack[ply - 1]) {
+        const Move previous = m_moveStack[ply - 1];
+        const PIECE previousPiece = previous.Promotion() ? previous.Promotion() : previous.Piece();
+        continuation = 0;
+
+        if (ply >= 2 && m_moveStack[ply - 2]) {
+            const Move context = m_moveStack[ply - 2];
+            const PIECE contextPiece = context.Promotion() ? context.Promotion() : context.Piece();
+            continuation += s_cont2Weight * history.continuation[contextPiece][context.To()][previousPiece][previous.To()];
+        }
+
+        if (ply >= 4 && m_moveStack[ply - 4]) {
+            const Move context = m_moveStack[ply - 4];
+            const PIECE contextPiece = context.Promotion() ? context.Promotion() : context.Piece();
+            continuation += s_cont4Weight * history.continuation[contextPiece][context.To()][previousPiece][previous.To()];
+        }
+    }
+
+    return s_pawnWeight * pawn + s_minorWeight * minor
+         + s_nonPawnWhiteWeight * whiteNonPawn + s_nonPawnBlackWeight * blackNonPawn
+         + continuation;
+}
+
+EVAL Search::correctedStaticEval(EVAL eval, int ply) const {
+    return Evaluator::bound(eval + correctionValue(ply) / s_correctionGrain);
+}
+
+void Search::updateCorrectionHistory(int ply, int bonus)
+{
+    const auto side = m_position.Side();
+    auto & history = *m_correctionHistory;
+
+    auto update = [](I16 & entry, int adjustment) {
+        adjustment = std::max(-m_correctionHistoryLimit, std::min(adjustment, m_correctionHistoryLimit));
+        entry = static_cast<I16>(entry + adjustment - entry * std::abs(adjustment) / m_correctionHistoryLimit);
+    };
+
+    update(history.pawn[side][correctionIndex(m_position.pawnHash())], bonus);
+    update(history.minor[side][correctionIndex(m_position.minorHash())], bonus * 145 / 128);
+    update(history.nonPawn[side][WHITE][correctionIndex(m_position.nonPawnHash(WHITE))], bonus * 200 / 128);
+    update(history.nonPawn[side][BLACK][correctionIndex(m_position.nonPawnHash(BLACK))], bonus * 184 / 128);
+
+    if (ply == 0 || !m_moveStack[ply - 1])
+        return;
+
+    const Move previous = m_moveStack[ply - 1];
+    const PIECE previousPiece = previous.Promotion() ? previous.Promotion() : previous.Piece();
+
+    if (ply >= 2 && m_moveStack[ply - 2]) {
+        const Move context = m_moveStack[ply - 2];
+        const PIECE contextPiece = context.Promotion() ? context.Promotion() : context.Piece();
+        update(history.continuation[contextPiece][context.To()][previousPiece][previous.To()], bonus * 135 / 128);
+    }
+
+    if (ply >= 4 && m_moveStack[ply - 4]) {
+        const Move context = m_moveStack[ply - 4];
+        const PIECE contextPiece = context.Promotion() ? context.Promotion() : context.Piece();
+        update(history.continuation[contextPiece][context.To()][previousPiece][previous.To()], bonus * 65 / 128);
+    }
+}
+
+void Search::clearCorrectionHistory() {
+    memset(m_correctionHistory.get(), 0, sizeof(CorrectionHistoryTable));
 }
 
 Search::~Search()
@@ -266,27 +345,39 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     auto inCheck = m_position.InCheck();
 
     EVAL staticEval;
-    EVAL ttEval = NO_SCORE;
+    EVAL rawEval = NO_SCORE;
+    EVAL ttEval  = NO_SCORE;
+
+    //
+    //  The correction belongs to this position and this side, so it is applied once on the way out
+    //
 
     if (inCheck)
-        staticEval = -CHECKMATE_SCORE + ply;
-    else if (skipMove)
+        staticEval = rawEval = -CHECKMATE_SCORE + ply;
+    else if (skipMove) {
         staticEval = m_evalStack[ply];                              // same position as the parent
-    else if (ttHit && isValidEval(hEntry.eval))
-        staticEval = Evaluator::fromRaw(ttEval = hEntry.eval, m_position.Fifty());
-    else if (isNull)
-        staticEval = Evaluator::bound(-m_evalStack[ply - 1] + 2 * Evaluator::Tempo);
+        rawEval    = m_rawEvalStack[ply];
+    }
     else {
-        ttEval     = m_evaluator->evaluateRaw(m_position);
-        staticEval = Evaluator::fromRaw(ttEval, m_position.Fifty());
+        if (ttHit && isValidEval(hEntry.eval))
+            rawEval = Evaluator::fromRaw(ttEval = hEntry.eval, m_position.Fifty());
+        else if (isNull)
+            rawEval = Evaluator::bound(-m_rawEvalStack[ply - 1] + 2 * Evaluator::Tempo);
+        else {
+            ttEval  = m_evaluator->evaluateRaw(m_position);
+            rawEval = Evaluator::fromRaw(ttEval, m_position.Fifty());
 
-        if (!ttHit || !isValidEval(hEntry.eval))
-            TTable::instance().record(0, NO_SCORE, ttEval, DEPTH_UNSEARCHED, ply, HASH_NONE, ttPv, hash);
+            if (!ttHit || !isValidEval(hEntry.eval))
+                TTable::instance().record(0, NO_SCORE, ttEval, DEPTH_UNSEARCHED, ply, HASH_NONE, ttPv, hash);
+        }
+
+        staticEval = correctedStaticEval(rawEval, ply);
     }
 
     EVAL bestScore   = staticEval;
 
-    m_evalStack[ply] = staticEval;
+    m_evalStack[ply]    = staticEval;
+    m_rawEvalStack[ply] = rawEval;
 
     if (ttHit && !inCheck && isValidScore(ttScore)) {
         if ((hEntry.type == HASH_BETA && ttScore > staticEval) ||
@@ -307,14 +398,14 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //   razoring
         //
 
-        if (depth <= 2 && staticEval + 150 < alpha)
+        if (depth <= 2 && staticEval + 141 < alpha)
             return qSearch(alpha, beta, ply, 0);
 
         //
         //  static null move pruning
         //
 
-        if (depth <= 8 && bestScore - 85 * (depth - improving) >= beta)
+        if (depth <= 8 && bestScore - 65 * (depth - improving) >= beta)
             return bestScore;
 
         //
@@ -322,7 +413,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //
 
         if (!isNull && depth >= 3 && bestScore >= beta && (!(ttHit && hEntry.type == HASH_BETA && isValidScore(ttScore)) || ttScore >= beta) && m_position.NonPawnMaterial()) {
-            int R = 5 + depth / 6 + std::min(3, (bestScore - beta) / 100);
+            int R = 5 + depth / 6 + std::min(3, (bestScore - beta) / 101);
 
             const auto savedMove  = m_moveStack[ply];
             const auto savedPiece = m_pieceStack[ply];
@@ -332,6 +423,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
             m_position.MakeNullMove();
             TTable::instance().prefetchEntry(m_position.Hash());
+            prefetchCorrection();
             EVAL nullScore = -abSearch(-beta, -beta + 1, depth - R, ply + 1, true, false, !cutNode);
             m_position.UnmakeNullMove();
 
@@ -346,7 +438,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //  probcut
         //
 
-        auto betaCut = beta + 100;
+        auto betaCut = beta + 98;
 
         if (depth >= 5 && !(ttHit && hEntry.depth >= (depth - 4) && isValidScore(ttScore) && ttScore < betaCut)) {
             MoveList captureMoves;
@@ -366,12 +458,21 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
                 if (m_position.MakeMove(captureMove)) {
 
+                    const auto savedProbcutMove  = m_moveStack[ply];
+                    const auto savedProbcutPiece = m_pieceStack[ply];
+
+                    m_moveStack[ply]  = captureMove;
+                    m_pieceStack[ply] = captureMove.Piece();
+
                     auto score = -qSearch(-betaCut, -betaCut + 1, ply, 0);
 
                     if (score >= betaCut)
                         score = -abSearch(-betaCut, -betaCut + 1, depth - 4, ply + 1, false, false, !cutNode);
 
                     m_position.UnmakeMove();
+
+                    m_moveStack[ply]  = savedProbcutMove;
+                    m_pieceStack[ply] = savedProbcutPiece;
 
                     if (score >= betaCut)
                         return score;
@@ -454,7 +555,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                     && history.history + history.cmhistory + history.fmhistory < m_fpHistoryLimit[improving])
                     skipQuiets = true;
 
-                if (depth <= m_lmpDepth && quietsTried >= m_lmpPruningTable[improving][depth])
+                if (depth <= m_lmpDepth && quietsTried >= m_lmpPruningTable[improving][std::max(depth, 0)])
                     skipQuiets = true;
             }
 
@@ -510,6 +611,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             ++legalMoves;
 
             TTable::instance().prefetchEntry(m_position.Hash());
+            prefetchCorrection();
 
             m_moveStack[ply]  = mv;
             m_pieceStack[ply] = mv.Piece();
@@ -601,6 +703,14 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
     TTable::instance().record(bestMove, bestScore, ttEval, depth, ply, type, ttPv, hash);
 
+    const auto hasBestMove = type != HASH_ALPHA;
+
+    if (legalMoves && !inCheck && !(hasBestMove && bestMove.Captured()) && (bestScore > staticEval) == hasBestMove) {
+        int bonus = (bestScore - staticEval) * std::max(depth, 1) * (hasBestMove ? 13 : 16) / 128;
+        bonus = std::max(-262, std::min(bonus, 262));
+        updateCorrectionHistory(ply, 1105 * bonus / 1024);
+    }
+
     return bestScore;
 }
 
@@ -653,14 +763,18 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
     }
     else
     {
+        EVAL rawEval;
+
         if (ttHit && isValidEval(hEntry.eval))
-            bestScore = Evaluator::fromRaw(ttEval = hEntry.eval, m_position.Fifty());
+            rawEval = Evaluator::fromRaw(ttEval = hEntry.eval, m_position.Fifty());
         else if (isNull)
-            bestScore = Evaluator::bound(-m_evalStack[ply - 1] + 2 * Evaluator::Tempo);
+            rawEval = Evaluator::bound(-m_rawEvalStack[ply - 1] + 2 * Evaluator::Tempo);
         else {
-            ttEval    = m_evaluator->evaluateRaw(m_position);
-            bestScore = Evaluator::fromRaw(ttEval, m_position.Fifty());
+            ttEval  = m_evaluator->evaluateRaw(m_position);
+            rawEval = Evaluator::fromRaw(ttEval, m_position.Fifty());
         }
+
+        bestScore = correctedStaticEval(rawEval, ply);
 
         if (ttHit && isValidScore(ttScore)) {
             if ((hEntry.type == HASH_BETA && ttScore > bestScore)  ||
@@ -712,6 +826,11 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
 
         if (m_position.MakeMove(mv)) {
 
+            prefetchCorrection();
+
+            m_moveStack[ply]  = mv;
+            m_pieceStack[ply] = mv.Piece();
+
             auto e = -qSearch(-beta, -alpha, ply + 1, depth - 1);
             m_position.UnmakeMove();
 
@@ -749,9 +868,12 @@ void Search::setInitial()
 void Search::clearHistory()
 {
     memset(m_history, 0, sizeof(m_history));
+    clearCorrectionHistory();
 
-    for (unsigned int i = 0; i < m_thc; ++i)
+    for (unsigned int i = 0; i < m_thc; ++i) {
         memset(m_threadParams[i].m_history, 0, sizeof(m_history));
+        m_threadParams[i].clearCorrectionHistory();
+    }
 }
 
 void Search::clearKillers()
@@ -773,6 +895,7 @@ void Search::clearStacks()
     memset(m_pieceStack, 0, sizeof(m_pieceStack));
     memset(m_followTable, 0, sizeof(m_followTable));
     memset(m_evalStack, 0, sizeof(m_evalStack));
+    memset(m_rawEvalStack, 0, sizeof(m_rawEvalStack));
     memset(m_pvSize, 0, sizeof(m_pvSize));
     memset(m_ttPvStack, 0, sizeof(m_ttPvStack));
 
@@ -784,6 +907,7 @@ void Search::clearStacks()
         memset(m_threadParams[i].m_pieceStack, 0, sizeof(m_pieceStack));
         memset(m_threadParams[i].m_followTable, 0, sizeof(m_followTable));
         memset(m_threadParams[i].m_evalStack, 0, sizeof(m_evalStack));
+        memset(m_threadParams[i].m_rawEvalStack, 0, sizeof(m_rawEvalStack));
         memset(m_threadParams[i].m_pvSize, 0, sizeof(m_threadParams[i].m_pvSize));
         memset(m_threadParams[i].m_ttPvStack, 0, sizeof(m_ttPvStack));
     }

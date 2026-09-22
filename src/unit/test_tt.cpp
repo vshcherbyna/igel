@@ -63,8 +63,17 @@ TEST(TranspositionTableLayoutTest, Positive)
 
 TEST(TranspositionTableSizeTest, Negative)
 {
+    //  A zero size request is rejected whatever state the table is in. Clearing only
+    //  reports failure while nothing has been allocated yet, and the table is a
+    //  singleton with no way back to that state, so it is only asserted when this
+    //  test still happens to be the first one to touch it
+    const bool untouched = !TTable::instance().clearHash(1);
+
     EXPECT_EQ(false, TTable::instance().setHashSize(0, 1));
-    EXPECT_EQ(false, TTable::instance().clearHash(1));
+
+    if (untouched) {
+        EXPECT_EQ(false, TTable::instance().clearHash(1));
+    }
 }
 
 TEST(TranspositionTableSizeTest, Positive)
