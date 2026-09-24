@@ -71,6 +71,28 @@
     }
 }
 
+/*static */void History::updateCaptureHistory(Search * pSearch, const Move * noisyMoves, size_t noisyTried, Move best, int bonus)
+{
+    auto update = [](int16_t & entry, int delta) {
+        entry = static_cast<int16_t>(entry + s_historyMultiplier * delta - entry * abs(delta) / s_historyDivisor);
+    };
+
+    bonus = std::min(bonus, s_historyMax);
+
+    for (size_t i = 0; i < noisyTried; ++i) {
+        Move mv = noisyMoves[i];
+        if (mv != best)
+            update(pSearch->m_captureHistory[mv.Piece()][mv.To()][mv.Captured()], -bonus);
+    }
+
+    //
+    //  only the first moves tried fit the list, so the one that cut is rewarded on its own
+    //
+
+    if (best)
+        update(pSearch->m_captureHistory[best.Piece()][best.To()][best.Captured()], bonus);
+}
+
 /*static */void History::setKillerMove(Search * pSearch, Move mv, int ply)
 {
     if (ply >= 1 && pSearch->m_moveStack[ply - 1])

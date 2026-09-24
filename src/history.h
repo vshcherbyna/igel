@@ -41,6 +41,7 @@ public:
 
 public:
     static void updateHistory(Search * pSearch, const MoveList & quetMoves, int ply, int bonus);
+    static void updateCaptureHistory(Search * pSearch, const Move * noisyMoves, size_t noisyTried, Move best, int bonus);
     static void setKillerMove(Search * pSearch, Move mv, int ply);
     static void fetchHistory(Search * pSearch, Move mv, int ply, HistoryHeuristics & hh);
 

@@ -69,6 +69,7 @@ Search::Search() :
 {
     m_evaluator.reset(new Evaluator);
     clearCorrectionHistory();
+    memset(m_captureHistory, 0, sizeof(m_captureHistory));
     memset(&m_logLMRTable, 0, sizeof(m_logLMRTable));
 
     for (int depth = 1; depth < 64; ++depth)
@@ -507,6 +508,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     auto mvSize = mvlist.Size();
 
     MoveList quietMoves;
+    Move noisyMoves[32];
+    size_t noisyTried = 0;
     m_killerMoves[ply + 1][0] = m_killerMoves[ply + 1][1] = 0;
     auto quietsTried = 0;
     auto skipQuiets = false;
@@ -615,6 +618,9 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         if (m_position.MakeMove(mv)) {
             ++legalMoves;
 
+            if (!quietMove && noisyTried < sizeof(noisyMoves) / sizeof(Move))
+                noisyMoves[noisyTried++] = mv;
+
             TTable::instance().prefetchEntry(m_position.Hash());
             prefetchCorrection();
 
@@ -658,6 +664,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                     const auto goodCapture = MoveEval::seeCached(mv, mvlist[i].m_score) && !MoveEval::cachedSeeNegative(mvlist[i].m_score);
                     reduction -= m_lmrScale + goodCapture * (m_lmrScale / 2);
                     reduction -= std::min(MoveEval::SORT_VALUE[mv.Captured()], 1000) * m_lmrScale / 1000;
+                    reduction -= m_captureHistory[mv.Piece()][mv.To()][mv.Captured()] * m_lmrScale / 16384;
                 }
 
                 //
@@ -718,6 +725,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                             History::updateHistory(this, quietMoves, ply, depth * depth);
                             History::setKillerMove(this, mv, ply);
                         }
+                        History::updateCaptureHistory(this, noisyMoves, noisyTried, quietMove ? Move{} : mv, depth * depth);
                         break;
                     }
                 }
@@ -903,10 +911,12 @@ void Search::setInitial()
 void Search::clearHistory()
 {
     memset(m_history, 0, sizeof(m_history));
+    memset(m_captureHistory, 0, sizeof(m_captureHistory));
     clearCorrectionHistory();
 
     for (unsigned int i = 0; i < m_thc; ++i) {
         memset(m_threadParams[i].m_history, 0, sizeof(m_history));
+        memset(m_threadParams[i].m_captureHistory, 0, sizeof(m_captureHistory));
         m_threadParams[i].clearCorrectionHistory();
     }
 }
