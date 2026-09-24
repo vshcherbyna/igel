@@ -73,7 +73,7 @@ Search::Search() :
 
     for (int depth = 1; depth < 64; ++depth)
         for (int moves = 1; moves < 64; ++moves)
-            m_logLMRTable[depth][moves] = 0.75 + log(depth) * log(moves) / 2.25;
+            m_logLMRTable[depth][moves] = static_cast<int>(m_lmrScale * (0.75 + log(depth) * log(moves) / 2.25));
 }
 
 int Search::correctionValue(int ply) const {
@@ -494,6 +494,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     Move bestMove = hashMove;
 
     const auto ttCapture = hashMove && hashMove.Captured();
+    const int correctionReduction = inCheck ? 0 : std::min(m_lmrScale, std::abs(staticEval - rawEval) * m_lmrScale / 256);
 
     auto & mvlist = ply == m_singularPly ? m_singularLists[ply] : m_lists[ply];
 
@@ -519,6 +520,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
         auto quietMove = !MoveEval::isTacticalMove(mv);
         History::HistoryHeuristics history{};
+
+        const auto canExtendOnHistory = quietMove && !rootNode && bestScore > MATED_IN_MAX;
 
         if (!rootNode && bestScore > MATED_IN_MAX) {
 
@@ -576,6 +579,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                     continue;
             }
         }
+        else if (quietMove)
+            History::fetchHistory(this, mv, ply, history); // root and first moves use it for LMR only
 
         int newDepth  = depth - 1;
         int extension = 0;
@@ -620,45 +625,75 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             //   extensions
             //
 
-            newDepth += extensionRequired(m_position.InCheck(), onPV, history.cmhistory, history.fmhistory) + extension;
+            newDepth += extensionRequired(m_position.InCheck(), onPV, canExtendOnHistory ? history.cmhistory : 0, canExtendOnHistory ? history.fmhistory : 0) + extension;
 
             //
-            //   lmr
+            //   adaptive lmr
             //
 
             int reduction = 0;
 
-            if (depth >= 3 && quietMove && legalMoves > 1 + 2 * rootNode) {
+            if (depth >= 3 && newDepth > 1 && !mv.Promotion() && legalMoves > 1 + 2 * rootNode) {
                 reduction = m_logLMRTable[std::min(depth, 63)][std::min(legalMoves, 63)];
 
-                reduction += cutNode + ttCapture;
+                reduction += m_lmrScale * (cutNode + ttCapture);
 
                 if (onPV)
-                    reduction -= 2;
+                    reduction -= 2 * m_lmrScale;
+                else if (ttPv)
+                    reduction -= m_lmrScale / 2;
 
-                reduction -= mv == m_killerMoves[ply][0]
-                    || mv == m_killerMoves[ply][1];
+                reduction -= improving * (m_lmrScale / 2);
+                reduction -= (inCheck || m_position.InCheck()) * m_lmrScale;
+                reduction -= correctionReduction;
 
-                reduction -= std::max(-2, std::min(2, (history.history + history.cmhistory + history.fmhistory) / 5000));
+                if (quietMove) {
+                    reduction -= m_lmrScale * (mv == m_killerMoves[ply][0] || mv == m_killerMoves[ply][1]);
+                    reduction -= std::clamp((history.history + history.cmhistory + history.fmhistory) * m_lmrScale / 5000, -2 * m_lmrScale, 2 * m_lmrScale);
 
-                if (reduction >= newDepth)
-                    reduction = newDepth - 1;
-                else if (reduction < 0)
-                    reduction = 0;
+                    if (!inCheck && !isDecisiveScore(alpha))
+                        reduction += std::clamp(alpha - staticEval, -64, 96) * m_lmrScale / 256;
+                }
+                else {
+                    const auto goodCapture = MoveEval::seeCached(mv, mvlist[i].m_score) && !MoveEval::cachedSeeNegative(mvlist[i].m_score);
+                    reduction -= m_lmrScale + goodCapture * (m_lmrScale / 2);
+                    reduction -= std::min(MoveEval::SORT_VALUE[mv.Captured()], 1000) * m_lmrScale / 1000;
+                }
+
+                //
+                // Never turn LMR into an extension or reduce straight into qsearch.
+                //
+
+                reduction = std::clamp(reduction / m_lmrScale, 0, newDepth - 1);
             }
 
             EVAL e;
 
             if (reduction) {
-                e = -abSearch(-alpha - 1, -alpha, newDepth - reduction, ply + 1, false, false, true);
+                const int reducedDepth = newDepth - reduction;
+                e = -abSearch(-alpha - 1, -alpha, reducedDepth, ply + 1, false, false, true);
 
-                if (e > alpha)
-                    e = -abSearch(-alpha - 1, -alpha, newDepth, ply + 1, false, false, !cutNode);
+                if (e > alpha && !(m_flags & SEARCH_TERMINATED)) {
+
+                    //
+                    // A clear improvement earns another ply
+                    // 
+
+                    if (!rootNode && !isDecisiveScore(e) && !isDecisiveScore(bestScore) && !isDecisiveScore(alpha)) {
+                        if (e > bestScore + 50 + 2 * newDepth && newDepth < depth && ply + newDepth + 1 < MAX_PLY)
+                            ++newDepth;
+                        else if (e < bestScore + 10)
+                            --newDepth;
+                    }
+
+                    if (newDepth > reducedDepth)
+                        e = -abSearch(-alpha - 1, -alpha, newDepth, ply + 1, false, false, !cutNode);
+                }
             }
             else if (!onPV || legalMoves > 1)
                 e = -abSearch(-alpha - 1, -alpha, newDepth, ply + 1, false, false, !cutNode);
 
-            if (onPV && (legalMoves == 1 || e > alpha))
+            if (!(m_flags & SEARCH_TERMINATED) && onPV && (legalMoves == 1 || e > alpha))
                 e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, false, false);
 
             m_position.UnmakeMove();

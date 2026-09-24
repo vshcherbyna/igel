@@ -152,6 +152,7 @@ private:
     EVAL m_evalStack[MAX_PLY + 4];      // corrected, what search works with
     EVAL m_rawEvalStack[MAX_PLY + 4];   // uncorrected, what a null move child derives its own from
     int16_t m_followTable[2][14][64][14][64];
+    static constexpr int m_lmrScale = 1024;
     int m_logLMRTable[64][64];
     Time m_time, m_ponderTime;
     std::unique_ptr<std::thread> m_principalThread;
