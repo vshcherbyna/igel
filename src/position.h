@@ -193,7 +193,7 @@ public:
     const EvalList * eval_list() const;
     inline PieceId piece_id_on(Square sq) const;
     std::uint32_t getActiveIndexes(COLOR c, std::uint32_t indexes[]);
-    std::pair<std::uint32_t, std::uint32_t> getChangedIndexes(COLOR c, std::uint32_t added[], std::uint32_t removed[]);
+    std::pair<std::uint32_t, std::uint32_t> getChangedIndexes(COLOR c, const DirtyPiece & dp, std::uint32_t added[], std::uint32_t removed[]);
     inline std::uint32_t makeIndex(Square sq_k, Square sq, Piece p, COLOR c);
 #endif
 

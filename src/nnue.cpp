@@ -386,21 +386,65 @@ inline __m128i m512_haddx4(__m512i s0, __m512i s1, __m512i s2, __m512i s3, __m12
 }
 #endif
 
+static constexpr std::size_t CatchUpLimit = 8;
+
+static bool movesKing(const Undo & state) {
+    const auto & dp = state.dirtyPiece;
+    return dp.dirty_num && (dp.pieceId[0] == PIECE_ID_WKING || dp.pieceId[0] == PIECE_ID_BKING);
+}
+
 std::int32_t Transformer::transform(Position & pos, std::uint8_t * outBuffer, const std::size_t bucket) {
 
     const auto s = pos.state();
 
     if (!s->accumulator.computed_accumulation) {
-        // Walk back through null-move states (dirty_num==0, not computed) to find a valid base.
-        // Null moves don't move any pieces, so their accumulator == previous accumulator.
-        const Undo* base = s->previous;
-        while (base && !base->accumulator.computed_accumulation && base->dirtyPiece.dirty_num == 0)
-            base = base->previous;
 
-        if (base && base->accumulator.computed_accumulation)
-            incremental(pos, (base != s->previous) ? &base->accumulator : nullptr);
-        else
+        //
+        // Positions the search passed without evaluating get their accumulators on the way, so
+        // that their other children can start from them: forwards from the last computed one,
+        // or backwards from a refresh of this one when none is close. A king move changes the
+        // index of every feature of its side, so nothing before one is reachable either way.
+        //
+
+        Undo * pending[CatchUpLimit];
+        std::size_t count = 0;
+        Undo * base = s->previous;
+
+        while (base && !base->accumulator.computed_accumulation) {
+
+            if (base->dirtyPiece.dirty_num) {
+
+                if (count == CatchUpLimit || movesKing(*s) || movesKing(*base))
+                    break;
+
+                pending[count++] = base;
+            }
+
+            base = base->previous;
+        }
+
+        if (base && base->accumulator.computed_accumulation) {
+
+            while (count--) {
+                incremental(pos, pending[count]->accumulator, base->accumulator, *pending[count], false);
+                pending[count]->accumulator.computed_accumulation = true;
+                pending[count]->accumulator.computed_score = false;
+                base = pending[count];
+            }
+
+            incremental(pos, s->accumulator, base->accumulator, *s, false);
+        }
+        else {
             refresh(pos);
+
+            for (std::size_t i = 0; i < count; ++i) {
+                const Undo & child = i ? *pending[i - 1] : *s;
+                incremental(pos, pending[i]->accumulator, child.accumulator, child, true);
+                pending[i]->accumulator.computed_accumulation = true;
+                pending[i]->accumulator.computed_score = false;
+            }
+        }
+
         s->accumulator.computed_accumulation = true;
         s->accumulator.computed_score = false;
     }
@@ -611,23 +655,25 @@ static void refreshPerspective(Transformer & t, Position & pos, COLOR c) {
     applyThreats(t, accumulator.accumulation[c], accumulator.psqtAccumulation[c], EmptyThreats, active);
 }
 
-inline void Transformer::incremental(Position & pos, const Accumulator * baseAcc) {
-    const auto & prev_accumulator = baseAcc ? *baseAcc : pos.state()->previous->accumulator;
-    auto & accumulator = pos.state()->accumulator;
-    const auto & dp = pos.state()->dirtyPiece;
+inline void Transformer::incremental(Position & pos, Accumulator & accumulator, const Accumulator & prev_accumulator, const Undo & move, bool backward) {
+    const auto & dp = move.dirtyPiece;
 
     alignas(CACHE_LINE) std::uint32_t added[32];
     alignas(CACHE_LINE) std::uint32_t removed[32];
 
-    std::pair<std::uint32_t, std::uint32_t> pa;
+    std::pair<std::uint32_t, std::uint32_t> pa{};
 
     for (COLOR c : { WHITE, BLACK }) {
         auto fullUpdate = false;
 
         if (dp.dirty_num) { // a piece moved
             fullUpdate = dp.pieceId[0] == PIECE_ID_KING + c;
-            if (!fullUpdate)
-                pa = pos.getChangedIndexes(c, added, removed);
+            if (!fullUpdate) {
+                pa = pos.getChangedIndexes(c, dp, backward ? removed : added, backward ? added : removed);
+
+                if (backward)
+                    std::swap(pa.first, pa.second);
+            }
         }
 
 #if defined(USE_AVX512)
@@ -648,6 +694,7 @@ inline void Transformer::incremental(Position & pos, const Accumulator * baseAcc
         if (fullUpdate) {
             // a king move invalidates every feature index of this perspective;
             // rebuild it through the per-king-square refresh cache
+            assert(!backward && &accumulator == &pos.state()->accumulator);
             refreshPerspective(*this, pos, c);
         }
         else {
@@ -743,7 +790,7 @@ inline void Transformer::incremental(Position & pos, const Accumulator * baseAcc
             }
 #endif
             ThreatList thrRemoved, thrAdded;
-            getChangedThreatIndexes(c, pos.King(c), pos.state()->dirtyThreats, thrRemoved, thrAdded);
+            getChangedThreatIndexes(c, pos.King(c), move.dirtyThreats, backward ? thrAdded : thrRemoved, backward ? thrRemoved : thrAdded);
             applyThreats(*this, accumulator.accumulation[c], accumulator.psqtAccumulation[c], thrRemoved, thrAdded);
         }
     }

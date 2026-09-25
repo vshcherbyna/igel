@@ -549,8 +549,13 @@ void Position::UnmakeMove()
     m_side ^= 1;
 
     m_state = undo.previous;
-    if (!m_state)
+
+    if (!m_state) {
         m_state = &m_undos[0];
+#if !defined(PURE_HCE)
+        m_state->accumulator.computed_accumulation = false;
+#endif
+    }
 }
 
 void Position::MakeNullMove()
@@ -593,8 +598,12 @@ void Position::UnmakeNullMove()
 
     m_state = undo.previous;
 
-    if (!m_state)
+    if (!m_state) {
         m_state = &m_undos[0];
+#if !defined(PURE_HCE)
+        m_state->accumulator.computed_accumulation = false;
+#endif
+    }
 }
 
 void Position::MovePiece(PIECE p, FLD from, FLD to, DirtyThreats * threats) {
@@ -1244,13 +1253,12 @@ std::uint32_t Position::getActiveIndexes(COLOR c, std::uint32_t indexes[]) {
     return count;
 }
 
-std::pair<std::uint32_t, std::uint32_t> Position::getChangedIndexes(COLOR c, std::uint32_t added[], std::uint32_t removed[]) {
+std::pair<std::uint32_t, std::uint32_t> Position::getChangedIndexes(COLOR c, const DirtyPiece & dp, std::uint32_t added[], std::uint32_t removed[]) {
     const PieceId target = static_cast<PieceId>(PIECE_ID_KING + c);
     auto pieces = c == WHITE ? evalList.piece_list_fw() : evalList.piece_list_fb();
     Square kingSq = static_cast<Square>((pieces[target] - PS_KING) % SQUARE_NB);
 
     kingSq = FLIP[c][kingSq];
-    const auto & dp = state()->dirtyPiece;
 
     // Precompute once per call: orient(kingSq, kingSq, c) = kingSq ^ flip_mask
     const int flip_mask = (bool(c) * SQ_A8) ^ ((Col(kingSq) < FILE_E) * SQ_H1);
