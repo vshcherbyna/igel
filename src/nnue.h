@@ -30,6 +30,7 @@
 
 class Position;
 struct Accumulator;
+struct Undo;
 
 const EVAL VAL_P = 100;
 const EVAL VAL_N = 310;
@@ -58,7 +59,7 @@ public:
 public:
     std::int32_t transform(Position & pos, std::uint8_t * outBuffer, const std::size_t bucket);
     inline void refresh(Position & pos);
-    inline void incremental(Position & pos, const Accumulator * baseAcc = nullptr);
+    inline void incremental(Position & pos, Accumulator & accumulator, const Accumulator & prev_accumulator, const Undo & move, bool backward);
 
 public:
     static constexpr int HalfDimensions   = 1024;
