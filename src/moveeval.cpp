@@ -71,7 +71,7 @@
             EVAL s_captured = SORT_VALUE[mv.Captured()];
             EVAL s_promotion = SORT_VALUE[mv.Promotion()];
 
-            mvlist[j].m_score = s_SortCapture + 10 * (s_captured + s_promotion) - s_piece;
+            mvlist[j].m_score = s_SortCapture + 10 * (s_captured + s_promotion) - s_piece + pSearch->m_captureHistory[mv.Piece()][mv.To()][mv.Captured()] / 4;
 
             if (mv.Captured() && !mv.Promotion()) { // add SEE score for captures if it's negative (losing captures)
                 auto see = MoveEval::SEE(pSearch, mv);

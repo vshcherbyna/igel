@@ -147,6 +147,7 @@ private:
     bool m_ttPvStack[MAX_PLY];          // per-ply pv flag, carried into the transposition table
     Move m_counterTable[14][64] = {};   // refutation move of the previous [piece][to]
     int16_t m_history[2][64][64];
+    int16_t m_captureHistory[14][64][14];   // [piece][to][captured] of captures and promotions
     Move m_moveStack[MAX_PLY + 4];
     PIECE m_pieceStack[MAX_PLY + 4];
     EVAL m_evalStack[MAX_PLY + 4];      // corrected, what search works with
