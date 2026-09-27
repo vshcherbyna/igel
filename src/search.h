@@ -25,6 +25,7 @@
 #include "position.h"
 #include "time.h"
 #include "tt.h"
+#include "tune.h"
 #include "utils.h"
 
 #include <thread>
@@ -69,6 +70,7 @@ public:
     void clearHistory();
     void clearKillers();
     void clearStacks();
+    void initLmrTable();
     void setTime(Time time) {m_time = time;}
     void setThreadCount(unsigned int threads);
     unsigned int getThreadsCount();
@@ -173,6 +175,57 @@ private:
     static constexpr int s_noPrevMoveBias     = 150033;
     static constexpr int s_correctionGrain    = 294912;
 
+    TUNABLE(s_lmrBase,              "LmrBase",                 750,      0,   1500,   50.00, 0.0020);
+    TUNABLE(s_lmrDivisor,           "LmrDivisor",              225,    150,    350,   10.00, 0.0020);
+    TUNABLE(s_lmrCutNode,           "LmrCutNode",             1024,      0,   3072,  100.00, 0.0020);
+    TUNABLE(s_lmrTtCapture,         "LmrTtCapture",           1024,      0,   3072,  100.00, 0.0020);
+    TUNABLE(s_lmrPv,                "LmrPv",                  2048,      0,   4096,  150.00, 0.0020);
+    TUNABLE(s_lmrTtPv,              "LmrTtPv",                 512,      0,   2048,   64.00, 0.0020);
+    TUNABLE(s_lmrImproving,         "LmrImproving",            512,      0,   2048,   64.00, 0.0020);
+    TUNABLE(s_lmrCheck,             "LmrCheck",               1024,      0,   3072,  100.00, 0.0020);
+    TUNABLE(s_lmrKiller,            "LmrKiller",              1024,      0,   3072,  100.00, 0.0020);
+    TUNABLE(s_lmrHistScale,         "LmrHistScale",           1024,      0,   4096,  100.00, 0.0020);
+    TUNABLE(s_lmrHistClamp,         "LmrHistClamp",           2048,    512,   4096,  150.00, 0.0020);
+    TUNABLE(s_lmrEvalGapScale,      "LmrEvalGapScale",        1024,      0,   4096,  100.00, 0.0020);
+    TUNABLE(s_lmrEvalGapMin,        "LmrEvalGapMin",            64,      0,    256,    8.00, 0.0020);
+    TUNABLE(s_lmrEvalGapMax,        "LmrEvalGapMax",            96,      0,    256,    8.00, 0.0020);
+    TUNABLE(s_lmrCorrScale,         "LmrCorrScale",           1024,      0,   4096,  200.00, 0.0020);
+    TUNABLE(s_lmrNoisyBase,         "LmrNoisyBase",           1024,      0,   3072,  100.00, 0.0020);
+    TUNABLE(s_lmrGoodCapture,       "LmrGoodCapture",          512,      0,   2048,   64.00, 0.0020);
+    TUNABLE(s_lmrVictimScale,       "LmrVictimScale",         1024,      0,   3072,  100.00, 0.0020);
+    TUNABLE(s_lmrCaptHistScale,     "LmrCaptHistScale",       1024,      0,   4096,  100.00, 0.0020);
+
+    TUNABLE(s_deeperMargin,         "DeeperMargin",             50,      0,    200,    5.00, 0.0020);
+    TUNABLE(s_deeperDepthScale,     "DeeperDepthScale",        200,      0,    800,   20.00, 0.0020);
+    TUNABLE(s_shallowerMargin,      "ShallowerMargin",          10,      0,     60,    2.00, 0.0020);
+
+    TUNABLE(s_razoringMargin,       "RazoringMargin",          141,     50,    400,    8.00, 0.0020);
+    TUNABLE(s_staticNmpMargin,      "StaticNmpMargin",          65,     20,    200,    4.00, 0.0020);
+    TUNABLE(s_nmpEvalDivisor,       "NmpEvalDivisor",          101,     40,    300,    6.00, 0.0020);
+    TUNABLE(s_probcutMargin,        "ProbcutMargin",            98,     30,    300,    6.00, 0.0020);
+
+    TUNABLE(s_futilityMargin,       "FutilityMargin",           90,     30,    250,    6.00, 0.0020);
+    TUNABLE(s_futilityBase,         "FutilityBase",              0,   -100,    300,   10.00, 0.0020);
+    TUNABLE(s_lmpScale,             "LmpScale",               1024,    704,   1536,   64.00, 0.0020);
+    TUNABLE(s_lmpScaleImp,          "LmpScaleImp",            1024,    704,   1536,   64.00, 0.0020);
+    TUNABLE(s_seeQuietMargin,       "SeeQuietMargin",          -60,   -200,    -10,    4.00, 0.0020);
+    TUNABLE(s_seeNoisyMargin,       "SeeNoisyMargin",          -10,    -40,     -2,    1.00, 0.0020);
+
+    TUNABLE(s_futilityHistLimit,    "FutilityHistLimit",     12000,      0,  40000,  600.00, 0.0020);
+    TUNABLE(s_futilityHistLimitImp, "FutilityHistLimitImp",   6000,  -4000,  30000,  400.00, 0.0020);
+    TUNABLE(s_cmpLimit,             "CmpLimit",                  0,  -4000,   4000,  250.00, 0.0020);
+    TUNABLE(s_cmpLimitImp,          "CmpLimitImp",           -1000,  -6000,   2000,  250.00, 0.0020);
+    TUNABLE(s_fmpLimit,             "FmpLimit",              -2000,  -8000,   2000,  250.00, 0.0020);
+    TUNABLE(s_fmpLimitImp,          "FmpLimitImp",           -4000, -12000,      0,  300.00, 0.0020);
+
+    TUNABLE(s_singularBetaScale,    "SingularBetaScale",       100,     25,    400,   10.00, 0.0020);
+    TUNABLE(s_singularDoubleMargin, "SingularDoubleMargin",     50,      0,    200,    5.00, 0.0020);
+
+    TUNABLE(s_aspWindow,            "AspWindow",                 5,      2,     40,    1.00, 0.0020);
+    TUNABLE(s_aspGrowthScale,       "AspGrowthScale",          512,    128,   2048,   40.00, 0.0020);
+
+    TUNABLE(s_captOrderWeight,      "CaptOrderWeight",          64,      0,    192,    8.00, 0.0020);
+
     struct CorrectionHistoryTable {
         I16 pawn[COLORS][m_correctionHistorySize];
         I16 minor[COLORS][m_correctionHistorySize];
@@ -204,10 +257,7 @@ private:
         {  0,  5,  7, 11, 17, 26, 36, 48, 63 },
     };
     static constexpr int m_cmpDepth[]        = { 3, 2           };
-    static constexpr int m_cmpHistoryLimit[] = { 0, -1000       };
     static constexpr int m_fmpDepth[]        = { 3, 2           };
-    static constexpr int m_fmpHistoryLimit[] = { -2000, -4000   };
-    static constexpr int m_fpHistoryLimit[]  = { 12000, 6000    };
     bool m_terminateSmp;
     int m_level;
     bool m_ponderHit;
