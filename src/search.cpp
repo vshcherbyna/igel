@@ -74,7 +74,7 @@ Search::Search() :
 
     for (int depth = 1; depth < 64; ++depth)
         for (int moves = 1; moves < 64; ++moves)
-            m_logLMRTable[depth][moves] = static_cast<int>(m_lmrScale * (0.75 + log(depth) * log(moves) / 2.25));
+            m_logLMRTable[depth][moves] = static_cast<int>(m_lmrScale * (0.942 + log(depth) * log(moves) / 2.27));
 }
 
 int Search::correctionValue(int ply) const {
@@ -399,14 +399,14 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //   razoring
         //
 
-        if (depth <= 2 && staticEval + 141 < alpha)
+        if (depth <= 2 && staticEval + 130 < alpha)
             return qSearch(alpha, beta, ply, 0);
 
         //
         //  static null move pruning
         //
 
-        if (depth <= 8 && bestScore - 65 * (depth - improving) >= beta)
+        if (depth <= 8 && bestScore - 42 * (depth - improving) >= beta)
             return bestScore;
 
         //
@@ -414,7 +414,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //
 
         if (!isNull && depth >= 3 && bestScore >= beta && (!(ttHit && hEntry.type == HASH_BETA && isValidScore(ttScore)) || ttScore >= beta) && m_position.NonPawnMaterial()) {
-            int R = 5 + depth / 6 + std::min(3, (bestScore - beta) / 101);
+            int R = 5 + depth / 6 + std::min(3, (bestScore - beta) / 92);
 
             const auto savedMove  = m_moveStack[ply];
             const auto savedPiece = m_pieceStack[ply];
@@ -439,7 +439,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //  probcut
         //
 
-        auto betaCut = beta + 98;
+        auto betaCut = beta + 100;
 
         if (depth >= 5 && !(ttHit && hEntry.depth >= (depth - 4) && isValidScore(ttScore) && ttScore < betaCut)) {
             MoveList captureMoves;
@@ -495,7 +495,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     Move bestMove = hashMove;
 
     const auto ttCapture = hashMove && hashMove.Captured();
-    const int correctionReduction = inCheck ? 0 : std::min(m_lmrScale, std::abs(staticEval - rawEval) * m_lmrScale / 256);
+    const int correctionReduction = inCheck ? 0 : std::min(m_lmrScale, std::abs(staticEval - rawEval) * 1033 / 256);
 
     auto & mvlist = ply == m_singularPly ? m_singularLists[ply] : m_lists[ply];
 
@@ -553,7 +553,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                 if (depth <= m_fmpDepth[improving] && history.fmhistory < m_fmpHistoryLimit[improving])
                     continue;
 
-                auto futilityMargin = staticEval + 90 * depth;
+                auto futilityMargin = staticEval + 11 + 85 * depth;
 
                 if (!inCheck
                     && futilityMargin <= alpha
@@ -569,8 +569,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
                 int seeMargin[2];
 
-                static const int SEEQuietMargin = -60;
-                static const int SEENoisyMargin = -10;
+                static const int SEEQuietMargin = -50;
+                static const int SEENoisyMargin = -12;
 
                 seeMargin[0] = SEENoisyMargin * depth * depth;
                 seeMargin[1] = SEEQuietMargin * depth;
@@ -593,7 +593,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //
 
         if (depth >= 8 && !skipMove && hashMove == mv && !rootNode && isValidScore(ttScore) && !isDecisiveScore(ttScore) && hEntry.type == HASH_BETA && hEntry.depth >= depth - 3) {
-            auto betaCut = ttScore - depth;
+            auto betaCut = ttScore - depth * 112 / 100;
             const auto savedSingularPly = m_singularPly;
             m_singularPly = ply;
             auto score = abSearch(betaCut - 1, betaCut, depth / 2, ply, false, false, cutNode, mv);
@@ -601,7 +601,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
             if (score < betaCut) {
                 extension = 1;
-                if (!onPV && score < betaCut - 50)
+                if (!onPV && score < betaCut - 53)
                     extension = 2;
             }
             else if (betaCut >= beta)
@@ -642,29 +642,29 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             if (depth >= 3 && newDepth > 1 && !mv.Promotion() && legalMoves > 1 + 2 * rootNode) {
                 reduction = m_logLMRTable[std::min(depth, 63)][std::min(legalMoves, 63)];
 
-                reduction += m_lmrScale * (cutNode + ttCapture);
+                reduction += 1152 * cutNode + 1212 * ttCapture;
 
                 if (onPV)
-                    reduction -= 2 * m_lmrScale;
+                    reduction -= 2143;
                 else if (ttPv)
-                    reduction -= m_lmrScale / 2;
+                    reduction -= 292;
 
-                reduction -= improving * (m_lmrScale / 2);
-                reduction -= (inCheck || m_position.InCheck()) * m_lmrScale;
+                reduction -= improving * 368;
+                reduction -= (inCheck || m_position.InCheck()) * 488;
                 reduction -= correctionReduction;
 
                 if (quietMove) {
-                    reduction -= m_lmrScale * (mv == m_killerMoves[ply][0] || mv == m_killerMoves[ply][1]);
-                    reduction -= std::clamp((history.history + history.cmhistory + history.fmhistory) * m_lmrScale / 5000, -2 * m_lmrScale, 2 * m_lmrScale);
+                    reduction -= 788 * (mv == m_killerMoves[ply][0] || mv == m_killerMoves[ply][1]);
+                    reduction -= std::clamp((history.history + history.cmhistory + history.fmhistory) * 755 / 5000, -1139, 1139);
 
                     if (!inCheck && !isDecisiveScore(alpha))
-                        reduction += std::clamp(alpha - staticEval, -64, 96) * m_lmrScale / 256;
+                        reduction += std::clamp(alpha - staticEval, -69, 105) * 960 / 256;
                 }
                 else {
                     const auto goodCapture = MoveEval::seeCached(mv, mvlist[i].m_score) && !MoveEval::cachedSeeNegative(mvlist[i].m_score);
-                    reduction -= m_lmrScale + goodCapture * (m_lmrScale / 2);
-                    reduction -= std::min(MoveEval::SORT_VALUE[mv.Captured()], 1000) * m_lmrScale / 1000;
-                    reduction -= m_captureHistory[mv.Piece()][mv.To()][mv.Captured()] * m_lmrScale / 16384;
+                    reduction -= 852 + goodCapture * 431;
+                    reduction -= std::min(MoveEval::SORT_VALUE[mv.Captured()], 1000) * 1240 / 1000;
+                    reduction -= m_captureHistory[mv.Piece()][mv.To()][mv.Captured()] * 1216 / 16384;
                 }
 
                 //
@@ -687,9 +687,9 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                     // 
 
                     if (!rootNode && !isDecisiveScore(e) && !isDecisiveScore(bestScore) && !isDecisiveScore(alpha)) {
-                        if (e > bestScore + 50 + 2 * newDepth && newDepth < depth && ply + newDepth + 1 < MAX_PLY)
+                        if (e > bestScore + 45 + newDepth * 145 / 100 && newDepth < depth && ply + newDepth + 1 < MAX_PLY)
                             ++newDepth;
-                        else if (e < bestScore + 10)
+                        else if (e < bestScore + 13)
                             --newDepth;
                     }
 
@@ -1387,7 +1387,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         //  Make a search
         //
 
-        EVAL aspiration = m_depth >= 4 ? 5 : CHECKMATE_SCORE;
+        EVAL aspiration = m_depth >= 4 ? 8 : CHECKMATE_SCORE;
 
         EVAL alpha = std::max(m_score - aspiration, -CHECKMATE_SCORE);
         EVAL beta  = std::min(m_score + aspiration, CHECKMATE_SCORE);
@@ -1409,7 +1409,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
                 m_ponder = (m_pvSize[0] > 1 && m_pv[0][1]) ? m_pv[0][1] : Move{};
             }
 
-            aspiration += 2 + aspiration / 2;
+            aspiration += 2 + aspiration * 479 / 1024;
             if (m_score <= alpha)
             {
                 beta = (alpha + beta) / 2;
