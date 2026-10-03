@@ -200,14 +200,14 @@ private:
     static constexpr int m_lmpDepth = 8;
     static constexpr int m_lmpPruningTable[2][9] =
     {
-        {  0,  1,  2,  3,  5, 9, 13, 18,  25 },
-        {  0,  5,  7, 11, 17, 26, 36, 48, 63 },
+        {  0,  1,  2,  3,  6, 11, 16, 22, 30 },
+        {  0,  5,  7, 10, 15, 24, 33, 44, 58 },
     };
     static constexpr int m_cmpDepth[]        = { 3, 2           };
-    static constexpr int m_cmpHistoryLimit[] = { 0, -1000       };
+    static constexpr int m_cmpHistoryLimit[] = { -1129, -1151   };
     static constexpr int m_fmpDepth[]        = { 3, 2           };
-    static constexpr int m_fmpHistoryLimit[] = { -2000, -4000   };
-    static constexpr int m_fpHistoryLimit[]  = { 12000, 6000    };
+    static constexpr int m_fmpHistoryLimit[] = { -2665, -4367   };
+    static constexpr int m_fpHistoryLimit[]  = { 12308, 5432    };
     bool m_terminateSmp;
     int m_level;
     bool m_ponderHit;
