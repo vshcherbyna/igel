@@ -183,7 +183,7 @@ void Time::adjust(EVAL score, int depth)
     //
 
     if (m_prevScore > score) {
-        m_softLimit *= std::min(1.0 + static_cast<double>(static_cast<double>(m_prevScore) - static_cast<double>(score)) / 80.0, 1.5);
+        m_softLimit  = static_cast<U32>(m_softLimit * std::min(1.0 + static_cast<double>(static_cast<double>(m_prevScore) - static_cast<double>(score)) / 80.0, 1.5));
         m_softLimit  = std::min(static_cast<int>(m_softLimit), static_cast<int>(m_hardLimit));
     }
 
@@ -259,7 +259,7 @@ U32 Time::getMiddleGameTimeBonus(U32 remainingTime, U32 hardLimit)
     //
 
     if (m_movesPlayed < 20)
-        hardLimit *= 1.50;
+        hardLimit = static_cast<U32>(hardLimit * 1.50);
 
     return std::min(hardLimit, remainingTime);
 }

@@ -255,7 +255,7 @@ U64 Attacks(FLD f, U64 occ, PIECE piece)
 U64 BishopAttacks(FLD f, U64 occ)
 {
 #if defined(_BTYPE) && (_BTYPE == 1)
-    int index = _pext_u64(occ, B_MASK[f]);
+    int index = int(_pext_u64(occ, B_MASK[f]));
 #else
     int index = int(((occ & B_MASK[f]) * B_MULT[f]) >> B_SHIFT[f]);
 #endif
@@ -674,7 +674,7 @@ void InitBitboards()
         {
             U64 occ = EnumBits(mask, n);
 #if defined(_BTYPE) && (_BTYPE == 1)
-            int index = _pext_u64(occ, mask);
+            int index = int(_pext_u64(occ, mask));
 #else
             U64 mult = B_MULT[f];
             int index = int((occ * mult) >> (64 - bits));
@@ -696,7 +696,7 @@ void InitBitboards()
         {
             U64 occ = EnumBits(mask, n);
 #if defined(_BTYPE) && (_BTYPE == 1)
-            int index = _pext_u64(occ, mask);
+            int index = int(_pext_u64(occ, mask));
 #else
             U64 mult = R_MULT[f];
             int index = int((occ * mult) >> (64 - bits));
@@ -753,7 +753,7 @@ U64 QueenAttacksTrace(FLD f, U64 occ)
 U64 RookAttacks(FLD f, U64 occ)
 {
 #if defined(_BTYPE) && (_BTYPE == 1)
-    int index = _pext_u64(occ, R_MASK[f]);
+    int index = int(_pext_u64(occ, R_MASK[f]));
 #else
     int index = int(((occ & R_MASK[f]) * R_MULT[f]) >> R_SHIFT[f]);
 #endif

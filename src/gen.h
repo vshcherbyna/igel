@@ -23,6 +23,7 @@
 #include "moves.h"
 #include "moveeval.h"
 #include "search.h"
+#include "thread.h"
 #include "notation.h"
 #include "utils.h"
 
@@ -49,7 +50,7 @@ class GenWorker
     friend class Generator;
 
 public:
-    GenWorker() : m_exit(false), m_pFile(nullptr), m_pMutex(nullptr), m_counter(0), m_search(new Search), m_finished(true), m_maxDepth(1) {}
+    GenWorker() : m_exit(false), m_pFile(nullptr), m_pMutex(nullptr), m_counter(0), m_search(new Search), m_maxDepth(1) {}
     bool isTaskReady() { return !m_tasks.empty(); }
     void workerRoutine()
     {
@@ -195,7 +196,6 @@ private:
     std::mutex * m_pMutex;
     uint64_t m_counter;
     std::unique_ptr<Search> m_search;
-    bool m_finished;
     int m_maxDepth;
     std::vector<std::string> m_tasks;
 };
@@ -211,8 +211,7 @@ public:
 private:
     int m_maxDepth;
     int m_maxThreads;
-    int m_maxfHash;
-    std::unique_ptr<std::thread[]> m_workerThreads;
+    std::unique_ptr<SearchThread[]> m_workerThreads;
     std::unique_ptr<GenWorker[]> m_workers;
 };
 

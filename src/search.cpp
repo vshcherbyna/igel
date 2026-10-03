@@ -1260,7 +1260,7 @@ void Search::startPrincipalSearch(Time time, bool ponder)
     m_lazycv.notify_one();
 
     if (!m_principalThread)
-        m_principalThread.reset(new std::thread(&Search::lazySmpSearcher, this));
+        m_principalThread.reset(new SearchThread(&Search::lazySmpSearcher, this));
 }
 
 uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench)
@@ -1658,11 +1658,11 @@ void Search::setThreadCount(unsigned int threads)
     releaseHelperThreads();
 
     m_thc = threads;
-    m_threads.reset(new std::thread[threads]);
+    m_threads.reset(new SearchThread[threads]);
     m_threadParams.reset(new Search[threads]);
 
     for (unsigned int i = 0; i < m_thc; ++i)
-        m_threads[i] = std::thread(&Search::lazySmpSearcher, &m_threadParams[i]);
+        m_threads[i] = SearchThread(&Search::lazySmpSearcher, &m_threadParams[i]);
 }
 
 unsigned int Search::getThreadsCount()
