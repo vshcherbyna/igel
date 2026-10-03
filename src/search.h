@@ -23,6 +23,7 @@
 
 #include "nnue.h"
 #include "position.h"
+#include "thread.h"
 #include "time.h"
 #include "tt.h"
 #include "utils.h"
@@ -156,7 +157,7 @@ private:
     static constexpr int m_lmrScale = 1024;
     int m_logLMRTable[64][64];
     Time m_time, m_ponderTime;
-    std::unique_ptr<std::thread> m_principalThread;
+    std::unique_ptr<SearchThread> m_principalThread;
     std::mutex m_readyMutex;
     std::unique_ptr<Evaluator> m_evaluator;
 
@@ -190,7 +191,7 @@ private:
     bool getIsLazySmpWork() {return (m_lazyDepth > 0);}
     void resetLazySmpWork() {m_lazyDepth = 0;}
     unsigned int m_thc;
-    std::unique_ptr<std::thread[]> m_threads;
+    std::unique_ptr<SearchThread[]> m_threads;
     std::unique_ptr<Search[]> m_threadParams;
     std::condition_variable m_lazycv;
     volatile int m_lazyDepth;

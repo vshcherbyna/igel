@@ -111,7 +111,7 @@ void Generator::onGenerate()
     book.clear();
     std::cout << "The book is generated: " << g_movesBook.size() << std::endl;
 
-    m_workerThreads.reset(new std::thread[m_maxThreads]);
+    m_workerThreads.reset(new SearchThread[m_maxThreads]);
     m_workers.reset(new GenWorker[m_maxThreads]);
 
     unsigned int fileIndex = 0;
@@ -125,7 +125,7 @@ void Generator::onGenerate()
         m_workers[i].m_pFile = &myfile;
         m_workers[i].m_pMutex = &mutex;
         m_workers[i].m_maxDepth = m_maxDepth;
-        m_workerThreads[i] = std::thread(&GenWorker::workerRoutine, &m_workers[i]);
+        m_workerThreads[i] = SearchThread(&GenWorker::workerRoutine, &m_workers[i]);
     }
 
     while (true) {
