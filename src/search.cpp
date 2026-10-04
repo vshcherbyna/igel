@@ -798,14 +798,13 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
     const auto pvHit = ttHit && hEntry.pv;
 
     EVAL bestScore;
+    EVAL futilityBase = -CHECKMATE_SCORE;
     EVAL ttEval = NO_SCORE;
 
-    if (inCheck)
-    {
+    if (inCheck) {
         bestScore = -CHECKMATE_SCORE + ply;
     }
-    else
-    {
+    else {
         EVAL rawEval;
 
         if (ttHit && isValidEval(hEntry.eval))
@@ -817,7 +816,8 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
             rawEval = Evaluator::fromRaw(ttEval, m_position.Fifty());
         }
 
-        bestScore = correctedStaticEval(rawEval, ply);
+        bestScore    = correctedStaticEval(rawEval, ply);
+        futilityBase = bestScore + 200;
 
         if (ttHit && isValidScore(ttScore)) {
             if ((hEntry.type == HASH_BETA && ttScore > bestScore)  ||
@@ -851,6 +851,9 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
     Move bestMove = hashMove;
     U8 type = HASH_ALPHA;
 
+    const auto lastMove   = m_position.LastMove();
+    auto       legalMoves = 0;
+
     for (size_t i = 0; i < mvSize; ++i) {
         Move mv = MoveEval::getNextBest(mvlist, i);
 
@@ -867,7 +870,33 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
                 continue;
         }
 
+        //
+        //  Validate if a move is prunable
+        //
+
+        const auto prunable = !inCheck && bestScore > MATED_IN_MAX && !mv.Promotion() && !(lastMove && mv.To() == lastMove.To());
+
+        EVAL futileScore = NO_SCORE;
+
+        if (prunable && legalMoves < 2) {
+            const EVAL futilityValue = futilityBase + MoveEval::SORT_VALUE[mv.Captured()];
+
+            if (futilityValue <= alpha)
+                futileScore = futilityValue;
+            else if (futilityBase < alpha && MoveEval::SEE(this, mv) < alpha - futilityBase)
+                futileScore = futilityBase;
+        }
+
         if (m_position.MakeMove(mv)) {
+            ++legalMoves;
+
+            if (prunable && (legalMoves > 2 || futileScore != NO_SCORE) && !m_position.InCheck()) {
+                if (legalMoves <= 2)
+                    bestScore = std::max(bestScore, Evaluator::bound(futileScore)); // an estimate, never a decisive score
+
+                m_position.UnmakeMove();
+                continue;
+            }
 
             prefetchCorrection();
 
