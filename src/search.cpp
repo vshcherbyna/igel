@@ -475,8 +475,14 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                     m_moveStack[ply]  = savedProbcutMove;
                     m_pieceStack[ply] = savedProbcutPiece;
 
-                    if (score >= betaCut)
+                    //
+                    //  the capture and its depth - 4 search make a depth - 3 lower bound, worth keeping
+                    //
+
+                    if (score >= betaCut) {
+                        TTable::instance().record(captureMove, score, ttEval, depth - 3, ply, HASH_BETA, ttPv, hash);
                         return score;
+                    }
                 }
             }
         }
