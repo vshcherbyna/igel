@@ -413,7 +413,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //   null move
         //
 
-        if (!isNull && depth >= 3 && bestScore >= beta && (!(ttHit && hEntry.type == HASH_BETA && isValidScore(ttScore)) || ttScore >= beta) && m_position.NonPawnMaterial()) {
+        if (!isNull && depth >= 3 && ply >= m_nmpMinPly && bestScore >= beta && (!(ttHit && hEntry.type == HASH_BETA && isValidScore(ttScore)) || ttScore >= beta) && m_position.NonPawnMaterial()) {
             int R = 5 + depth / 6 + std::min(3, (bestScore - beta) / 92);
 
             const auto savedMove  = m_moveStack[ply];
@@ -431,8 +431,17 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             m_moveStack[ply]  = savedMove;
             m_pieceStack[ply] = savedPiece;
 
-            if (nullScore >= beta)
-                return isCheckMateScore(nullScore) ? beta : nullScore;
+            if (nullScore >= beta) {
+                if (m_nmpMinPly || depth < 16)
+                    return isCheckMateScore(nullScore) ? beta : nullScore;
+
+                m_nmpMinPly = ply + 3 * (depth - R) / 4;
+                const EVAL verifiedScore = abSearch(beta - 1, beta, depth - R, ply, false, false, false, skipMove);
+                m_nmpMinPly = 0;
+
+                if (verifiedScore >= beta)
+                    return isCheckMateScore(nullScore) ? beta : nullScore;
+            }
         }
 
         //
