@@ -22,6 +22,8 @@ In August 2020 Igel experimented with NNUE, using Dietrich Kappe's NiNu network 
 
 Since late 2020 Igel has used its own NNUE implementation, with its own network trained on Igel data.
 
+In June 2021 Igel 3.0.5 won [League 1](https://tcec-chess.com/#div=l1&game=1&season=21) of TCEC season 21, half a point ahead of Ethereal, and was promoted to the [Premier Division](https://tcec-chess.com/#div=p&game=1&season=21), the top division of TCEC. There it played the strongest engines in the world, among them Stockfish, Leela Chess Zero and Komodo Dragon, and finished seventh of eight with 22 points from 56 games. This is Igel's highest achievement to date.
+
 In January 2023 the last of the hand-crafted evaluation was removed from the default build, and from Igel 3.4.0 the evaluation is entirely NNUE. A pure HCE build was later restored for TCEC and is still available through `-DPURE_HCE`.
 
 ### Evaluation
