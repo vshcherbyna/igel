@@ -3,6 +3,24 @@ Igel - open source chess engine forked from GreKo 2018.01.
 (c) 2018-2026 Volodymyr Shcherbyna <volodymyr@shcherbyna.com> (Igel author)
 (c) 2002-2018 Vladimir Medvedev <vrm@bk.ru> (GreKo author)
 
+Igel 3.8.0
+-------------
+18.10.2026
+
+- implement null move pruning verification search
+- store probcut result in tt
+- support systems with small stack size (such as alpine linux)
+- tune 42 search parameters with spsa (400k games)
+- implement capture history
+- cache accumulator
+- implement adaptive lmr
+- implement correction history
+- release new standard network 6b953e78
+- store static evaluation in tt
+- fix insufficient material detection
+- handle en passant in tb root probing
+- update statistics for tb moves
+
 Igel 3.7.0
 -------------
 26.08.2026
