@@ -380,6 +380,9 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     m_evalStack[ply]    = staticEval;
     m_rawEvalStack[ply] = rawEval;
 
+    if (!rootNode && !skipMove && !inCheck && !isNull)
+        History::updateStaticHistory(this, ply);
+
     if (ttHit && !inCheck && isValidScore(ttScore)) {
         if ((hEntry.type == HASH_BETA && ttScore > staticEval) ||
             (hEntry.type == HASH_ALPHA && ttScore < staticEval) ||
@@ -641,6 +644,12 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
             m_moveStack[ply]  = mv;
             m_pieceStack[ply] = mv.Piece();
+
+            //
+            // Save the parent's entry
+            //
+
+            m_quietHistoryStack[ply] = quietMove ? &m_history[m_position.Side() ^ 1][mv.From()][mv.To()] : nullptr;
 
             //
             //   extensions
@@ -926,11 +935,13 @@ void Search::setInitial()
 void Search::clearHistory()
 {
     memset(m_history, 0, sizeof(m_history));
+    memset(m_quietHistoryStack, 0, sizeof(m_quietHistoryStack));
     memset(m_captureHistory, 0, sizeof(m_captureHistory));
     clearCorrectionHistory();
 
     for (unsigned int i = 0; i < m_thc; ++i) {
         memset(m_threadParams[i].m_history, 0, sizeof(m_history));
+        memset(m_threadParams[i].m_quietHistoryStack, 0, sizeof(m_quietHistoryStack));
         memset(m_threadParams[i].m_captureHistory, 0, sizeof(m_captureHistory));
         m_threadParams[i].clearCorrectionHistory();
     }
@@ -949,6 +960,7 @@ void Search::clearKillers()
 
 void Search::clearStacks()
 {
+    memset(m_quietHistoryStack, 0, sizeof(m_quietHistoryStack));
     for (unsigned int j = 0; j < sizeof(m_moveStack) / sizeof(Move); ++j)
         m_moveStack[j].reset();
 
@@ -961,6 +973,7 @@ void Search::clearStacks()
 
     for (unsigned int i = 0; i < m_thc; ++i) {
 
+        memset(m_threadParams[i].m_quietHistoryStack, 0, sizeof(m_quietHistoryStack));
         for (unsigned int j = 0; j < sizeof(m_threadParams[i].m_moveStack) / sizeof(Move); ++j)
             m_threadParams[i].m_moveStack[j].reset();
 
