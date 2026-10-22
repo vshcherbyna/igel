@@ -73,7 +73,9 @@ TEST(QuietHistory, StaticFeedbackRejectsNullTacticalAndInvalidEvaluation) {
     for (const Move m : {Move{}, Move(E4, D5, PW, PB), Move(A7, A8, PW, 0, QW)}) {
         HistoryTestAccess::seedStatic(*s, m, 20, -300);
         History::updateStaticHistory(s.get(), 1);
-        if (m) EXPECT_EQ(HistoryTestAccess::quiet(*s, m), 0);
+        if (m) {
+            EXPECT_EQ(HistoryTestAccess::quiet(*s, m), 0);
+        }
     }
     for (EVAL bad : {NO_SCORE, CHECKMATE_SCORE, -CHECKMATE_SCORE, TBBASE_SCORE}) {
         HistoryTestAccess::seedStatic(*s, quiet, bad, -300);
