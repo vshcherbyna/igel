@@ -26,6 +26,27 @@
 /*static */constexpr int History::s_historyMultiplier;
 /*static */constexpr int History::s_historyDivisor;
 
+/*static */void History::updateStaticHistory(Search * pSearch, int ply)
+{
+    if (ply <= 0)
+        return;
+
+    const Move previous = pSearch->m_moveStack[ply - 1];
+    auto * entry = pSearch->m_quietHistoryStack[ply - 1];
+    const EVAL before = pSearch->m_rawEvalStack[ply - 1];
+    const EVAL after = pSearch->m_rawEvalStack[ply];
+
+    if (!previous || previous.Captured() || previous.Promotion() || !entry || !isValidEval(before) || !isValidEval(after))
+        return;
+
+    //
+    // Use uncorrected evaluations so correction history does not train itself
+    //
+
+    const int bonus = std::clamp((2 * Evaluator::Tempo - before - after) / 4, -32, 32);
+    *entry = static_cast<int16_t>(*entry + s_historyMultiplier * bonus - *entry * std::abs(bonus) / s_historyDivisor);
+}
+
 /*static */void History::updateHistory(Search * pSearch, const MoveList & quetMoves, int ply, int bonus)
 {
     assert(ply < MAX_PLY);
