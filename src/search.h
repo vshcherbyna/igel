@@ -151,7 +151,7 @@ private:
     Move m_killerMoves[MAX_PLY][2];
     bool m_ttPvStack[MAX_PLY];          // per-ply pv flag, carried into the transposition table
     Move m_counterTable[14][64] = {};   // refutation move of the previous [piece][to]
-    int16_t m_history[2][64][64];
+    int16_t m_history[2][64][64][4];
     int16_t * m_quietHistoryStack[MAX_PLY + 4] = {};
     int16_t m_captureHistory[14][64][14];   // [piece][to][captured] of captures and promotions
     Move m_moveStack[MAX_PLY + 4];

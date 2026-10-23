@@ -19,6 +19,7 @@
 
 #include "moveeval.h"
 #include "nnue.h"
+#include "history.h"
 
 
 /*static*/ bool MoveEval::isSpecialMove(const Move & mv, Search * pSearch)
@@ -43,6 +44,18 @@
 }
 
 /*static */void MoveEval::sortMoves(Search * pSearch, MoveList & mvlist, Move hashMove, int ply)
+{
+    U64 threats = 0;
+
+    for (size_t i = 0; i < mvlist.Size(); ++i)
+        if (!isTacticalMove(mvlist[i].m_mv)) {
+            threats = History::enemyAttacks(pSearch->m_position);
+            break;
+        }
+    sortMoves(pSearch, mvlist, hashMove, ply, threats);
+}
+
+/*static */void MoveEval::sortMoves(Search * pSearch, MoveList & mvlist, Move hashMove, int ply, U64 threats)
 {
     auto counterMove = ply >= 1 ? pSearch->m_moveStack[ply - 1] : Move{};
     auto counterPiece = ply >= 1 ? pSearch->m_pieceStack[ply - 1] : 0;
@@ -84,7 +97,7 @@
         else if (counterMove && mv == pSearch->m_counterTable[counterPiece][counterTo])
             mvlist[j].m_score = s_SortCounter;
         else {
-            mvlist[j].m_score = pSearch->m_history[side][mv.From()][mv.To()];
+            mvlist[j].m_score = pSearch->m_history[side][mv.From()][mv.To()][History::threatIndex(mv, threats)];
 
             if (counterMove)
                 mvlist[j].m_score += pSearch->m_followTable[0][counterPiece][counterTo][mv.Piece()][mv.To()];
