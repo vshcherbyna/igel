@@ -522,7 +522,9 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     else
         GenAllMoves(m_position, mvlist);
 
-    MoveEval::sortMoves(this, mvlist, hashMove, ply);
+    const auto historyThreats = History::enemyAttacks(m_position);
+    MoveEval::sortMoves(this, mvlist, hashMove, ply, historyThreats);
+
     auto mvSize = mvlist.Size();
 
     MoveList quietMoves;
@@ -563,7 +565,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                     continue;
                 }
 
-                History::fetchHistory(this, mv, ply, history);
+                History::fetchHistory(this, mv, ply, history, historyThreats);
 
                 if (depth <= m_cmpDepth[improving] && history.cmhistory < m_cmpHistoryLimit[improving])
                     continue;
@@ -601,7 +603,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             }
         }
         else if (quietMove)
-            History::fetchHistory(this, mv, ply, history); // root and first moves use it for LMR only
+            History::fetchHistory(this, mv, ply, history, historyThreats); // root and first moves use it for LMR only
 
         int newDepth  = depth - 1;
         int extension = 0;
@@ -649,7 +651,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             // Save the parent's entry
             //
 
-            m_quietHistoryStack[ply] = quietMove ? &m_history[m_position.Side() ^ 1][mv.From()][mv.To()] : nullptr;
+            m_quietHistoryStack[ply] = quietMove ? &m_history[m_position.Side() ^ 1][mv.From()][mv.To()][History::threatIndex(mv, historyThreats)] : nullptr;
 
             //
             //   extensions
@@ -746,7 +748,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                     if (alpha >= beta) {
                         type = HASH_BETA;
                         if (quietMove) {
-                            History::updateHistory(this, quietMoves, ply, depth * depth);
+                            History::updateHistory(this, quietMoves, ply, depth * depth, historyThreats);
                             History::setKillerMove(this, mv, ply);
                         }
                         History::updateCaptureHistory(this, noisyMoves, noisyTried, quietMove ? Move{} : mv, depth * depth);

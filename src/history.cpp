@@ -26,6 +26,20 @@
 /*static */constexpr int History::s_historyMultiplier;
 /*static */constexpr int History::s_historyDivisor;
 
+/*static */U64 History::enemyAttacks(const Position & position)
+{
+    U64 pieces         = position.BitsAll(position.Side() ^ 1);
+    const U64 occupied = position.BitsAll();
+    U64 threats        = 0;
+
+    while (pieces) {
+        const FLD from = PopLSB(pieces);
+        threats |= Attacks(from, occupied, position[from]);
+    }
+
+    return threats;
+}
+
 /*static */void History::updateStaticHistory(Search * pSearch, int ply)
 {
     if (ply <= 0)
@@ -47,7 +61,7 @@
     *entry = static_cast<int16_t>(*entry + s_historyMultiplier * bonus - *entry * std::abs(bonus) / s_historyDivisor);
 }
 
-/*static */void History::updateHistory(Search * pSearch, const MoveList & quetMoves, int ply, int bonus)
+/*static */void History::updateHistory(Search * pSearch, const MoveList & quetMoves, int ply, int bonus, U64 threats)
 {
     assert(ply < MAX_PLY);
 
@@ -73,10 +87,11 @@
         auto from = mv.From();
         auto piece = mv.Piece();
         auto to = mv.To();
-        int entry = pSearch->m_history[colour][from][to];
+        const int context = threatIndex(mv, threats);
+        int entry = pSearch->m_history[colour][from][to][context];
         bonus = std::min(bonus, s_historyMax);
         entry += s_historyMultiplier * delta - entry * abs(delta) / s_historyDivisor;
-        pSearch->m_history[colour][from][to] = static_cast<int16_t>(entry);
+        pSearch->m_history[colour][from][to][context] = static_cast<int16_t>(entry);
 
         if (counterMove) {
             int centry = pSearch->m_followTable[0][counterPiece][counterTo][piece][to];
@@ -126,7 +141,7 @@
     }
 }
 
-/*static */void History::fetchHistory(Search * pSearch, Move mv, int ply, HistoryHeuristics & hh)
+/*static */void History::fetchHistory(Search * pSearch, Move mv, int ply, HistoryHeuristics & hh, U64 threats)
 {
     assert(ply < MAX_PLY);
 
@@ -135,7 +150,7 @@
     auto to = mv.To();
 
     auto colour = pSearch->m_position.Side();
-    hh.history = pSearch->m_history[colour][from][to];
+    hh.history = pSearch->m_history[colour][from][to][threatIndex(mv, threats)];
 
     if (ply < 1)
         return;

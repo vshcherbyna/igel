@@ -26,7 +26,7 @@
 
 struct HistoryTestAccess {
     static int16_t & quiet(Search & s, Move m) {
-        return s.m_history[GetColor(m.Piece())][m.From()][m.To()];
+        return s.m_history[GetColor(m.Piece())][m.From()][m.To()][History::threatIndex(m, History::enemyAttacks(s.m_position))];
     }
     static void seedStatic(Search & s, Move m, EVAL before, EVAL after) {
         s.m_moveStack[0] = m;
@@ -113,6 +113,7 @@ TEST(QuietHistory, ResetClearsFeedbackAndPointersForEveryWorker) {
     s->clearStacks();
     const Move m(G1, F3, NW);
     for (Search * t : {s.get(), &HistoryTestAccess::worker(*s)}) {
+        ASSERT_TRUE(t->setFEN(STD_POSITION));
         HistoryTestAccess::seedStatic(*t, m, 20, -80);
         History::updateStaticHistory(t, 1);
         ASSERT_GT(HistoryTestAccess::quiet(*t, m), 0);
@@ -122,4 +123,53 @@ TEST(QuietHistory, ResetClearsFeedbackAndPointersForEveryWorker) {
         EXPECT_EQ(HistoryTestAccess::quiet(*t, m), 0);
         EXPECT_TRUE(HistoryTestAccess::pointerCleared(*t));
     }
+}
+
+TEST(QuietHistory, ThreatMapMatchesPositionAttackQueries) {
+    for (const char * fen : {
+        STD_POSITION,
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+        "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R b KQkq - 0 1",
+        "4k3/8/8/3pP3/8/2n5/8/4K3 w - d6 0 1"}) {
+        auto s = historySearch(fen);
+        const U64 threats = History::enemyAttacks(s->m_position);
+        for (FLD square = 0; square < 64; ++square)
+            EXPECT_EQ(bool(threats & BB_SINGLE[square]),
+                      s->m_position.IsAttacked(square, s->m_position.Side() ^ 1));
+    }
+}
+
+TEST(QuietHistory, ThreatBucketsAreIndependentAndUsedByOrdering) {
+    auto s = historySearch();
+    const Move m(G1, F3, NW);
+    const U64 masks[] = {0, BB_SINGLE[F3], BB_SINGLE[G1], BB_SINGLE[G1] | BB_SINGLE[F3]};
+    for (int trained = 0; trained < 4; ++trained) {
+        s->clearHistory();
+        MoveList moves;
+        moves.Add(m);
+        History::updateHistory(s.get(), moves, 2, 16, masks[trained]);
+        for (int queried = 0; queried < 4; ++queried) {
+            History::HistoryHeuristics hh;
+            History::fetchHistory(s.get(), m, 2, hh, masks[queried]);
+            EXPECT_EQ(hh.history, trained == queried ? 512 : 0);
+            MoveEval::sortMoves(s.get(), moves, Move{}, 2, masks[queried]);
+            EXPECT_EQ(moves[0].m_score, hh.history);
+        }
+    }
+}
+
+TEST(QuietHistory, StaticFeedbackKeepsParentThreatContextAfterMakeMove) {
+    auto s = historySearch("4k3/8/8/8/7b/8/5P2/K7 w - - 0 1");
+    const Move m(F2, F3, PW);
+    const U64 parentThreats = History::enemyAttacks(s->m_position);
+    HistoryTestAccess::seedStatic(*s, m, 20, -80);
+    ASSERT_TRUE(s->m_position.MakeMove(m));
+    // The pawn leaves the bishop diagonal; the side to move also changes.
+    ASSERT_NE(History::threatIndex(m, parentThreats),
+              History::threatIndex(m, History::enemyAttacks(s->m_position)));
+    History::updateStaticHistory(s.get(), 1);
+    s->m_position.UnmakeMove();
+    History::HistoryHeuristics hh;
+    History::fetchHistory(s.get(), m, 0, hh, parentThreats);
+    EXPECT_GT(hh.history, 0);
 }
