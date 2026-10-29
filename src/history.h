@@ -22,6 +22,7 @@
 
 #include "history.h"
 #include "moves.h"
+#include <bitset>
 
 class Search;
 
@@ -31,6 +32,7 @@ class History
     ~History() = delete;
 
 public:
+    using LegalQuietMask = std::bitset<256>; // indices in the quiet MoveList
     struct HistoryHeuristics
     {
         HistoryHeuristics() : history{ 0 }, cmhistory{0}, fmhistory{0} {}
@@ -45,7 +47,7 @@ public:
         return 2 * bool(threats & BB_SINGLE[mv.From()]) + bool(threats & BB_SINGLE[mv.To()]);
     }
     static void updateStaticHistory(Search * pSearch, int ply);
-    static void updateHistory(Search * pSearch, const MoveList & quetMoves, int ply, int bonus, U64 threats);
+    static void updateHistory(Search * pSearch, const MoveList & quetMoves, int ply, int bonus, U64 threats, const LegalQuietMask & legalQuiets);
     static void updateCaptureHistory(Search * pSearch, const Move * noisyMoves, size_t noisyTried, Move best, int bonus);
     static void setKillerMove(Search * pSearch, Move mv, int ply);
     static void fetchHistory(Search * pSearch, Move mv, int ply, HistoryHeuristics & hh, U64 threats);
@@ -54,6 +56,7 @@ private:
     static constexpr int s_historyMax = 400;
     static constexpr int s_historyMultiplier = 32;
     static constexpr int s_historyDivisor = 512;
+    static constexpr int s_pawnMalusDivisor = 4;
 };
 
 #endif // HISTORY_H

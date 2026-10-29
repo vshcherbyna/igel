@@ -51,6 +51,7 @@ Search::Search() :
     m_depth(0),
     m_syzygyDepth(0),
     m_selDepth(0),
+    m_pawnHistory(new PawnHistoryTable{}),
     m_correctionHistory(new CorrectionHistoryTable),
     m_principalSearcher(false),
     m_thc(0),
@@ -528,6 +529,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     auto mvSize = mvlist.Size();
 
     MoveList quietMoves;
+    History::LegalQuietMask legalQuiets;
     Move noisyMoves[32];
     size_t noisyTried = 0;
     m_killerMoves[ply + 1][0] = m_killerMoves[ply + 1][1] = 0;
@@ -637,6 +639,9 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
         if (m_position.MakeMove(mv)) {
             ++legalMoves;
+
+            if (quietMove)
+                legalQuiets.set(quietMoves.Size() - 1);
 
             if (!quietMove && noisyTried < sizeof(noisyMoves) / sizeof(Move))
                 noisyMoves[noisyTried++] = mv;
@@ -748,7 +753,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                     if (alpha >= beta) {
                         type = HASH_BETA;
                         if (quietMove) {
-                            History::updateHistory(this, quietMoves, ply, depth * depth, historyThreats);
+                            History::updateHistory(this, quietMoves, ply, depth * depth, historyThreats, legalQuiets);
                             History::setKillerMove(this, mv, ply);
                         }
                         History::updateCaptureHistory(this, noisyMoves, noisyTried, quietMove ? Move{} : mv, depth * depth);
@@ -937,12 +942,14 @@ void Search::setInitial()
 void Search::clearHistory()
 {
     memset(m_history, 0, sizeof(m_history));
+    memset(m_pawnHistory.get(), 0, sizeof(PawnHistoryTable));
     memset(m_quietHistoryStack, 0, sizeof(m_quietHistoryStack));
     memset(m_captureHistory, 0, sizeof(m_captureHistory));
     clearCorrectionHistory();
 
     for (unsigned int i = 0; i < m_thc; ++i) {
         memset(m_threadParams[i].m_history, 0, sizeof(m_history));
+        memset(m_threadParams[i].m_pawnHistory.get(), 0, sizeof(PawnHistoryTable));
         memset(m_threadParams[i].m_quietHistoryStack, 0, sizeof(m_quietHistoryStack));
         memset(m_threadParams[i].m_captureHistory, 0, sizeof(m_captureHistory));
         m_threadParams[i].clearCorrectionHistory();

@@ -25,6 +25,7 @@
 /*static */constexpr int History::s_historyMax;
 /*static */constexpr int History::s_historyMultiplier;
 /*static */constexpr int History::s_historyDivisor;
+/*static */constexpr int History::s_pawnMalusDivisor;
 
 /*static */U64 History::enemyAttacks(const Position & position)
 {
@@ -61,7 +62,7 @@
     *entry = static_cast<int16_t>(*entry + s_historyMultiplier * bonus - *entry * std::abs(bonus) / s_historyDivisor);
 }
 
-/*static */void History::updateHistory(Search * pSearch, const MoveList & quetMoves, int ply, int bonus, U64 threats)
+/*static */void History::updateHistory(Search * pSearch, const MoveList & quetMoves, int ply, int bonus, U64 threats, const LegalQuietMask & legalQuiets)
 {
     assert(ply < MAX_PLY);
 
@@ -77,6 +78,7 @@
     auto followTo = followMove.To();
 
     auto colour = pSearch->m_position.Side();
+    auto & pawnHistory = pSearch->m_pawnHistory->entry[Search::pawnHistoryIndex(pSearch->m_position.pawnHash())];
 
     auto s = quetMoves.Size();
     auto best = quetMoves[s - 1].m_mv;
@@ -92,6 +94,20 @@
         bonus = std::min(bonus, s_historyMax);
         entry += s_historyMultiplier * delta - entry * abs(delta) / s_historyDivisor;
         pSearch->m_history[colour][from][to][context] = static_cast<int16_t>(entry);
+
+        if (legalQuiets.test(i)) {
+
+            //
+            //  a cutoff says far more about the move that cut than about the quiets tried before it
+            //
+
+            auto pawnDelta = std::clamp(delta, -s_historyMax, s_historyMax);
+            if (pawnDelta < 0)
+                pawnDelta /= s_pawnMalusDivisor;
+
+            auto & pawnEntry = pawnHistory[piece][to];
+            pawnEntry = static_cast<int16_t>(pawnEntry + s_historyMultiplier * pawnDelta - pawnEntry * std::abs(pawnDelta) / s_historyDivisor);
+        }
 
         if (counterMove) {
             int centry = pSearch->m_followTable[0][counterPiece][counterTo][piece][to];
