@@ -1338,6 +1338,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
 
     m_ponder = 0;
     m_best   = 0;
+    m_lastIteration = {};
 
     auto printBestMove = [](Search * pthis, Position & pos, Move m, Move p) {
 
@@ -1462,6 +1463,18 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
             break;
 
         //
+        //  The iteration is complete
+        //
+
+        m_lastIteration.best     = m_best;
+        m_lastIteration.ponder   = m_ponder;
+        m_lastIteration.score    = m_score;
+        m_lastIteration.depth    = m_depth;
+        m_lastIteration.selDepth = m_selDepth;
+        m_lastIteration.pvSize   = m_pvSizePrev[0];
+        memcpy(m_lastIteration.pv, m_pvPrev[0], m_pvSizePrev[0] * sizeof(Move));
+
+        //
         //  Track how many consecutive iterations kept the same best move
         //
 
@@ -1517,6 +1530,12 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     }
 
     //
+    //  The search may have stopped in the middle of an iteration
+    //
+
+    const auto * best = m_lastIteration.best ? &m_lastIteration : nullptr;
+
+    //
     //  Stop worker threads if necessary
     //
 
@@ -1524,32 +1543,8 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         stopWorkerThreads();
 
         //
-        //  Pickup the best thread based on eval/depth
+        //  Pickup the best thread based on eval/depth of the last iteration each thread completed
         //
-
-        typedef struct tagStat {
-            tagStat(Move p, EVAL s, int d, int sd, const Move* pv_, int pvSize_) {
-                ponder = p;
-                score = s;
-                depth = d;
-                selDepth = sd;
-                pvSize = pvSize_;
-                memcpy(pv, pv_, pvSize * sizeof(Move));
-            }
-            tagStat() {
-                ponder = 0;
-                score = 0;
-                depth = 0;
-                selDepth = 0;
-                pvSize = 0;
-            }
-            Move ponder;
-            EVAL score;
-            int depth;
-            int selDepth;
-            Move pv[MAX_PLY];
-            int  pvSize;
-        }Stat;
 
         auto isWinScore  = [](EVAL score) { return score >=   TBBASE_SCORE - 2 * MAX_PLY;  };
         auto isLossScore = [](EVAL score) { return score <= -(TBBASE_SCORE - 2 * MAX_PLY); };
@@ -1558,7 +1553,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         //  A proven win outranks any search depth, otherwise the deeper searcher is the better witness
         //
 
-        auto moreAuthoritative = [isWinScore](const Stat & a, const Stat & b) {
+        auto moreAuthoritative = [isWinScore](const CompletedIteration & a, const CompletedIteration & b) {
             if (isWinScore(a.score) || isWinScore(b.score))
                 return a.score > b.score;
             if (a.depth != b.depth)
@@ -1570,11 +1565,11 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         //  Calculate worst score yet, considering only the threads which completed an iteration and can vote
         //
 
-        auto worst = m_best ? m_score : CHECKMATE_SCORE;
+        auto worst = best ? best->score : CHECKMATE_SCORE;
 
         for (unsigned int i = 0; i < m_thc; ++i) {
-            if (m_threadParams[i].m_best)
-                worst = std::min(worst, m_threadParams[i].m_score);
+            if (m_threadParams[i].m_lastIteration.best)
+                worst = std::min(worst, m_threadParams[i].m_lastIteration.score);
         }
 
         auto voteWeight = [worst](EVAL score, int depth) {
@@ -1582,44 +1577,41 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         };
 
         //
-        //  Calculate the voting map; each voted move keeps the stats of its most authoritative voter
+        //  Calculate the voting map; each voted move keeps the iteration of its most authoritative voter
         //
 
-        std::map<Move, std::pair<int64_t, Stat>> votes;
+        std::map<Move, std::pair<int64_t, const CompletedIteration *>> votes;
 
-        if (m_best)
-            votes[m_best] = std::make_pair(voteWeight(m_score, m_depth), Stat{ m_ponder, m_score, m_depth, m_selDepth, m_pvPrev[0], m_pvSizePrev[0] });
+        if (best)
+            votes[best->best] = std::make_pair(voteWeight(best->score, best->depth), best);
 
         for (unsigned int i = 0; i < m_thc; ++i) {
-            auto & worker = m_threadParams[i];
+            const auto & iteration = m_threadParams[i].m_lastIteration;
 
-            if (!worker.m_best)
+            if (!iteration.best)
                 continue; // a worker without a completed iteration gets no vote
 
-            auto & vote = votes[worker.m_best];
-            vote.first += voteWeight(worker.m_score, worker.m_depth);
+            auto & vote = votes[iteration.best];
+            vote.first += voteWeight(iteration.score, iteration.depth);
 
-            Stat workerStat{ worker.m_ponder, worker.m_score, worker.m_depth, worker.m_selDepth, worker.m_pvPrev[0], worker.m_pvSizePrev[0] };
-
-            if (moreAuthoritative(workerStat, vote.second))
-                vote.second = workerStat;
+            if (!vote.second || moreAuthoritative(iteration, *vote.second))
+                vote.second = &iteration;
         }
 
         //
         //  Democracy in action: pick-up the most voted best move, except that votes never overrule a proven win
         //
 
-        const Stat * best = nullptr;
         int64_t bestVotes = 0;
 
-        if (m_best) {
-            best      = &votes[m_best].second;
-            bestVotes = votes[m_best].first;
+        if (best) {
+            bestVotes = votes[best->best].first;
+            best      = votes[best->best].second;
         }
 
         for (const auto & vote : votes) {
             auto candVotes    = vote.second.first;
-            const auto & cand = vote.second.second;
+            const auto & cand = *vote.second.second;
 
             bool takeover;
 
@@ -1637,21 +1629,39 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
             if (takeover) {
                 bestVotes = candVotes;
                 best      = &cand;
-                m_best    = vote.first;
             }
         }
-
-        if (best) {
-            m_ponder   = best->ponder;
-            m_score    = best->score;
-            m_depth    = best->depth;
-            m_selDepth = best->selDepth;
-            m_pvSizePrev[0] = best->pvSize;
-            memcpy(m_pvPrev[0], best->pv, best->pvSize * sizeof(Move));
-        }
-
-        printPV(m_position, m_depth, m_selDepth, m_score, m_pvPrev[0], m_pvSizePrev[0], m_best, sumNodes, sumHits, nps);
     }
+
+    if (best) {
+        m_best     = best->best;
+        m_ponder   = best->ponder;
+        m_score    = best->score;
+        m_depth    = best->depth;
+        m_selDepth = best->selDepth;
+        m_pvSizePrev[0] = best->pvSize;
+        memcpy(m_pvPrev[0], best->pv, best->pvSize * sizeof(Move));
+    }
+
+    //
+    //  Update node statistic from all workers
+    //
+
+    sumNodes = m_nodes;
+    sumHits  = m_tbHits;
+
+    for (unsigned int i = 0; i < m_thc; ++i) {
+        sumNodes += m_threadParams[i].m_nodes;
+        sumHits  += m_threadParams[i].m_tbHits;
+    }
+
+    auto dt = GetProcTime() - m_t0;
+
+    if (dt > 1000)
+        nps = 1000 * sumNodes / dt;
+
+    if (m_thc)
+        printPV(m_position, m_depth, m_selDepth, m_score, m_pvPrev[0], m_pvSizePrev[0], m_best, sumNodes, sumHits, nps);
 
     //
     //  In case we are pondering, wait until stop/ponderhit is issued
@@ -1662,7 +1672,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
 
     if (!(m_flags & MODE_SILENT) && m_principalSearcher) {
         if (!m_thc)
-            printPV(m_position, m_depth, m_selDepth, m_score, m_pv[0], m_pvSize[0], m_best, sumNodes, sumHits, nps);
+            printPV(m_position, m_depth, m_selDepth, m_score, m_pvPrev[0], m_pvSizePrev[0], m_best, sumNodes, sumHits, nps);
         printBestMove(this, m_position, m_best, m_ponder);
     }
 

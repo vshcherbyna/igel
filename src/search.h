@@ -152,6 +152,16 @@ private:
     int m_pvSize[MAX_PLY];
     Move m_pvPrev[MAX_PLY][MAX_PLY];
     int m_pvSizePrev[MAX_PLY];
+    struct CompletedIteration {
+        Move best;
+        Move ponder;
+        EVAL score;
+        int depth;
+        int selDepth;
+        int pvSize;
+        Move pv[MAX_PLY];
+    };
+    CompletedIteration m_lastIteration;
     Move m_killerMoves[MAX_PLY][2];
     bool m_ttPvStack[MAX_PLY];          // per-ply pv flag, carried into the transposition table
     Move m_counterTable[14][64] = {};   // refutation move of the previous [piece][to]
