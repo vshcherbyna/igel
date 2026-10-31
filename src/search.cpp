@@ -1415,6 +1415,13 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     uint64_t sumHits = 0;
     uint64_t nps = 0;
 
+    struct Completed {
+        Move best, ponder;
+        EVAL score;
+        int depth, selDepth, pvSize;
+        Move pv[MAX_PLY];
+    } completed { m_best, Move{}, DRAW_SCORE, 0, 0, 0, {} };
+
     Move prevBest{};
     int bestMoveStability = 0;
 
@@ -1464,6 +1471,14 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         //
         //  Track how many consecutive iterations kept the same best move
         //
+
+        completed.best = m_best;
+        completed.ponder = m_ponder;
+        completed.score = m_score;
+        completed.depth = m_depth;
+        completed.selDepth = m_selDepth;
+        completed.pvSize = m_pvSizePrev[0];
+        memcpy(completed.pv, m_pvPrev[0], completed.pvSize * sizeof(Move));
 
         if (m_best && m_best == prevBest)
             bestMoveStability = std::min(bestMoveStability + 1, 10);
@@ -1520,6 +1535,14 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     //  Stop worker threads if necessary
     //
 
+    m_best = completed.best;
+    m_ponder = completed.ponder;
+    m_score = completed.score;
+    m_depth = completed.depth;
+    m_selDepth = completed.selDepth;
+    m_pvSizePrev[0] = completed.pvSize;
+    memcpy(m_pvPrev[0], completed.pv, completed.pvSize * sizeof(Move));
+
     if (m_thc) {
         stopWorkerThreads();
 
@@ -1573,7 +1596,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         auto worst = m_best ? m_score : CHECKMATE_SCORE;
 
         for (unsigned int i = 0; i < m_thc; ++i) {
-            if (m_threadParams[i].m_best)
+            if (m_threadParams[i].m_best && m_threadParams[i].m_depth > 0)
                 worst = std::min(worst, m_threadParams[i].m_score);
         }
 
@@ -1593,7 +1616,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         for (unsigned int i = 0; i < m_thc; ++i) {
             auto & worker = m_threadParams[i];
 
-            if (!worker.m_best)
+            if (!worker.m_best || worker.m_depth == 0)
                 continue; // a worker without a completed iteration gets no vote
 
             auto & vote = votes[worker.m_best];
@@ -1662,7 +1685,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
 
     if (!(m_flags & MODE_SILENT) && m_principalSearcher) {
         if (!m_thc)
-            printPV(m_position, m_depth, m_selDepth, m_score, m_pv[0], m_pvSize[0], m_best, sumNodes, sumHits, nps);
+            printPV(m_position, m_depth, m_selDepth, m_score, m_pvPrev[0], m_pvSizePrev[0], m_best, sumNodes, sumHits, nps);
         printBestMove(this, m_position, m_best, m_ponder);
     }
 
