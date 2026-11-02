@@ -104,7 +104,7 @@ On GCC and Clang the network is embedded into the binary at compile time, so CMa
 which file to use:
 
 ```
-wget https://github.com/vshcherbyna/igel/releases/download/0.8/6b953e78.standard -O ./network_file
+wget https://github.com/vshcherbyna/igel/releases/download/0.8/5adc00b8.standard -O ./network_file
 cmake -DEVALFILE=network_file -DUSE_AVX2=1 -DSYZYGY_SUPPORT=TRUE .
 make -j
 ```
@@ -113,7 +113,7 @@ A Visual Studio build does **not** embed the network. It opens a file named `net
 working directory when it starts, so download that file and keep it next to `igel.exe`:
 
 ```
-curl -L -o network_file https://github.com/vshcherbyna/igel/releases/download/0.8/6b953e78.standard
+curl -L -o network_file https://github.com/vshcherbyna/igel/releases/download/0.8/5adc00b8.standard
 cmake -DUSE_AVX2=1 -DSYZYGY_SUPPORT=TRUE -G "Visual Studio 17 2022" -A x64 .
 cmake --build . --config Release
 ```
