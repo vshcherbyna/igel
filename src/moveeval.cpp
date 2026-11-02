@@ -69,6 +69,7 @@
     const auto killer0 = pSearch->m_killerMoves[ply][0];
     const auto killer1 = pSearch->m_killerMoves[ply][1];
     const auto side = pSearch->m_position.Side();
+    const auto & pawnHistory = pSearch->m_pawnHistory->entry[Search::pawnHistoryIndex(pSearch->m_position.pawnHash())];
 
     for (size_t j = 0; j < mvSize; ++j)
     {
@@ -97,7 +98,7 @@
         else if (counterMove && mv == pSearch->m_counterTable[counterPiece][counterTo])
             mvlist[j].m_score = s_SortCounter;
         else {
-            mvlist[j].m_score = pSearch->m_history[side][mv.From()][mv.To()][History::threatIndex(mv, threats)];
+            mvlist[j].m_score = pSearch->m_history[side][mv.From()][mv.To()][History::threatIndex(mv, threats)] + pawnHistory[mv.Piece()][mv.To()];
 
             if (counterMove)
                 mvlist[j].m_score += pSearch->m_followTable[0][counterPiece][counterTo][mv.Piece()][mv.To()];

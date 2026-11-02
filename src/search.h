@@ -115,6 +115,10 @@ private:
         return static_cast<int>((key * 0x9E3779B97F4A7C15ull) >> (64 - m_correctionHistoryBits));
     }
 
+    static FORCE_INLINE int pawnHistoryIndex(U64 key) { // top bits: the lowest bits of the lcg-generated zobrist keys depend only on a pawn's file
+        return static_cast<int>((key * 0x9E3779B97F4A7C15ull) >> (64 - m_pawnHistoryBits));
+    }
+
     FORCE_INLINE void prefetchCorrection() {
         const COLOR side = m_position.Side();
         auto & history   = *m_correctionHistory;
@@ -152,6 +156,11 @@ private:
     bool m_ttPvStack[MAX_PLY];          // per-ply pv flag, carried into the transposition table
     Move m_counterTable[14][64] = {};   // refutation move of the previous [piece][to]
     int16_t m_history[2][64][64][4];
+    static constexpr int m_pawnHistoryBits = 11;
+    struct PawnHistoryTable {
+        int16_t entry[1 << m_pawnHistoryBits][14][64];
+    };
+    std::unique_ptr<PawnHistoryTable> m_pawnHistory;
     int16_t * m_quietHistoryStack[MAX_PLY + 4] = {};
     int16_t m_captureHistory[14][64][14];   // [piece][to][captured] of captures and promotions
     Move m_moveStack[MAX_PLY + 4];

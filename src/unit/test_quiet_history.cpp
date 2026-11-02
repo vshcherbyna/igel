@@ -23,8 +23,15 @@
 #include "../moveeval.h"
 #include <gtest/gtest.h>
 #include <memory>
+#include <set>
 
 struct HistoryTestAccess {
+    static int pawnIndex(const Search & s) {
+        return Search::pawnHistoryIndex(s.m_position.pawnHash());
+    }
+    static int16_t & pawn(Search & s, Move m) {
+        return s.m_pawnHistory->entry[pawnIndex(s)][m.Piece()][m.To()];
+    }
     static int16_t & quiet(Search & s, Move m) {
         return s.m_history[GetColor(m.Piece())][m.From()][m.To()][History::threatIndex(m, History::enemyAttacks(s.m_position))];
     }
@@ -39,6 +46,11 @@ struct HistoryTestAccess {
 };
 
 namespace {
+History::LegalQuietMask allLegalQuiets() {
+    History::LegalQuietMask mask;
+    mask.set();
+    return mask;
+}
 std::unique_ptr<Search> historySearch(const char * fen = STD_POSITION) {
     InitBitboards();
     Position::InitHashNumbers();
@@ -147,13 +159,13 @@ TEST(QuietHistory, ThreatBucketsAreIndependentAndUsedByOrdering) {
         s->clearHistory();
         MoveList moves;
         moves.Add(m);
-        History::updateHistory(s.get(), moves, 2, 16, masks[trained]);
+        History::updateHistory(s.get(), moves, 2, 16, masks[trained], allLegalQuiets());
         for (int queried = 0; queried < 4; ++queried) {
             History::HistoryHeuristics hh;
             History::fetchHistory(s.get(), m, 2, hh, masks[queried]);
             EXPECT_EQ(hh.history, trained == queried ? 512 : 0);
             MoveEval::sortMoves(s.get(), moves, Move{}, 2, masks[queried]);
-            EXPECT_EQ(moves[0].m_score, hh.history);
+            EXPECT_EQ(moves[0].m_score, hh.history + HistoryTestAccess::pawn(*s, m));
         }
     }
 }
@@ -172,4 +184,116 @@ TEST(QuietHistory, StaticFeedbackKeepsParentThreatContextAfterMakeMove) {
     History::HistoryHeuristics hh;
     History::fetchHistory(s.get(), m, 0, hh, parentThreats);
     EXPECT_GT(hh.history, 0);
+}
+
+TEST(QuietHistory, PawnHistorySharesStructureButSeparatesPieceColorAndDestination) {
+    auto s = historySearch();
+    const Move m(G1, F3, NW);
+    MoveList moves;
+    moves.Add(m);
+    History::updateHistory(s.get(), moves, 2, 16, History::enemyAttacks(s->m_position), allLegalQuiets());
+    EXPECT_EQ(HistoryTestAccess::pawn(*s, m), 512);
+    EXPECT_EQ(HistoryTestAccess::pawn(*s, Move(G8, F3, NB)), 0);
+    EXPECT_EQ(HistoryTestAccess::pawn(*s, Move(G1, H3, NW)), 0);
+    EXPECT_EQ(HistoryTestAccess::pawn(*s, Move(G1, F3, BW)), 0);
+    const int bucket = HistoryTestAccess::pawnIndex(*s);
+    ASSERT_TRUE(s->setFEN("rnbqkbnr/pppppppp/8/8/8/2N5/PPPPPPPP/R1BQKBNR w KQkq - 0 1"));
+    ASSERT_EQ(HistoryTestAccess::pawnIndex(*s), bucket);
+    EXPECT_EQ(HistoryTestAccess::pawn(*s, m), 512);
+    ASSERT_TRUE(s->setFEN("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1"));
+    ASSERT_NE(HistoryTestAccess::pawnIndex(*s), bucket);
+    EXPECT_EQ(HistoryTestAccess::pawn(*s, m), 0);
+}
+
+TEST(QuietHistory, PawnHistoryRewardsCutoffAndPenalizesEarlierQuiets) {
+    auto s = historySearch();
+    const Move earlier(B1, C3, NW), best(G1, F3, NW);
+    MoveList moves;
+    moves.Add(earlier);
+    moves.Add(best);
+    const U64 threats = History::enemyAttacks(s->m_position);
+    for (int i = 0; i < 1000; ++i)
+        History::updateHistory(s.get(), moves, 2, 1000, threats, allLegalQuiets());
+    EXPECT_LT(HistoryTestAccess::pawn(*s, earlier), 0);
+    EXPECT_GE(HistoryTestAccess::pawn(*s, earlier), -16384);
+    EXPECT_GT(HistoryTestAccess::pawn(*s, best), 0);
+    EXPECT_LE(HistoryTestAccess::pawn(*s, best), 16384);
+}
+
+TEST(QuietHistory, PawnHistoryIsPrivateAndResetForEveryWorker) {
+    auto s = historySearch();
+    s->setThreadCount(1);
+    Search & worker = HistoryTestAccess::worker(*s);
+    ASSERT_TRUE(worker.setFEN(STD_POSITION));
+    const Move m(G1, F3, NW);
+    HistoryTestAccess::pawn(*s, m) = 123;
+    EXPECT_EQ(HistoryTestAccess::pawn(worker, m), 0);
+    HistoryTestAccess::pawn(worker, m) = -456;
+    EXPECT_EQ(HistoryTestAccess::pawn(*s, m), 123);
+    s->clearHistory();
+    EXPECT_EQ(HistoryTestAccess::pawn(*s, m), 0);
+    EXPECT_EQ(HistoryTestAccess::pawn(worker, m), 0);
+}
+
+TEST(QuietHistory, PawnHistoryChangesOrderingButNotSearchHistory) {
+    auto s = historySearch();
+    const Move m(G1, F3, NW);
+    const U64 threats = History::enemyAttacks(s->m_position);
+    for (int value : {-4096, 0, 4096}) {
+        HistoryTestAccess::pawn(*s, m) = value;
+        History::HistoryHeuristics hh;
+        History::fetchHistory(s.get(), m, 0, hh, threats);
+        EXPECT_EQ(hh.history + hh.cmhistory + hh.fmhistory, 0);
+        MoveList moves;
+        moves.Add(m);
+        MoveEval::sortMoves(s.get(), moves, Move{}, 0, threats);
+        EXPECT_EQ(moves[0].m_score, value);
+    }
+}
+
+TEST(QuietHistory, PawnHistoryIgnoresIllegalQuietsButKeepsLegalTraining) {
+    auto s = historySearch("4r2k/8/8/8/8/8/4N3/4K3 w - - 0 1");
+    const Move illegal(E2, F4, NW), earlier(E1, D2, KW), best(E1, F1, KW);
+    ASSERT_FALSE(s->m_position.MakeMove(illegal)); // the knight is pinned
+    ASSERT_TRUE(s->m_position.MakeMove(earlier));
+    s->m_position.UnmakeMove();
+    ASSERT_TRUE(s->m_position.MakeMove(best));
+    s->m_position.UnmakeMove();
+
+    MoveList moves;
+    moves.Add(illegal);
+    moves.Add(earlier);
+    moves.Add(best);
+    History::LegalQuietMask legalQuiets;
+    legalQuiets.set(1);
+    legalQuiets.set(2);
+    const U64 threats = History::enemyAttacks(s->m_position);
+    History::updateHistory(s.get(), moves, 2, 16, threats, legalQuiets);
+
+    EXPECT_EQ(HistoryTestAccess::pawn(*s, illegal), 0);
+    EXPECT_EQ(HistoryTestAccess::pawn(*s, earlier), -128); // a quarter of the cutoff's bonus
+    EXPECT_EQ(HistoryTestAccess::pawn(*s, best), 512);
+    // The existing main history is intentionally unaffected by this experiment.
+    EXPECT_EQ(HistoryTestAccess::quiet(*s, illegal), -512);
+    EXPECT_EQ(HistoryTestAccess::quiet(*s, earlier), -512);
+}
+
+TEST(QuietHistory, PawnHistoryTellsApartEveryFirstPawnMove) {
+    auto s = historySearch();
+    MoveList moves;
+    GenAllMoves(s->m_position, moves);
+    std::set<int> buckets;
+    int pawnMoves = 0;
+    for (size_t i = 0; i < moves.Size(); ++i) {
+        const Move mv = moves[i].m_mv;
+        if (GetPieceType(mv.Piece()) != PAWN)
+            continue;
+        ASSERT_TRUE(s->m_position.MakeMove(mv));
+        buckets.insert(HistoryTestAccess::pawnIndex(*s));
+        s->m_position.UnmakeMove();
+        ++pawnMoves;
+    }
+    EXPECT_EQ(pawnMoves, 16);
+    // The low key bits alone put 1.a4, 1.c4 and 1.d4 into one bucket
+    EXPECT_EQ(buckets.size(), 16u);
 }
