@@ -28,7 +28,7 @@ jobs:
       run: cmake --build . --config Release
 
     - name: Download network file
-      run: curl -L -o Release/network_file https://github.com/vshcherbyna/igel/releases/download/0.8/6b953e78.standard
+      run: curl -L -o Release/network_file https://github.com/vshcherbyna/igel/releases/download/0.8/5adc00b8.standard
 
     - name: Run the bench
       run: igel.exe bench

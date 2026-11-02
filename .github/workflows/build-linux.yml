@@ -37,7 +37,7 @@ jobs:
       run: sudo apt-get install -y cmake
 
     - name: Download network file
-      run: wget https://github.com/vshcherbyna/igel/releases/download/0.8/6b953e78.standard -O ./network_file
+      run: wget https://github.com/vshcherbyna/igel/releases/download/0.8/5adc00b8.standard -O ./network_file
 
     - name: Configure CMake
       run: cmake -DEVALFILE=network_file -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
@@ -119,7 +119,7 @@ jobs:
       run: sudo apt-get install -y cmake
 
     - name: Download network file
-      run: wget https://github.com/vshcherbyna/igel/releases/download/0.8/6b953e78.standard -O ./network_file
+      run: wget https://github.com/vshcherbyna/igel/releases/download/0.8/5adc00b8.standard -O ./network_file
 
     - name: Configure CMake for AVX512 and VNNI512
       run: cmake -DEVALFILE=network_file -DUSE_AVX2=1 -DUSE_AVX512=1 -DUSE_VNNI=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
