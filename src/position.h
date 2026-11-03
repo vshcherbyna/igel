@@ -86,7 +86,7 @@ struct alignas(CACHE_LINE) Accumulator {
     std::int16_t accumulation[2][1024];
     std::int32_t psqtAccumulation[2][8];
     int score;
-    bool computed_accumulation;
+    bool computed_accumulation[2];
     bool computed_score;
 };
 #endif
@@ -119,9 +119,10 @@ struct Undo
         std::memset(&accumulator.accumulation,     0, sizeof(accumulator.accumulation));
         std::memset(&accumulator.psqtAccumulation, 0, sizeof(accumulator.psqtAccumulation));
 
-        accumulator.score                   = 0;
-        accumulator.computed_accumulation   = false;
-        accumulator.computed_score          = false;
+        accumulator.score                        = 0;
+        accumulator.computed_accumulation[WHITE] = false;
+        accumulator.computed_accumulation[BLACK] = false;
+        accumulator.computed_score               = false;
 
         dirtyPiece.dirty_num  = 0;
         dirtyPiece.pieceId[0] = PIECE_ID_ZERO;
@@ -157,6 +158,25 @@ public:
     int    Fifty() const { return m_fifty; }
     U64    GetAttacks(FLD to, COLOR side, U64 occ) const;
     FORCE_INLINE U64 Hash() const { return m_hash ^ s_hashSide[m_side] ^ s_hashCastlings[m_castlings] ^ s_hashEP[m_ep]; }
+
+    FORCE_INLINE U64 HashAfter(Move mv) const {
+        const FLD   from      = mv.From();
+        const FLD   to        = mv.To();
+        const PIECE piece     = mv.Piece();
+        const PIECE captured  = mv.Captured();
+        const PIECE promotion = mv.Promotion();
+
+        U64 hash = m_hash ^ s_hash[from][piece] ^ s_hash[to][promotion ? promotion : piece];
+
+        if (captured)
+            hash ^= s_hash[to == m_ep ? to + 8 - 16 * m_side : to][captured];
+
+        const bool doublePush = (piece == PW || piece == PB) && int(to) - int(from) == -16 + 32 * m_side;
+        const FLD  ep         = doublePush ? FLD(from - 8 + 16 * m_side) : FLD(NF);
+
+        return hash ^ s_hashSide[m_side ^ 1] ^ s_hashCastlings[m_castlings & m_castlingRightsMask[from] & m_castlingRightsMask[to]] ^ s_hashEP[ep];
+    }
+
     U64    pawnHash() const { return m_pawnHash; }
     U64    minorHash() const { return m_minorHash; }
     U64    nonPawnHash(COLOR side) const { return m_nonPawnHash[side]; }

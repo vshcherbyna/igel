@@ -48,6 +48,11 @@ public:
         m_size += (index < THREAT_DIMENSIONS);
     }
 
+    void erase(size_t i) {
+        assert(i < m_size);
+        m_data[i] = m_data[--m_size];
+    }
+
 private:
     std::uint16_t m_data[MAX_LENGTH];
     size_t m_size = 0;

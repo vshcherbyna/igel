@@ -276,7 +276,8 @@ bool Position::MakeMove(Move mv)
     m_state = &undo;
 
 #if !defined(PURE_HCE)
-    m_state->accumulator.computed_accumulation = false;
+    m_state->accumulator.computed_accumulation[WHITE] = false;
+    m_state->accumulator.computed_accumulation[BLACK] = false;
     m_state->accumulator.computed_score = false;
     PieceId dp0 = PIECE_ID_NONE;
     PieceId dp1 = PIECE_ID_NONE;
@@ -553,7 +554,8 @@ void Position::UnmakeMove()
     if (!m_state) {
         m_state = &m_undos[0];
 #if !defined(PURE_HCE)
-        m_state->accumulator.computed_accumulation = false;
+        m_state->accumulator.computed_accumulation[WHITE] = false;
+        m_state->accumulator.computed_accumulation[BLACK] = false;
 #endif
     }
 }
@@ -571,7 +573,8 @@ void Position::MakeNullMove()
     m_state = &undo;
 #if !defined(PURE_HCE)
     m_state->accumulator.computed_score = false;
-    m_state->accumulator.computed_accumulation = false;
+    m_state->accumulator.computed_accumulation[WHITE] = false;
+    m_state->accumulator.computed_accumulation[BLACK] = false;
     m_state->dirtyPiece.dirty_num = 0;
     m_state->dirtyPiece.pieceId[0] = PIECE_ID_NONE;
     m_state->dirtyThreats.clear();
@@ -601,7 +604,8 @@ void Position::UnmakeNullMove()
     if (!m_state) {
         m_state = &m_undos[0];
 #if !defined(PURE_HCE)
-        m_state->accumulator.computed_accumulation = false;
+        m_state->accumulator.computed_accumulation[WHITE] = false;
+        m_state->accumulator.computed_accumulation[BLACK] = false;
 #endif
     }
 }
