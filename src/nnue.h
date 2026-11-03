@@ -58,8 +58,8 @@ public:
 
 public:
     std::int32_t transform(Position & pos, std::uint8_t * outBuffer, const std::size_t bucket);
-    inline void refresh(Position & pos);
-    inline void incremental(Position & pos, Accumulator & accumulator, const Accumulator & prev_accumulator, const Undo & move, bool backward);
+    inline void update(Position & pos, COLOR c);
+    inline void incremental(Position & pos, COLOR c, Accumulator & accumulator, const Accumulator & prev_accumulator, const Undo & move, bool backward);
 
 public:
     static constexpr int HalfDimensions   = 1024;
@@ -106,6 +106,8 @@ public:
 template <std::int32_t OutputDimensions, std::int32_t InputDimensions> class Layer {
 public:
     Layer(std::istream & s);
+
+    static constexpr bool SparseInput = OutputDimensions == 16 && InputDimensions == 1024;
 
 public:
     inline std::int32_t * propagate(std::uint8_t * features, char * outBuffer);

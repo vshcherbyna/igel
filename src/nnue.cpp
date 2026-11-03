@@ -29,6 +29,8 @@
 #include <fstream>
 #include <iostream>
 #include <atomic>
+#include <array>
+#include <vector>
 
 #if defined(__linux__) && !defined(__ANDROID__)
 #include <sys/mman.h>
@@ -254,11 +256,28 @@ Transformer::Transformer(std::istream & s) {
 
 static const ThreatList EmptyThreats{};
 
-static inline void applyThreats(const Transformer & t, std::int16_t * accumulation, std::int32_t * psqt, const ThreatList & removed, const ThreatList & added) {
+static inline void cancelThreatPairs(ThreatList & removed, ThreatList & added) {
 
-    if (!removed.size() && !added.size())
-        return;
+    for (std::size_t i = 0; i < removed.size(); ) {
+        std::size_t j = 0;
 
+        while (j < added.size() && added[j] != removed[i])
+            ++j;
+
+        if (j < added.size()) {
+            removed.erase(i);
+            added.erase(j);
+        }
+        else
+            ++i;
+    }
+}
+
+static inline void applyDelta(const Transformer & t, std::int16_t * out, const std::int16_t * in, std::int32_t * psqtOut, const std::int32_t * psqtIn,
+                              const std::uint32_t * removed, std::uint32_t removedCount, const std::uint32_t * added, std::uint32_t addedCount,
+                              const ThreatList & thrRemoved, const ThreatList & thrAdded) {
+
+#if defined(USE_AVX2)
 #if defined(USE_AVX512)
     using acc_vec_t = __m512i;
     using col_vec_t = __m256i;
@@ -266,71 +285,104 @@ static inline void applyThreats(const Transformer & t, std::int16_t * accumulati
     auto vadd16  = [](acc_vec_t a, acc_vec_t b) { return _mm512_add_epi16(a, b); };
     auto vsub16  = [](acc_vec_t a, acc_vec_t b) { return _mm512_sub_epi16(a, b); };
     auto vwiden8 = [](const col_vec_t * c) { return _mm512_cvtepi8_epi16(_mm256_load_si256(c)); };
-#elif defined(USE_AVX2)
+
+    constexpr std::uint32_t Regs = NUM_REGS;
+#else
     using acc_vec_t = __m256i;
     using col_vec_t = __m128i;
 
     auto vadd16  = [](acc_vec_t a, acc_vec_t b) { return _mm256_add_epi16(a, b); };
     auto vsub16  = [](acc_vec_t a, acc_vec_t b) { return _mm256_sub_epi16(a, b); };
     auto vwiden8 = [](const col_vec_t * c) { return _mm256_cvtepi8_epi16(_mm_load_si128(c)); };
+
+    constexpr std::uint32_t Regs = NUM_REGS / 2;
 #endif
 
-#if defined(USE_AVX2)
-#if defined(USE_AVX512)
-    constexpr std::uint32_t ThreatRegs = NUM_REGS;
-#else
-    constexpr std::uint32_t ThreatRegs = NUM_REGS / 2;
-#endif
-
-    constexpr std::uint32_t TileHeight = ThreatRegs * sizeof(acc_vec_t) / sizeof(std::int16_t);
+    constexpr std::uint32_t TileHeight = Regs * sizeof(acc_vec_t) / sizeof(std::int16_t);
     constexpr std::uint32_t NumTiles   = Transformer::HalfDimensions / TileHeight;
 
     static_assert(Transformer::HalfDimensions % TileHeight == 0);
 
-    const std::int8_t * columns[2 * ThreatList::MAX_LENGTH];
-    const size_t        columnCount = removed.size() + added.size();
+    const std::int8_t * thrColumns[2 * ThreatList::MAX_LENGTH];
+    const std::size_t   thrRemovedCount = thrRemoved.size();
+    const std::size_t   thrCount        = thrRemovedCount + thrAdded.size();
 
-    for (size_t i = 0; i < removed.size(); ++i)
-        columns[i] = t.threatWeights(removed[i]);
+    for (std::size_t i = 0; i < thrRemovedCount; ++i)
+        thrColumns[i] = t.threatWeights(thrRemoved[i]);
 
-    for (size_t i = 0; i < added.size(); ++i)
-        columns[removed.size() + i] = t.threatWeights(added[i]);
+    for (std::size_t i = 0; i < thrAdded.size(); ++i)
+        thrColumns[thrRemovedCount + i] = t.threatWeights(thrAdded[i]);
 
     for (std::uint32_t tile = 0; tile < NumTiles; ++tile) {
 
         const std::uint32_t offset = tile * TileHeight;
-        auto accTile = reinterpret_cast<acc_vec_t*>(accumulation + offset);
+        const auto inTile  = reinterpret_cast<const acc_vec_t*>(in + offset);
+        auto       outTile = reinterpret_cast<acc_vec_t*>(out + offset);
 
-        acc_vec_t acc[ThreatRegs];
+        acc_vec_t acc[Regs];
 
-        for (std::uint32_t k = 0; k < ThreatRegs; ++k)
-            acc[k] = accTile[k];
+        for (std::uint32_t k = 0; k < Regs; ++k)
+            acc[k] = inTile[k];
 
-        for (size_t i = 0; i < removed.size(); ++i) {
-            auto column = reinterpret_cast<const col_vec_t*>(columns[i] + offset);
-            for (std::uint32_t k = 0; k < ThreatRegs; ++k)
+        for (std::uint32_t i = 0; i < removedCount; ++i) {
+            auto column = reinterpret_cast<const acc_vec_t*>(&t.weights[Transformer::HalfDimensions * removed[i] + offset]);
+            for (std::uint32_t k = 0; k < Regs; ++k)
+                acc[k] = vsub16(acc[k], column[k]);
+        }
+
+        for (std::uint32_t i = 0; i < addedCount; ++i) {
+            auto column = reinterpret_cast<const acc_vec_t*>(&t.weights[Transformer::HalfDimensions * added[i] + offset]);
+            for (std::uint32_t k = 0; k < Regs; ++k)
+                acc[k] = vadd16(acc[k], column[k]);
+        }
+
+        for (std::size_t i = 0; i < thrRemovedCount; ++i) {
+            auto column = reinterpret_cast<const col_vec_t*>(thrColumns[i] + offset);
+            for (std::uint32_t k = 0; k < Regs; ++k)
                 acc[k] = vsub16(acc[k], vwiden8(&column[k]));
         }
 
-        for (size_t i = removed.size(); i < columnCount; ++i) {
-            auto column = reinterpret_cast<const col_vec_t*>(columns[i] + offset);
-            for (std::uint32_t k = 0; k < ThreatRegs; ++k)
+        for (std::size_t i = thrRemovedCount; i < thrCount; ++i) {
+            auto column = reinterpret_cast<const col_vec_t*>(thrColumns[i] + offset);
+            for (std::uint32_t k = 0; k < Regs; ++k)
                 acc[k] = vadd16(acc[k], vwiden8(&column[k]));
         }
 
-        for (std::uint32_t k = 0; k < ThreatRegs; ++k)
-            accTile[k] = acc[k];
+        for (std::uint32_t k = 0; k < Regs; ++k)
+            outTile[k] = acc[k];
     }
 
-    __m256i psqtAcc = _mm256_load_si256(reinterpret_cast<const __m256i*>(psqt));
+    __m256i psqt = _mm256_load_si256(reinterpret_cast<const __m256i*>(psqtIn));
 
-    for (size_t i = 0; i < removed.size(); ++i)
-        psqtAcc = _mm256_sub_epi32(psqtAcc, _mm256_load_si256(reinterpret_cast<const __m256i*>(t.threatPsqts(removed[i]))));
+    for (std::uint32_t i = 0; i < removedCount; ++i)
+        psqt = _mm256_sub_epi32(psqt, _mm256_load_si256(reinterpret_cast<const __m256i*>(&t.psqts[removed[i] * PSQT_BUCKETS])));
 
-    for (size_t i = 0; i < added.size(); ++i)
-        psqtAcc = _mm256_add_epi32(psqtAcc, _mm256_load_si256(reinterpret_cast<const __m256i*>(t.threatPsqts(added[i]))));
+    for (std::uint32_t i = 0; i < addedCount; ++i)
+        psqt = _mm256_add_epi32(psqt, _mm256_load_si256(reinterpret_cast<const __m256i*>(&t.psqts[added[i] * PSQT_BUCKETS])));
 
-    _mm256_store_si256(reinterpret_cast<__m256i*>(psqt), psqtAcc);
+    for (std::size_t i = 0; i < thrRemovedCount; ++i)
+        psqt = _mm256_sub_epi32(psqt, _mm256_load_si256(reinterpret_cast<const __m256i*>(t.threatPsqts(thrRemoved[i]))));
+
+    for (std::size_t i = 0; i < thrAdded.size(); ++i)
+        psqt = _mm256_add_epi32(psqt, _mm256_load_si256(reinterpret_cast<const __m256i*>(t.threatPsqts(thrAdded[i]))));
+
+    _mm256_store_si256(reinterpret_cast<__m256i*>(psqtOut), psqt);
+#else
+    (void)thrRemoved;
+    (void)thrAdded;
+
+    std::memcpy(out, in, Transformer::HalfDimensions * sizeof(std::int16_t));
+
+    for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
+        psqtOut[k] = psqtIn[k];
+
+    for (std::uint32_t i = 0; i < removedCount; ++i)
+        for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
+            psqtOut[k] -= t.psqts[removed[i] * PSQT_BUCKETS + k];
+
+    for (std::uint32_t i = 0; i < addedCount; ++i)
+        for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
+            psqtOut[k] += t.psqts[added[i] * PSQT_BUCKETS + k];
 #endif
 }
 
@@ -388,66 +440,18 @@ inline __m128i m512_haddx4(__m512i s0, __m512i s1, __m512i s2, __m512i s3, __m12
 
 static constexpr std::size_t CatchUpLimit = 8;
 
-static bool movesKing(const Undo & state) {
+static bool movesKing(const Undo & state, COLOR c) {
     const auto & dp = state.dirtyPiece;
-    return dp.dirty_num && (dp.pieceId[0] == PIECE_ID_WKING || dp.pieceId[0] == PIECE_ID_BKING);
+    return dp.dirty_num && dp.pieceId[0] == PIECE_ID_KING + c;
 }
 
 std::int32_t Transformer::transform(Position & pos, std::uint8_t * outBuffer, const std::size_t bucket) {
 
     const auto s = pos.state();
 
-    if (!s->accumulator.computed_accumulation) {
-
-        //
-        // Positions the search passed without evaluating get their accumulators on the way, so
-        // that their other children can start from them: forwards from the last computed one,
-        // or backwards from a refresh of this one when none is close. A king move changes the
-        // index of every feature of its side, so nothing before one is reachable either way.
-        //
-
-        Undo * pending[CatchUpLimit];
-        std::size_t count = 0;
-        Undo * base = s->previous;
-
-        while (base && !base->accumulator.computed_accumulation) {
-
-            if (base->dirtyPiece.dirty_num) {
-
-                if (count == CatchUpLimit || movesKing(*s) || movesKing(*base))
-                    break;
-
-                pending[count++] = base;
-            }
-
-            base = base->previous;
-        }
-
-        if (base && base->accumulator.computed_accumulation) {
-
-            while (count--) {
-                incremental(pos, pending[count]->accumulator, base->accumulator, *pending[count], false);
-                pending[count]->accumulator.computed_accumulation = true;
-                pending[count]->accumulator.computed_score = false;
-                base = pending[count];
-            }
-
-            incremental(pos, s->accumulator, base->accumulator, *s, false);
-        }
-        else {
-            refresh(pos);
-
-            for (std::size_t i = 0; i < count; ++i) {
-                const Undo & child = i ? *pending[i - 1] : *s;
-                incremental(pos, pending[i]->accumulator, child.accumulator, child, true);
-                pending[i]->accumulator.computed_accumulation = true;
-                pending[i]->accumulator.computed_score = false;
-            }
-        }
-
-        s->accumulator.computed_accumulation = true;
-        s->accumulator.computed_score = false;
-    }
+    for (COLOR c : { WHITE, BLACK })
+        if (!s->accumulator.computed_accumulation[c])
+            update(pos, c);
 
     auto & acc  = s->accumulator.accumulation;
     auto & psqt = s->accumulator.psqtAccumulation;
@@ -640,22 +644,16 @@ static void refreshPerspective(Transformer & t, Position & pos, COLOR c) {
             entry.psqt[k] += t.psqts[added[index] * PSQT_BUCKETS + k];
 #endif
 
-    std::memcpy(accumulator.accumulation[c], entry.accumulation, Transformer::HalfDimensions * sizeof(std::int16_t));
-
-#if defined(USE_AVX2)
-    _mm256_store_si256(reinterpret_cast<__m256i*>(&accumulator.psqtAccumulation[c][0]),
-        _mm256_load_si256(reinterpret_cast<const __m256i*>(&entry.psqt[0])));
-#else
-    for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
-        accumulator.psqtAccumulation[c][k] = entry.psqt[k];
-#endif
+    //
+    // the accumulator is the cached king-relative part with every active threat on top, built in one pass
+    //
 
     ThreatList active;
     getActiveThreatIndexes(pos, c, active);
-    applyThreats(t, accumulator.accumulation[c], accumulator.psqtAccumulation[c], EmptyThreats, active);
+    applyDelta(t, accumulator.accumulation[c], entry.accumulation, accumulator.psqtAccumulation[c], entry.psqt, nullptr, 0, nullptr, 0, EmptyThreats, active);
 }
 
-inline void Transformer::incremental(Position & pos, Accumulator & accumulator, const Accumulator & prev_accumulator, const Undo & move, bool backward) {
+inline void Transformer::incremental(Position & pos, COLOR c, Accumulator & accumulator, const Accumulator & prev_accumulator, const Undo & move, bool backward) {
     const auto & dp = move.dirtyPiece;
 
     alignas(CACHE_LINE) std::uint32_t added[32];
@@ -663,142 +661,67 @@ inline void Transformer::incremental(Position & pos, Accumulator & accumulator, 
 
     std::pair<std::uint32_t, std::uint32_t> pa{};
 
-    for (COLOR c : { WHITE, BLACK }) {
-        auto fullUpdate = false;
+    if (dp.dirty_num) { // a piece moved
+        assert(dp.pieceId[0] != PIECE_ID_KING + c); // a move of this king is a refresh of this perspective, never an update
+        pa = pos.getChangedIndexes(c, dp, backward ? removed : added, backward ? added : removed);
 
-        if (dp.dirty_num) { // a piece moved
-            fullUpdate = dp.pieceId[0] == PIECE_ID_KING + c;
-            if (!fullUpdate) {
-                pa = pos.getChangedIndexes(c, dp, backward ? removed : added, backward ? added : removed);
-
-                if (backward)
-                    std::swap(pa.first, pa.second);
-            }
-        }
-
-#if defined(USE_AVX512)
-        using acc_vec_t = __m512i;
-        auto vadd16 = [](acc_vec_t a, acc_vec_t b) { return _mm512_add_epi16(a, b); };
-        auto vsub16 = [](acc_vec_t a, acc_vec_t b) { return _mm512_sub_epi16(a, b); };
-#elif defined(USE_AVX2)
-        using acc_vec_t = __m256i;
-        auto vadd16 = [](acc_vec_t a, acc_vec_t b) { return _mm256_add_epi16(a, b); };
-        auto vsub16 = [](acc_vec_t a, acc_vec_t b) { return _mm256_sub_epi16(a, b); };
-#endif
-
-#if defined(USE_AVX2)
-        const std::uint32_t chunks = HalfDimensions / (sizeof(acc_vec_t) / sizeof(std::int16_t));
-        auto accumulation = reinterpret_cast<acc_vec_t*>(&accumulator.accumulation[c][0]);
-#endif
-
-        if (fullUpdate) {
-            // a king move invalidates every feature index of this perspective;
-            // rebuild it through the per-king-square refresh cache
-            assert(!backward && &accumulator == &pos.state()->accumulator);
-            refreshPerspective(*this, pos, c);
-        }
-        else {
-#if defined(USE_AVX2)
-            // Fast path: fuse copy+sub+add into a single SIMD pass (avoids re-reading accumulation)
-            if (pa.second == 1 && pa.first == 1) {
-                const auto prev_acc = reinterpret_cast<const acc_vec_t*>(&prev_accumulator.accumulation[c][0]);
-                const auto rem_col  = reinterpret_cast<const acc_vec_t*>(&weights[HalfDimensions * removed[0]]);
-                const auto add_col  = reinterpret_cast<const acc_vec_t*>(&weights[HalfDimensions * added[0]]);
-                for (std::uint32_t j = 0; j < chunks; ++j)
-                    accumulation[j] = vadd16(vsub16(prev_acc[j], rem_col[j]), add_col[j]);
-
-                {
-                    const __m256i prev_p = _mm256_load_si256(reinterpret_cast<const __m256i*>(&prev_accumulator.psqtAccumulation[c][0]));
-                    const __m256i rem_p  = _mm256_load_si256(reinterpret_cast<const __m256i*>(&psqts[removed[0] * PSQT_BUCKETS]));
-                    const __m256i add_p  = _mm256_load_si256(reinterpret_cast<const __m256i*>(&psqts[added[0]   * PSQT_BUCKETS]));
-                    _mm256_store_si256(reinterpret_cast<__m256i*>(&accumulator.psqtAccumulation[c][0]),
-                        _mm256_add_epi32(_mm256_sub_epi32(prev_p, rem_p), add_p));
-                }
-            }
-            // Fast path for captures: fuse copy+sub+sub+add into a single SIMD pass
-            else if (pa.second == 2 && pa.first == 1) {
-                const auto prev_acc = reinterpret_cast<const acc_vec_t*>(&prev_accumulator.accumulation[c][0]);
-                const auto rem0     = reinterpret_cast<const acc_vec_t*>(&weights[HalfDimensions * removed[0]]);
-                const auto rem1     = reinterpret_cast<const acc_vec_t*>(&weights[HalfDimensions * removed[1]]);
-                const auto add_col  = reinterpret_cast<const acc_vec_t*>(&weights[HalfDimensions * added[0]]);
-                for (std::uint32_t j = 0; j < chunks; ++j)
-                    accumulation[j] = vadd16(
-                        vsub16(vsub16(prev_acc[j], rem0[j]), rem1[j]),
-                        add_col[j]);
-
-                {
-                    const __m256i prev_p = _mm256_load_si256(reinterpret_cast<const __m256i*>(&prev_accumulator.psqtAccumulation[c][0]));
-                    const __m256i rem0_p = _mm256_load_si256(reinterpret_cast<const __m256i*>(&psqts[removed[0] * PSQT_BUCKETS]));
-                    const __m256i rem1_p = _mm256_load_si256(reinterpret_cast<const __m256i*>(&psqts[removed[1] * PSQT_BUCKETS]));
-                    const __m256i add_p  = _mm256_load_si256(reinterpret_cast<const __m256i*>(&psqts[added[0]   * PSQT_BUCKETS]));
-                    _mm256_store_si256(reinterpret_cast<__m256i*>(&accumulator.psqtAccumulation[c][0]),
-                        _mm256_add_epi32(_mm256_sub_epi32(_mm256_sub_epi32(prev_p, rem0_p), rem1_p), add_p));
-                }
-            }
-            else {
-#endif
-            std::memcpy(accumulator.accumulation[c], prev_accumulator.accumulation[c], HalfDimensions * sizeof(std::int16_t));
-
-#if defined(USE_AVX2)
-            _mm256_store_si256(reinterpret_cast<__m256i*>(&accumulator.psqtAccumulation[c][0]),
-                _mm256_load_si256(reinterpret_cast<const __m256i*>(&prev_accumulator.psqtAccumulation[c][0])));
-#else
-            for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
-                accumulator.psqtAccumulation[c][k] = prev_accumulator.psqtAccumulation[c][k];
-#endif
-
-            for (std::uint32_t index = 0; index < pa.second; index++) {
-                std::uint32_t offset = HalfDimensions * removed[index];
-
-#if defined(USE_AVX2)
-                {
-                    auto* p = reinterpret_cast<__m256i*>(&accumulator.psqtAccumulation[c][0]);
-                    *p = _mm256_sub_epi32(*p, _mm256_load_si256(reinterpret_cast<const __m256i*>(&psqts[removed[index] * PSQT_BUCKETS])));
-                }
-#else
-                for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
-                    accumulator.psqtAccumulation[c][k] -= psqts[removed[index] * PSQT_BUCKETS + k];
-#endif
-
-#if defined(USE_AVX2)
-                auto column = reinterpret_cast<const acc_vec_t*>(&weights[offset]);
-                for (std::uint32_t j = 0; j < chunks; ++j)
-                    accumulation[j] = vsub16(accumulation[j], column[j]);
-#endif
-            }
-
-            for (std::uint32_t index = 0; index < pa.first; index++) {
-                std::uint32_t offset = HalfDimensions * added[index];
-
-#if defined(USE_AVX2)
-                {
-                    auto* p = reinterpret_cast<__m256i*>(&accumulator.psqtAccumulation[c][0]);
-                    *p = _mm256_add_epi32(*p, _mm256_load_si256(reinterpret_cast<const __m256i*>(&psqts[added[index] * PSQT_BUCKETS])));
-                }
-#else
-                for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
-                    accumulator.psqtAccumulation[c][k] += psqts[added[index] * PSQT_BUCKETS + k];
-#endif
-
-#if defined(USE_AVX2)
-                auto column = reinterpret_cast<const acc_vec_t*>(&weights[offset]);
-                for (std::uint32_t j = 0; j < chunks; ++j)
-                    accumulation[j] = vadd16(accumulation[j], column[j]);
-#endif
-            }
-#if defined(USE_AVX2)
-            }
-#endif
-            ThreatList thrRemoved, thrAdded;
-            getChangedThreatIndexes(c, pos.King(c), move.dirtyThreats, backward ? thrAdded : thrRemoved, backward ? thrRemoved : thrAdded);
-            applyThreats(*this, accumulator.accumulation[c], accumulator.psqtAccumulation[c], thrRemoved, thrAdded);
-        }
+        if (backward)
+            std::swap(pa.first, pa.second);
     }
+
+    ThreatList thrRemoved, thrAdded;
+    getChangedThreatIndexes(c, pos.King(c), move.dirtyThreats, backward ? thrAdded : thrRemoved, backward ? thrRemoved : thrAdded);
+    cancelThreatPairs(thrRemoved, thrAdded);
+
+    applyDelta(*this, accumulator.accumulation[c], prev_accumulator.accumulation[c], accumulator.psqtAccumulation[c], prev_accumulator.psqtAccumulation[c],
+               removed, pa.second, added, pa.first, thrRemoved, thrAdded);
 }
 
-inline void Transformer::refresh(Position & pos) {
-    refreshPerspective(*this, pos, WHITE);
-    refreshPerspective(*this, pos, BLACK);
+inline void Transformer::update(Position & pos, COLOR c) {
+
+    const auto s = pos.state();
+
+    Undo * pending[CatchUpLimit];
+    std::size_t count = 0;
+    Undo * base = movesKing(*s, c) ? nullptr : s->previous;
+
+    while (base && !base->accumulator.computed_accumulation[c]) {
+
+        if (base->dirtyPiece.dirty_num) {
+
+            if (count == CatchUpLimit || movesKing(*base, c))
+                break;
+
+            pending[count++] = base;
+        }
+
+        base = base->previous;
+    }
+
+    if (base && base->accumulator.computed_accumulation[c]) {
+
+        while (count--) {
+            incremental(pos, c, pending[count]->accumulator, base->accumulator, *pending[count], false);
+            pending[count]->accumulator.computed_accumulation[c] = true;
+            pending[count]->accumulator.computed_score = false;
+            base = pending[count];
+        }
+
+        incremental(pos, c, s->accumulator, base->accumulator, *s, false);
+    }
+    else {
+        refreshPerspective(*this, pos, c);
+
+        for (std::size_t i = 0; i < count; ++i) {
+            const Undo & child = i ? *pending[i - 1] : *s;
+            incremental(pos, c, pending[i]->accumulator, child.accumulator, child, true);
+            pending[i]->accumulator.computed_accumulation[c] = true;
+            pending[i]->accumulator.computed_score = false;
+        }
+    }
+
+    s->accumulator.computed_accumulation[c] = true;
+    s->accumulator.computed_score = false;
 }
 
 template <std::int32_t OutputDimensions, std::int32_t InputDimensions>
@@ -808,12 +731,151 @@ Layer<OutputDimensions, InputDimensions>::Layer(std::istream & s) {
 
     s.read(reinterpret_cast<char*>(biases), sizeof(biases));
     s.read(reinterpret_cast<char*>(weights), sizeof(weights));
+
+#if defined(USE_AVX2)
+    if constexpr (SparseInput) {
+
+        //
+        // [output][input] -> [input / 4][output][input % 4]: one 4-byte chunk of the input meets the
+        // weights of every output in a single 64-byte row, which the sparse propagation below relies on
+        //
+
+        std::vector<std::int8_t> rowMajor(weights, weights + OutputDimensions * InputDimensions);
+
+        for (std::int32_t o = 0; o < OutputDimensions; ++o)
+            for (std::int32_t i = 0; i < InputDimensions; ++i)
+                weights[(i / 4) * OutputDimensions * 4 + o * 4 + i % 4] = rowMajor[o * InputDimensions + i];
+    }
+#endif
 }
+
+#if defined(USE_AVX2)
+
+//
+// mask to the positions of its set bits, padded to eight entries
+//
+
+alignas(CACHE_LINE) static const std::array<std::array<std::uint16_t, 8>, 256> NonZeroLookup = []() {
+    std::array<std::array<std::uint16_t, 8>, 256> table{};
+
+    for (unsigned mask = 0; mask < 256; ++mask)
+        for (unsigned bit = 0, k = 0; bit < 8; ++bit)
+            if (mask & (1u << bit))
+                table[mask][k++] = static_cast<std::uint16_t>(bit);
+
+    return table;
+}();
+
+//
+// Writes the indexes of the 4-byte input chunks that are not zero and returns how many there are.
+//
+
+static inline std::uint32_t findNonZeroChunks(const std::uint8_t * input, std::uint16_t * out, std::uint32_t chunks) {
+
+    std::uint32_t count = 0;
+    __m128i       base  = _mm_setzero_si128();
+    const __m128i step  = _mm_set1_epi16(8);
+
+    auto append = [&](unsigned mask) {
+        const __m128i offsets = _mm_load_si128(reinterpret_cast<const __m128i*>(NonZeroLookup[mask].data()));
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(out + count), _mm_add_epi16(base, offsets));
+        count += _mm_popcnt_u32(mask);
+        base   = _mm_add_epi16(base, step);
+    };
+
+#if defined(USE_AVX512)
+    for (std::uint32_t i = 0; i < chunks; i += 16) {
+        const __m512i  v    = _mm512_load_si512(input + 4 * i);
+        const unsigned mask = _mm512_test_epi32_mask(v, v);
+
+        append(mask & 0xFF);
+        append(mask >> 8);
+    }
+#else
+    for (std::uint32_t i = 0; i < chunks; i += 8) {
+        const __m256i v = _mm256_load_si256(reinterpret_cast<const __m256i*>(input + 4 * i));
+        append(~unsigned(_mm256_movemask_ps(_mm256_castsi256_ps(_mm256_cmpeq_epi32(v, _mm256_setzero_si256())))) & 0xFF);
+    }
+#endif
+
+    return count;
+}
+
+#endif
 
 template <std::int32_t OutputDimensions, std::int32_t InputDimensions>
 inline std::int32_t * Layer<OutputDimensions, InputDimensions>::propagate(std::uint8_t * features, char * outBuffer) {
 
     auto output = reinterpret_cast<std::int32_t*>(outBuffer);
+
+#if defined(USE_AVX2)
+    if constexpr (SparseInput) {
+
+        //
+        // Most 4-byte chunks of the transformed features are zero, and a zero chunk adds nothing to any
+        // output, so only the others are visited, each with the one row of weights its outputs share
+        //
+
+        static_assert(OutputDimensions == 16 && InputDimensions % 64 == 0);
+
+        alignas(CACHE_LINE) std::uint16_t nonZero[InputDimensions / 4 + 8];
+        const std::uint32_t count = findNonZeroChunks(features, nonZero, InputDimensions / 4);
+        const auto chunks = reinterpret_cast<const std::int32_t*>(features);
+
+#if defined(USE_AVX512)
+        const auto rows = reinterpret_cast<const __m512i*>(weights);
+
+        __m512i s0 = _mm512_setzero_si512();
+        __m512i s1 = _mm512_setzero_si512();
+        __m512i s2 = _mm512_setzero_si512();
+        __m512i s3 = _mm512_setzero_si512();
+
+        std::uint32_t k = 0;
+
+        for (; k + 4 <= count; k += 4) {
+            s0 = affine_acc_512(s0, _mm512_set1_epi32(chunks[nonZero[k + 0]]), _mm512_load_si512(&rows[nonZero[k + 0]]));
+            s1 = affine_acc_512(s1, _mm512_set1_epi32(chunks[nonZero[k + 1]]), _mm512_load_si512(&rows[nonZero[k + 1]]));
+            s2 = affine_acc_512(s2, _mm512_set1_epi32(chunks[nonZero[k + 2]]), _mm512_load_si512(&rows[nonZero[k + 2]]));
+            s3 = affine_acc_512(s3, _mm512_set1_epi32(chunks[nonZero[k + 3]]), _mm512_load_si512(&rows[nonZero[k + 3]]));
+        }
+
+        for (; k < count; ++k)
+            s0 = affine_acc_512(s0, _mm512_set1_epi32(chunks[nonZero[k]]), _mm512_load_si512(&rows[nonZero[k]]));
+
+        const __m512i sum = _mm512_add_epi32(_mm512_add_epi32(s0, s1), _mm512_add_epi32(s2, s3));
+        _mm512_storeu_si512(output, _mm512_add_epi32(sum, _mm512_loadu_si512(biases)));
+#else
+        const auto rows = reinterpret_cast<const __m256i*>(weights);
+
+        __m256i s0lo = _mm256_setzero_si256(), s0hi = _mm256_setzero_si256();
+        __m256i s1lo = _mm256_setzero_si256(), s1hi = _mm256_setzero_si256();
+
+        std::uint32_t k = 0;
+
+        for (; k + 2 <= count; k += 2) {
+            const __m256i in0 = _mm256_set1_epi32(chunks[nonZero[k + 0]]);
+            const __m256i in1 = _mm256_set1_epi32(chunks[nonZero[k + 1]]);
+
+            s0lo = affine_acc_256(s0lo, in0, _mm256_load_si256(&rows[2 * nonZero[k + 0] + 0]));
+            s0hi = affine_acc_256(s0hi, in0, _mm256_load_si256(&rows[2 * nonZero[k + 0] + 1]));
+            s1lo = affine_acc_256(s1lo, in1, _mm256_load_si256(&rows[2 * nonZero[k + 1] + 0]));
+            s1hi = affine_acc_256(s1hi, in1, _mm256_load_si256(&rows[2 * nonZero[k + 1] + 1]));
+        }
+
+        if (k < count) {
+            const __m256i in0 = _mm256_set1_epi32(chunks[nonZero[k]]);
+
+            s0lo = affine_acc_256(s0lo, in0, _mm256_load_si256(&rows[2 * nonZero[k] + 0]));
+            s0hi = affine_acc_256(s0hi, in0, _mm256_load_si256(&rows[2 * nonZero[k] + 1]));
+        }
+
+        const auto bias = reinterpret_cast<const __m256i*>(biases);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(&output[0]), _mm256_add_epi32(_mm256_add_epi32(s0lo, s1lo), _mm256_loadu_si256(&bias[0])));
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(&output[8]), _mm256_add_epi32(_mm256_add_epi32(s0hi, s1hi), _mm256_loadu_si256(&bias[1])));
+#endif
+        return output;
+    }
+#endif
 
 #if defined(USE_AVX512)
     if constexpr (InputDimensions % (SIMD_WIDTH * 2) == 0) {

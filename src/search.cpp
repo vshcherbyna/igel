@@ -470,6 +470,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                 if (MoveEval::SEE(this, captureMove) < betaCut - staticEval)
                     continue;
 
+                TTable::instance().prefetchEntry(m_position.HashAfter(captureMove));
+
                 if (m_position.MakeMove(captureMove)) {
 
                     const auto savedProbcutMove  = m_moveStack[ply];
@@ -542,6 +544,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
         if (mv == skipMove)
             continue;
+
+        TTable::instance().prefetchEntry(m_position.HashAfter(mv));
 
         auto quietMove = !MoveEval::isTacticalMove(mv);
         History::HistoryHeuristics history{};
@@ -881,6 +885,14 @@ EVAL Search::qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull/* = 
     auto mvSize = mvlist.Size();
     Move bestMove = hashMove;
     U8 type = HASH_ALPHA;
+
+    //
+    //  quiescence lists are short and their children are leaves mostly, so every child's
+    //  table line is requested up front and arrives while its elder siblings are searched
+    //
+
+    for (size_t i = 0; i < mvSize; ++i)
+        TTable::instance().prefetchEntry(m_position.HashAfter(mvlist[i].m_mv));
 
     for (size_t i = 0; i < mvSize; ++i) {
         Move mv = MoveEval::getNextBest(mvlist, i);
