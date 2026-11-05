@@ -21,6 +21,9 @@
 #include "nnue.h"
 #include "history.h"
 
+#include <algorithm>
+#include <cstddef>
+
 
 /*static*/ bool MoveEval::isSpecialMove(const Move & mv, Search * pSearch)
 {
@@ -109,14 +112,51 @@
     }
 }
 
-/*static */Move MoveEval::getNextBest(MoveList & mvlist, size_t i)
+static inline size_t firstBestIndex(const MoveList & mvlist, size_t i)
 {
-    if (i == 0 && mvlist[0].m_score == s_SortHash)
-        return mvlist[0].m_mv;
+    const size_t size = mvlist.Size();
 
+#if defined(USE_AVX512) || defined(USE_AVX2)
+    static_assert(sizeof(SMove) == 8 && offsetof(SMove, m_score) == 4);
+    const SMove * data = &mvlist[0];
+#endif
+
+#if defined(USE_AVX512)
+    const __m512i step = _mm512_set1_epi64(8);
+    __m512i best = _mm512_set1_epi64(INT64_MIN);
+    __m512i inv  = _mm512_sub_epi64(_mm512_set1_epi64(0xFFFFFFFFll - std::int64_t(i)), _mm512_setr_epi64(0, 1, 2, 3, 4, 5, 6, 7));
+
+    for (size_t j = i; j < size; j += 8) {
+        const __mmask8 valid = size - j >= 8 ? __mmask8(0xFF) : __mmask8((1u << (size - j)) - 1);
+        const __m512i  v     = _mm512_maskz_loadu_epi64(valid, data + j);
+        const __m512i  key   = _mm512_mask_blend_epi32(0x5555, v, inv);
+        best = _mm512_mask_max_epi64(best, valid, best, key);
+        inv  = _mm512_sub_epi64(inv, step);
+    }
+
+    return size_t(0xFFFFFFFFull - U32(_mm512_reduce_max_epi64(best)));
+#elif defined(USE_AVX2)
+    const __m256i lanes = _mm256_setr_epi64x(0, 1, 2, 3);
+    const __m256i step  = _mm256_set1_epi64x(4);
+    __m256i best = _mm256_set1_epi64x(INT64_MIN);
+    __m256i inv  = _mm256_sub_epi64(_mm256_set1_epi64x(0xFFFFFFFFll - std::int64_t(i)), lanes);
+
+    for (size_t j = i; j < size; j += 4) {
+        const __m256i valid = _mm256_cmpgt_epi64(_mm256_set1_epi64x(std::int64_t(size - j)), lanes);
+        const __m256i v     = _mm256_maskload_epi64(reinterpret_cast<const long long*>(data + j), valid);
+        const __m256i key   = _mm256_blend_epi32(v, inv, 0x55);
+        const __m256i gt    = _mm256_and_si256(valid, _mm256_cmpgt_epi64(key, best));
+        best = _mm256_blendv_epi8(best, key, gt);
+        inv  = _mm256_sub_epi64(inv, step);
+    }
+
+    alignas(32) std::int64_t lane[4];
+    _mm256_store_si256(reinterpret_cast<__m256i*>(lane), best);
+
+    return size_t(0xFFFFFFFFull - U32(std::max(std::max(lane[0], lane[1]), std::max(lane[2], lane[3]))));
+#else
     size_t best_idx = i;
     int best_score = mvlist[i].m_score;
-    const size_t size = mvlist.Size();
 
     // branchless selection: avoid branch misprediction in the hot inner loop
     for (size_t j = i + 1; j < size; ++j) {
@@ -125,6 +165,17 @@
         best_idx   = better ? j         : best_idx;
         best_score = better ? score_j   : best_score;
     }
+
+    return best_idx;
+#endif
+}
+
+/*static */Move MoveEval::getNextBest(MoveList & mvlist, size_t i)
+{
+    if (i == 0 && mvlist[0].m_score == s_SortHash)
+        return mvlist[0].m_mv;
+
+    const size_t best_idx = firstBestIndex(mvlist, i);
 
     // if we found a better move, do a single swap
     if (best_idx != i)

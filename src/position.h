@@ -98,6 +98,7 @@ struct Undo
     int  m_fifty;
     U64  m_hash;
     Move m_mv;
+    signed char m_inCheck;
 
 #if !defined(PURE_HCE)
     Accumulator accumulator;
@@ -114,6 +115,7 @@ struct Undo
         m_hash      = 0;
 
         m_mv.reset();
+        m_inCheck = -1;
 
 #if !defined(PURE_HCE)
         std::memset(&accumulator.accumulation,     0, sizeof(accumulator.accumulation));
@@ -180,7 +182,11 @@ public:
     U64    pawnHash() const { return m_pawnHash; }
     U64    minorHash() const { return m_minorHash; }
     U64    nonPawnHash(COLOR side) const { return m_nonPawnHash[side]; }
-    bool   InCheck() const { return IsAttacked(King(m_side), m_side ^ 1); }
+    bool   InCheck() const {
+        if (m_state->m_inCheck < 0)
+            m_state->m_inCheck = IsAttacked(King(m_side), m_side ^ 1);
+        return m_state->m_inCheck;
+    }
     bool   IsAttacked(FLD f, COLOR side) const;
     FLD    King(COLOR side) const { return m_Kings[side]; }
     Move   LastMove() const { return (m_undoSize > 0)? m_undos[m_undoSize - 1].m_mv : Move(); }
