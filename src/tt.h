@@ -188,6 +188,7 @@ public:
 
 public:
     bool setHashSize(double mb, unsigned int threads);
+    bool reallocate();
     bool clearHash(unsigned int threads);
     void record(Move mv, EVAL score, EVAL eval, int depth, int ply, U8 type, bool pv, U64 hash0);
     bool retrieve(U64 hash, TEntry & hentry);

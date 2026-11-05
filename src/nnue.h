@@ -95,6 +95,7 @@ struct TransformerDeleter {
 using TransformerPtr = std::unique_ptr<Transformer, TransformerDeleter>;
 
 TransformerPtr makeTransformer(std::istream & s);
+TransformerPtr makeTransformer(const Transformer & source);
 
 template <std::int32_t WeightScaleBits, std::int32_t InputDimensions> class ClippedReLU {
 
@@ -137,6 +138,8 @@ public:
     static bool initEval();
     static bool initEval(std::istream & stream);
     static bool setEvalFile(const std::string & evalFile);
+    static void replicateNet(bool rebuild);
+    static void useNet();
     EVAL evaluate(Position & pos);
     EVAL evaluateRaw(Position & pos);
     static EVAL fromRaw(EVAL raw, int fifty);
@@ -144,10 +147,6 @@ public:
 
 private:
     int NnueEvaluate(Position & pos);
-
-private:
-    static TransformerPtr m_transformer;
-    static std::vector<std::unique_ptr<LayeredNetwork>> m_networks;
 
 public:
     static constexpr int Tempo = 20;

@@ -18,6 +18,7 @@
 */
 
 #include "nnue.h"
+#include "numa.h"
 #include "position.h"
 #include "hce.h"
 #include "utils.h"
@@ -47,8 +48,27 @@
 INCBIN(EmbeddedNNUE, EVALFILE);
 #endif // _MSC_VER
 
-/*static */TransformerPtr Evaluator::m_transformer;
-/*static */std::vector<std::unique_ptr<LayeredNetwork>> Evaluator::m_networks;
+//
+//  The net that threads read: one copy, or one for each NUMA node when threads are bound to nodes
+//
+
+struct NetCopy {
+    TransformerPtr transformer;
+    std::unique_ptr<LayeredNetwork> networks[LAYERED_NETWORKS];
+};
+
+static std::vector<NetCopy> s_nets(1);
+
+struct ThreadNet {
+    Transformer * transformer;
+    LayeredNetwork * networks[LAYERED_NETWORKS];
+};
+
+#if defined(NUMA_BINDING)
+static thread_local ThreadNet s_threadNet;
+#else
+static ThreadNet s_threadNet;
+#endif
 
 // bumped on every network (re)load so per-thread refresh caches drop stale columns
 static std::atomic<int> s_networkGeneration{0};
@@ -84,6 +104,55 @@ EVAL Evaluator::evaluate(Position & pos) {
     return fromRaw(evaluateRaw(pos), pos.Fifty());
 }
 
+//
+//  Each copy is written by a thread bound to its node, which is what puts its pages there
+//
+
+/*static */void Evaluator::replicateNet(bool rebuild) {
+#if defined(PURE_HCE)
+    (void)rebuild;
+#else
+    const unsigned int nodes = Numa::boundNodes();
+
+    if (rebuild || nodes == 1)
+        s_nets.resize(1);
+
+    if (s_nets.size() != nodes) {
+        std::vector<NetCopy> copies(nodes);
+
+        // some unit tests set threads without a net, then there is nothing to copy
+        for (unsigned int node = 0; s_nets[0].transformer && node < nodes; ++node) {
+            Numa::runOnNode(node, [&copies, node]() {
+                copies[node].transformer = makeTransformer(*s_nets[0].transformer);
+
+                for (int i = 0; i < LAYERED_NETWORKS; ++i)
+                    copies[node].networks[i].reset(new LayeredNetwork(*s_nets[0].networks[i]));
+            });
+
+            if (!copies[node].transformer) {
+                std::cout << "Fatal error: unable to allocate memory for a copy of the network" << std::endl;
+                exit(1);
+            }
+        }
+
+        s_nets = std::move(copies);
+    }
+
+    useNet();
+#endif
+}
+
+/*static */void Evaluator::useNet() {
+#if !defined(PURE_HCE)
+    const NetCopy & net = s_nets[Numa::threadNode];
+
+    s_threadNet.transformer = net.transformer.get();
+
+    for (int i = 0; i < LAYERED_NETWORKS; ++i)
+        s_threadNet.networks[i] = net.networks[i].get();
+#endif
+}
+
 #if !defined(PURE_HCE)
 bool Evaluator::initEval()
 {
@@ -115,17 +184,20 @@ bool Evaluator::initEval()
     architecture.resize(size);
     stream.read(&(architecture)[0], size);
 
-    m_transformer = makeTransformer(stream);
+    NetCopy net;
+    net.transformer = makeTransformer(stream);
 
-    if (!m_transformer)
+    if (!net.transformer)
         return false;
-
-    m_networks.clear();
 
     for (auto i = 0; i < LAYERED_NETWORKS; ++i) {
         stream.read(reinterpret_cast<char*>(&version), sizeof(version));
-        m_networks.emplace_back(new LayeredNetwork(stream));
+        net.networks[i].reset(new LayeredNetwork(stream));
     }
+
+    s_nets.clear();
+    s_nets.push_back(std::move(net));
+    replicateNet(false);
 
     ++s_networkGeneration;
 
@@ -166,14 +238,15 @@ int Evaluator::NnueEvaluate(Position & pos) {
     const std::size_t bucket = (countBits(pos.BitsAll()) - 1) / 4;
 
     alignas(CACHE_LINE) std::uint8_t features[1024];
-    auto psqt = m_transformer->transform(pos, features, bucket);
+
+    auto psqt = s_threadNet.transformer->transform(pos, features, bucket);
 
     //
     // call network evaluation
     //
 
     alignas(CACHE_LINE) char buffer[384];
-    auto output = m_networks[bucket]->propagate(features, buffer);
+    auto output = s_threadNet.networks[bucket]->propagate(features, buffer);
 
     //
     // scale the result
@@ -194,7 +267,7 @@ int Evaluator::NnueEvaluate(Position & pos) {
 
 static constexpr std::size_t HugePage = 2 * 1024 * 1024;
 
-TransformerPtr makeTransformer(std::istream & s) {
+static void * allocTransformer() {
 
     const std::size_t bytes = (sizeof(Transformer) + HugePage - 1) / HugePage * HugePage;
 
@@ -204,15 +277,23 @@ TransformerPtr makeTransformer(std::istream & s) {
     void * raw = std::aligned_alloc(HugePage, bytes);
 #endif
 
-    if (!raw)
-        return TransformerPtr();
-
 #if defined(__linux__) && !defined(__ANDROID__)
     // same idea as the transposition table, see TTable::setHashSize
-    madvise(raw, bytes, MADV_HUGEPAGE);
+    if (raw)
+        madvise(raw, bytes, MADV_HUGEPAGE);
 #endif
 
-    return TransformerPtr(new (raw) Transformer(s));
+    return raw;
+}
+
+TransformerPtr makeTransformer(std::istream & s) {
+    void * raw = allocTransformer();
+    return raw ? TransformerPtr(new (raw) Transformer(s)) : TransformerPtr();
+}
+
+TransformerPtr makeTransformer(const Transformer & source) {
+    void * raw = allocTransformer();
+    return raw ? TransformerPtr(new (raw) Transformer(source)) : TransformerPtr();
 }
 
 void TransformerDeleter::operator()(Transformer * t) const noexcept {
@@ -512,9 +593,14 @@ struct RefreshEntry {
     bool valid;
 };
 
+//
+//  A thread local with an initialiser puts a guard check on every use of every thread local in this file, the
+//  net pointers too. So generation has none: it starts at 0, which differs from s_networkGeneration once a net is loaded
+//
+
 struct RefreshTable {
     RefreshEntry entry[COLOR_NB][SQUARE_NB];
-    int generation = -1;
+    int generation;
 };
 
 static thread_local RefreshTable s_refreshTable;

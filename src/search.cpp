@@ -21,6 +21,7 @@
 #include "nnue.h"
 #include "moves.h"
 #include "notation.h"
+#include "numa.h"
 #include "search.h"
 #include "utils.h"
 #if defined (SYZYGY_SUPPORT)
@@ -30,8 +31,11 @@
 #include "moveeval.h"
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
+#include <cstring>
 #include <map>
+#include <new>
 #include <utility>
 
 /*static */constexpr int Search::m_lmpDepth;
@@ -1314,6 +1318,10 @@ void Search::startPrincipalSearch(Time time, bool ponder)
 
 uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench)
 {
+#if defined(NUMA_BINDING)
+    Evaluator::useNet();
+#endif
+
     m_nodes = 0;
     m_selDepth = 0;
     m_tbHits = 0;
@@ -1699,19 +1707,48 @@ void Search::setLevel(int level)
     m_level = level;
 }
 
-void Search::setThreadCount(unsigned int threads)
+void Search::setThreadCount(unsigned int threads, bool rebuild)
 {
-    if (threads == m_thc)
+    if (threads == m_thc && !rebuild)
         return;
 
     releaseHelperThreads();
 
+    Numa::planThreads(threads + 1);
+    Evaluator::replicateNet(rebuild);
+
     m_thc = threads;
     m_threads.reset(new SearchThread[threads]);
-    m_threadParams.reset(new Search[threads]);
+    m_threadParams = static_cast<HelperSearch *>(::operator new(threads * sizeof(HelperSearch), std::align_val_t(alignof(HelperSearch))));
 
-    for (unsigned int i = 0; i < m_thc; ++i)
-        m_threads[i] = SearchThread(&Search::lazySmpSearcher, &m_threadParams[i]);
+    //
+    //  A page lands on the NUMA node of the thread that first writes to it
+    //
+
+    std::atomic<unsigned int> ready{0};
+
+    for (unsigned int node = 0; node < Numa::boundNodes(); ++node)
+        Numa::runOnNode(node, [this, node, &ready]() {
+            for (unsigned int i = 0; i < m_thc; ++i) {
+                if (Numa::nodeOfThread(i + 1) != node)
+                    continue;
+
+                m_threads[i] = SearchThread([this, i, node, &ready]() {
+                    Numa::bindThisThread(node);
+
+                    static void * (* volatile const zero)(void *, int, std::size_t) = std::memset;
+                    zero(&m_threadParams[i], 0, sizeof(Search));
+                    new (&m_threadParams[i]) HelperSearch;
+
+                    ++ready;
+
+                    m_threadParams[i].lazySmpSearcher();
+                });
+            }
+        });
+
+    while (ready < m_thc)
+        std::this_thread::yield();
 }
 
 unsigned int Search::getThreadsCount()
@@ -1735,6 +1772,9 @@ void Search::lazySmpSearcher()
             m_depth = m_lazyDepth;
             ponder = m_lazyPonder;
 
+            if (m_principalSearcher)
+                Numa::bindThisThread(Numa::nodeOfThread(0));
+
             startSearch(m_time, m_depth, ponder);
             resetLazySmpWork();
         }
@@ -1755,6 +1795,12 @@ void Search::releaseHelperThreads()
             m_threads[i].join();
         }
     }
+
+    for (unsigned int i = 0; i < m_thc; ++i)
+        m_threadParams[i].~HelperSearch();
+
+    ::operator delete(m_threadParams, std::align_val_t(alignof(HelperSearch)));
+    m_threadParams = nullptr;
 }
 
 bool Search::setFEN(const std::string& fen)

@@ -37,6 +37,7 @@ using SearchThread = std::thread;
 #include <functional>
 #include <pthread.h>
 #include <system_error>
+#include <utility>
 
 class SearchThread
 {
@@ -44,8 +45,10 @@ public:
     SearchThread() = default;
 
     template <class Worker>
-    SearchThread(void (Worker::*routine)(), Worker * worker) {
-        auto task = new std::function<void()>([routine, worker]() { (worker->*routine)(); });
+    SearchThread(void (Worker::*routine)(), Worker * worker) : SearchThread([routine, worker]() { (worker->*routine)(); }) {}
+
+    explicit SearchThread(std::function<void()> routine) {
+        auto task = new std::function<void()>(std::move(routine));
 
         pthread_attr_t attributes;
         pthread_attr_init(&attributes);

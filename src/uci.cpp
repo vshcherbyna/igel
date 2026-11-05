@@ -21,6 +21,7 @@
 #include "time.h"
 #include "notation.h"
 #include "nnue.h"
+#include "numa.h"
 #include "utils.h"
 #include "gen.h"
 
@@ -31,7 +32,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "3.8.6";
+const std::string VERSION = "3.8.7";
 #if defined(PURE_HCE)
 const std::string PROGRAM_NAME = "Igel HCE";
 #else
@@ -131,6 +132,8 @@ void Uci::onUci()
         " default " << DEFAULT_THREADS              <<
         " min "     << MIN_THREADS                  <<
         " max "     << MAX_THREADS                  << std::endl;
+
+    std::cout << "option name NumaPolicy type string default auto" << std::endl;
 
 #if defined (SYZYGY_SUPPORT)
     std::cout << "option name SyzygyPath type string default <empty>" << std::endl;
@@ -311,6 +314,23 @@ void Uci::onPosition(commandParams params)
     }
 }
 
+void Uci::setThreads(unsigned int threads, bool rebuild)
+{
+    m_searcher.setThreadCount(threads - 1, rebuild);
+
+    if (!TTable::instance().reallocate()) {
+        std::cout << "Fatal error: unable to allocate memory for transposition table" << std::endl;
+        exit(1);
+    }
+
+    onUciNewGame(); // reset internal state of each thread and clear the new table
+
+    const auto numa = Numa::describe();
+
+    if (!numa.empty())
+        std::cout << "info string " << numa << std::endl;
+}
+
 void Uci::onSetOption(commandParams params)
 { 
     if (params.size() < 5) {
@@ -338,8 +358,13 @@ void Uci::onSetOption(commandParams params)
 
         if (threads > MAX_THREADS || threads < MIN_THREADS)
             std::cout << "Unable set threads value. Make sure number is correct" << std::endl;
-        m_searcher.setThreadCount(threads - 1);
-        onUciNewGame(); // reset internal state of each thread
+        setThreads(threads, false);
+    }
+    else if (name == "NumaPolicy") {
+        if (Numa::setPolicy(value))
+            setThreads(m_searcher.getThreadsCount(), true);
+        else
+            std::cout << "info string invalid NumaPolicy " << value << std::endl;
     }
     else if (name == "Skill") {
         auto level = atoi(value.c_str());

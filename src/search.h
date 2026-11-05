@@ -52,6 +52,8 @@ const U8 MODE_SILENT  = 0x10;
 
 #define MATED_IN_MAX (MAX_PLY - CHECKMATE_SCORE)
 
+struct HelperSearch;
+
 class Search
 {
     friend class History;
@@ -74,7 +76,7 @@ public:
     void clearKillers();
     void clearStacks();
     void setTime(Time time) {m_time = time;}
-    void setThreadCount(unsigned int threads);
+    void setThreadCount(unsigned int threads, bool rebuild = false);
     unsigned int getThreadsCount();
     void setSyzygyDepth(int depth);
     void setPonderHit();
@@ -206,7 +208,7 @@ private:
     void resetLazySmpWork() {m_lazyDepth = 0;}
     unsigned int m_thc;
     std::unique_ptr<SearchThread[]> m_threads;
-    std::unique_ptr<Search[]> m_threadParams;
+    HelperSearch * m_threadParams;
     std::condition_variable m_lazycv;
     volatile int m_lazyDepth;
     volatile bool m_smpThreadExit;
@@ -229,6 +231,11 @@ private:
     EVAL m_score;
     Move m_best,
          m_ponder;
+};
+
+struct HelperSearch : Search
+{
+    char m_gap[2 * 1024 * 1024];
 };
 
 #endif
