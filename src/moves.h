@@ -51,7 +51,7 @@ public:
     void Swap(size_t i, size_t j);
 
 private:
-    SMove m_data[256];
+    union { SMove m_data[256]; };
     size_t m_size;
 };
 

@@ -271,6 +271,7 @@ bool Position::MakeMove(Move mv)
     undo.m_fifty = m_fifty;
     undo.m_hash = Hash();
     undo.m_mv = mv;
+    undo.m_inCheck = -1;
 
     undo.previous = m_undoSize == 1 ? nullptr : m_state;
     m_state = &undo;
@@ -553,6 +554,7 @@ void Position::UnmakeMove()
 
     if (!m_state) {
         m_state = &m_undos[0];
+        m_state->m_inCheck = -1;
 #if !defined(PURE_HCE)
         m_state->accumulator.computed_accumulation[WHITE] = false;
         m_state->accumulator.computed_accumulation[BLACK] = false;
@@ -568,6 +570,7 @@ void Position::MakeNullMove()
     undo.m_fifty = m_fifty;
     undo.m_hash = Hash();
     undo.m_mv = 0;
+    undo.m_inCheck = -1;
 
     undo.previous = m_undoSize == 1 ? nullptr : m_state;
     m_state = &undo;
@@ -603,6 +606,7 @@ void Position::UnmakeNullMove()
 
     if (!m_state) {
         m_state = &m_undos[0];
+        m_state->m_inCheck = -1;
 #if !defined(PURE_HCE)
         m_state->accumulator.computed_accumulation[WHITE] = false;
         m_state->accumulator.computed_accumulation[BLACK] = false;

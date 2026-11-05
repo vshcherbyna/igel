@@ -256,23 +256,6 @@ Transformer::Transformer(std::istream & s) {
 
 static const ThreatList EmptyThreats{};
 
-static inline void cancelThreatPairs(ThreatList & removed, ThreatList & added) {
-
-    for (std::size_t i = 0; i < removed.size(); ) {
-        std::size_t j = 0;
-
-        while (j < added.size() && added[j] != removed[i])
-            ++j;
-
-        if (j < added.size()) {
-            removed.erase(i);
-            added.erase(j);
-        }
-        else
-            ++i;
-    }
-}
-
 static inline void applyDelta(const Transformer & t, std::int16_t * out, const std::int16_t * in, std::int32_t * psqtOut, const std::int32_t * psqtIn,
                               const std::uint32_t * removed, std::uint32_t removedCount, const std::uint32_t * added, std::uint32_t addedCount,
                               const ThreatList & thrRemoved, const ThreatList & thrAdded) {
@@ -575,12 +558,28 @@ static void refreshPerspective(Transformer & t, Position & pos, COLOR c) {
     std::uint32_t ca = 0;
     std::uint32_t cr = 0;
 
-    for (int i = 0; i < EvalList::MAX_LENGTH; ++i) {
+    //
+    // Find the changed slots with one compare per vector
+    //
+
+    static_assert(sizeof(PieceSquare) == 4 && EvalList::MAX_LENGTH == 32);
+
+    U64 changedSlots = 0;
+
+#if defined(USE_AVX512)
+    for (int b = 0; b < 2; ++b)
+        changedSlots |= U64(_mm512_cmpneq_epi32_mask(_mm512_loadu_si512(&entry.pieces[16 * b]), _mm512_loadu_si512(&pieces[16 * b]))) << (16 * b);
+#else
+    for (int b = 0; b < 4; ++b) {
+        const __m256i same = _mm256_cmpeq_epi32(_mm256_loadu_si256(reinterpret_cast<const __m256i*>(&entry.pieces[8 * b])), _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&pieces[8 * b])));
+        changedSlots |= U64(~_mm256_movemask_ps(_mm256_castsi256_ps(same)) & 0xFF) << (8 * b);
+    }
+#endif
+
+    while (changedSlots) {
+        const int  i     = PopLSB(changedSlots) ^ 63;
         const auto oldPs = entry.pieces[i];
         const auto newPs = pieces[i];
-
-        if (oldPs == newPs)
-            continue;
 
         if (oldPs != PS_NONE) {
             const Square sq = FLIP[c][static_cast<Square>((oldPs - PS_KING) % SQUARE_NB)];
@@ -595,54 +594,8 @@ static void refreshPerspective(Transformer & t, Position & pos, COLOR c) {
         entry.pieces[i] = newPs;
     }
 
-#if defined(USE_AVX512)
-    using acc_vec_t = __m512i;
-    auto vadd16 = [](acc_vec_t a, acc_vec_t b) { return _mm512_add_epi16(a, b); };
-    auto vsub16 = [](acc_vec_t a, acc_vec_t b) { return _mm512_sub_epi16(a, b); };
-#elif defined(USE_AVX2)
-    using acc_vec_t = __m256i;
-    auto vadd16 = [](acc_vec_t a, acc_vec_t b) { return _mm256_add_epi16(a, b); };
-    auto vsub16 = [](acc_vec_t a, acc_vec_t b) { return _mm256_sub_epi16(a, b); };
-#endif
-
-#if defined(USE_AVX2)
-    const std::uint32_t chunks = Transformer::HalfDimensions / (sizeof(acc_vec_t) / sizeof(std::int16_t));
-    auto cacheAcc = reinterpret_cast<acc_vec_t*>(&entry.accumulation[0]);
-
-    for (std::uint32_t index = 0; index < cr; index++) {
-        std::uint32_t offset = Transformer::HalfDimensions * removed[index];
-
-        {
-            auto* p = reinterpret_cast<__m256i*>(&entry.psqt[0]);
-            *p = _mm256_sub_epi32(*p, _mm256_load_si256(reinterpret_cast<const __m256i*>(&t.psqts[removed[index] * PSQT_BUCKETS])));
-        }
-
-        auto column = reinterpret_cast<const acc_vec_t*>(&t.weights[offset]);
-        for (std::uint32_t j = 0; j < chunks; ++j)
-            cacheAcc[j] = vsub16(cacheAcc[j], column[j]);
-    }
-
-    for (std::uint32_t index = 0; index < ca; index++) {
-        std::uint32_t offset = Transformer::HalfDimensions * added[index];
-
-        {
-            auto* p = reinterpret_cast<__m256i*>(&entry.psqt[0]);
-            *p = _mm256_add_epi32(*p, _mm256_load_si256(reinterpret_cast<const __m256i*>(&t.psqts[added[index] * PSQT_BUCKETS])));
-        }
-
-        auto column = reinterpret_cast<const acc_vec_t*>(&t.weights[offset]);
-        for (std::uint32_t j = 0; j < chunks; ++j)
-            cacheAcc[j] = vadd16(cacheAcc[j], column[j]);
-    }
-#else
-    for (std::uint32_t index = 0; index < cr; index++)
-        for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
-            entry.psqt[k] -= t.psqts[removed[index] * PSQT_BUCKETS + k];
-
-    for (std::uint32_t index = 0; index < ca; index++)
-        for (std::size_t k = 0; k < PSQT_BUCKETS; ++k)
-            entry.psqt[k] += t.psqts[added[index] * PSQT_BUCKETS + k];
-#endif
+    if (ca || cr)
+        applyDelta(t, entry.accumulation, entry.accumulation, entry.psqt, entry.psqt, removed, cr, added, ca, EmptyThreats, EmptyThreats);
 
     //
     // the accumulator is the cached king-relative part with every active threat on top, built in one pass
@@ -671,7 +624,6 @@ inline void Transformer::incremental(Position & pos, COLOR c, Accumulator & accu
 
     ThreatList thrRemoved, thrAdded;
     getChangedThreatIndexes(c, pos.King(c), move.dirtyThreats, backward ? thrAdded : thrRemoved, backward ? thrRemoved : thrAdded);
-    cancelThreatPairs(thrRemoved, thrAdded);
 
     applyDelta(*this, accumulator.accumulation[c], prev_accumulator.accumulation[c], accumulator.psqtAccumulation[c], prev_accumulator.psqtAccumulation[c],
                removed, pa.second, added, pa.first, thrRemoved, thrAdded);
