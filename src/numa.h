@@ -42,6 +42,7 @@ namespace Numa
 
     void planThreads(unsigned int threads);
 
+    bool threadsBound();
     unsigned int boundNodes();
     unsigned int nodeOfThread(unsigned int thread);
     void bindThisThread(unsigned int node);

@@ -97,8 +97,8 @@ private:
 #if defined (SYZYGY_SUPPORT)
     Move tableBaseRootSearch(EVAL & tbScore);
 #endif
-    EVAL abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool rootNode, bool cutNode, Move skipMove = 0);
-    EVAL qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull = false);
+    HOT_FUNCTION EVAL abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bool rootNode, bool cutNode, Move skipMove = 0);
+    HOT_FUNCTION EVAL qSearch(EVAL alpha, EVAL beta, int ply, int depth, bool isNull = false);
     FORCE_INLINE int extensionRequired(bool inCheck, bool onPV, int cmhistory, int fmhistory)
     {
         if (!onPV && cmhistory >= 10000 && fmhistory >= 10000)
@@ -108,9 +108,9 @@ private:
         return 0;
     }
     bool ProbeHash(TEntry & hentry, U64 hash);
-    int correctionValue(int ply) const;
+    HOT_FUNCTION int correctionValue(int ply) const;
     EVAL correctedStaticEval(EVAL eval, int ply) const;
-    void updateCorrectionHistory(int ply, int bonus);
+    HOT_FUNCTION void updateCorrectionHistory(int ply, int bonus);
     void clearCorrectionHistory();
 
     static FORCE_INLINE int correctionIndex(U64 key) {
@@ -131,9 +131,9 @@ private:
         prefetch(&history.nonPawn[side][BLACK][correctionIndex(m_position.nonPawnHash(BLACK))]);
     }
     void printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv, uint64_t sumNodes, uint64_t sumHits, uint64_t nps);
-    bool isDraw();
+    HOT_FUNCTION bool isDraw();
 
-    bool checkLimits();
+    HOT_FUNCTION bool checkLimits();
     void releaseHelperThreads();
     void waitUntilCompletion();
 

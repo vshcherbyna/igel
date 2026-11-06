@@ -214,6 +214,11 @@ void Numa::planThreads(unsigned int threads)
     s_plan = distribute(sizes, threads, first);
 }
 
+bool Numa::threadsBound()
+{
+    return !s_plan.empty();
+}
+
 unsigned int Numa::boundNodes()
 {
     return s_plan.empty() ? 1 : static_cast<unsigned int>(s_nodes.size());
@@ -275,6 +280,7 @@ std::string Numa::describe()
 
 bool Numa::setPolicy(const std::string & policy) { return policy == "auto" || policy == "none"; }
 void Numa::planThreads(unsigned int) {}
+bool Numa::threadsBound() { return false; }
 unsigned int Numa::boundNodes() { return 1; }
 unsigned int Numa::nodeOfThread(unsigned int) { return 0; }
 void Numa::bindThisThread(unsigned int) {}

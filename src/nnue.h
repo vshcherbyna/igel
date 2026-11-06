@@ -141,12 +141,12 @@ public:
     static void replicateNet(bool rebuild);
     static void useNet();
     EVAL evaluate(Position & pos);
-    EVAL evaluateRaw(Position & pos);
+    HOT_FUNCTION EVAL evaluateRaw(Position & pos);
     static EVAL fromRaw(EVAL raw, int fifty);
     static EVAL bound(EVAL v);
 
 private:
-    int NnueEvaluate(Position & pos);
+    HOT_FUNCTION int NnueEvaluate(Position & pos);
 
 public:
     static constexpr int Tempo = 20;

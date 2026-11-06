@@ -190,8 +190,8 @@ public:
     bool setHashSize(double mb, unsigned int threads);
     bool reallocate();
     bool clearHash(unsigned int threads);
-    void record(Move mv, EVAL score, EVAL eval, int depth, int ply, U8 type, bool pv, U64 hash0);
-    bool retrieve(U64 hash, TEntry & hentry);
+    HOT_FUNCTION void record(Move mv, EVAL score, EVAL eval, int depth, int ply, U8 type, bool pv, U64 hash0);
+    HOT_FUNCTION bool retrieve(U64 hash, TEntry & hentry);
     bool increaseAge();
     void clearAge();
     void prefetchEntry(U64 hash);

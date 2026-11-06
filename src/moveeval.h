@@ -32,11 +32,11 @@ public:
     static FORCE_INLINE bool isTacticalMove(const Move & mv) { return (mv.Captured() || mv.Promotion()); }
     static bool isSpecialMove(const Move & mv, Search * pSearch);
     static FORCE_INLINE bool isGoodCapture(const Move & mv) { return SORT_VALUE[mv.Captured()] >= SORT_VALUE[mv.Piece()]; }
-    static void sortMoves(Search * pSearch, MoveList & mvlist, Move hashMove, int ply);
-    static void sortMoves(Search * pSearch, MoveList & mvlist, Move hashMove, int ply, U64 threats);
-    static Move getNextBest(MoveList & mvlist, size_t i);
-    static EVAL SEE_Exchange(Search * pSearch, FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ);
-    static EVAL SEE(Search * pSearch, const Move & mv);
+    HOT_FUNCTION static void sortMoves(Search * pSearch, MoveList & mvlist, Move hashMove, int ply);
+    HOT_FUNCTION static void sortMoves(Search * pSearch, MoveList & mvlist, Move hashMove, int ply, U64 threats);
+    HOT_FUNCTION static Move getNextBest(MoveList & mvlist, size_t i);
+    HOT_FUNCTION static EVAL SEE_Exchange(Search * pSearch, FLD to, COLOR side, EVAL currScore, EVAL target, U64 occ);
+    HOT_FUNCTION static EVAL SEE(Search * pSearch, const Move & mv);
 
     //
     // sortMoves already ran SEE for every non-promotion capture and encoded the result
