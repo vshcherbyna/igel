@@ -1721,6 +1721,27 @@ void Search::setThreadCount(unsigned int threads, bool rebuild)
     m_threads.reset(new SearchThread[threads]);
     m_threadParams = static_cast<HelperSearch *>(::operator new(threads * sizeof(HelperSearch), std::align_val_t(alignof(HelperSearch))));
 
+    const auto build = [this](unsigned int i) {
+        static void * (* volatile const zero)(void *, int, std::size_t) = std::memset;
+        zero(&m_threadParams[i], 0, sizeof(Search));
+        new (&m_threadParams[i]) HelperSearch;
+    };
+
+    //
+    //  With nothing to bind, helpers are built here. A thread that starts out working gets moved away from the
+    //  others, and an engine spread over two L3 caches loses NPS when other engines run beside it
+    //
+
+    if (!Numa::threadsBound()) {
+        for (unsigned int i = 0; i < m_thc; ++i)
+            build(i);
+
+        for (unsigned int i = 0; i < m_thc; ++i)
+            m_threads[i] = SearchThread(&Search::lazySmpSearcher, static_cast<Search *>(&m_threadParams[i]));
+
+        return;
+    }
+
     //
     //  A page lands on the NUMA node of the thread that first writes to it
     //
@@ -1728,17 +1749,14 @@ void Search::setThreadCount(unsigned int threads, bool rebuild)
     std::atomic<unsigned int> ready{0};
 
     for (unsigned int node = 0; node < Numa::boundNodes(); ++node)
-        Numa::runOnNode(node, [this, node, &ready]() {
+        Numa::runOnNode(node, [this, node, &ready, &build]() {
             for (unsigned int i = 0; i < m_thc; ++i) {
                 if (Numa::nodeOfThread(i + 1) != node)
                     continue;
 
-                m_threads[i] = SearchThread([this, i, node, &ready]() {
+                m_threads[i] = SearchThread([this, i, node, &ready, &build]() {
                     Numa::bindThisThread(node);
-
-                    static void * (* volatile const zero)(void *, int, std::size_t) = std::memset;
-                    zero(&m_threadParams[i], 0, sizeof(Search));
-                    new (&m_threadParams[i]) HelperSearch;
+                    build(i);
 
                     ++ready;
 

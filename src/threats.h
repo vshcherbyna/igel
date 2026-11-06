@@ -57,6 +57,6 @@ std::uint32_t makeThreatIndex(COLOR side, Piece attacker, Square from, Square to
 
 void getActiveThreatIndexes(const Position & pos, COLOR side, ThreatList & active);
 
-void getChangedThreatIndexes(COLOR side, Square ksq, const DirtyThreats & dirty, ThreatList & removed, ThreatList & added);
+HOT_FUNCTION void getChangedThreatIndexes(COLOR side, Square ksq, const DirtyThreats & dirty, ThreatList & removed, ThreatList & added);
 
 #endif // THREATS_H

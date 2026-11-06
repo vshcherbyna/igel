@@ -135,7 +135,7 @@ inline unsigned int countBits(U64 b)
 }
 #endif
 
-U64  Attacks(FLD f, U64 occ, PIECE piece);
+HOT_FUNCTION U64  Attacks(FLD f, U64 occ, PIECE piece);
 U64  BishopAttacks(FLD f, U64 occ);
 U64  BishopAttacksTrace(FLD f, U64 occ);
 int  Delta(int dir);

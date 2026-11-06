@@ -153,7 +153,7 @@ public:
     U64    BitsAll() const { return m_bitsAll[WHITE] | m_bitsAll[BLACK]; }
     U8     Castlings() const { return m_castlings; }
     FLD    CastlingRookSq(COLOR side, U8 flank) const { return m_castlingRookSq[side][flank]; }
-    bool   CanCastle(COLOR side, U8 flank) const;
+    HOT_FUNCTION bool   CanCastle(COLOR side, U8 flank) const;
     int    Count(PIECE p) const { return m_count[p]; }
     FLD    EP() const { return m_ep; }
     std::string FEN() const;
@@ -187,11 +187,11 @@ public:
             m_state->m_inCheck = IsAttacked(King(m_side), m_side ^ 1);
         return m_state->m_inCheck;
     }
-    bool   IsAttacked(FLD f, COLOR side) const;
+    HOT_FUNCTION bool   IsAttacked(FLD f, COLOR side) const;
     FLD    King(COLOR side) const { return m_Kings[side]; }
     Move   LastMove() const { return (m_undoSize > 0)? m_undos[m_undoSize - 1].m_mv : Move(); }
-    bool   MakeMove(Move mv);
-    void   MakeNullMove();
+    HOT_FUNCTION bool   MakeMove(Move mv);
+    HOT_FUNCTION void   MakeNullMove();
     int    MatIndex(COLOR side) const { return m_matIndex[side]; }
     int    Ply() const { return m_ply; }
     void   Print() const;
@@ -203,7 +203,7 @@ public:
     void   SetInitial();
     COLOR  Side() const { return m_side; }
     Color  side_to_move() const{ return m_side; }
-    void   UnmakeMove();
+    HOT_FUNCTION void   UnmakeMove();
     void   UnmakeNullMove();
     bool   isInitialPosition();
     const PIECE& operator[] (FLD f) const { return m_board[f]; }
@@ -219,20 +219,20 @@ public:
     const EvalList * eval_list() const;
     inline PieceId piece_id_on(Square sq) const;
     std::uint32_t getActiveIndexes(COLOR c, std::uint32_t indexes[]);
-    std::pair<std::uint32_t, std::uint32_t> getChangedIndexes(COLOR c, const DirtyPiece & dp, std::uint32_t added[], std::uint32_t removed[]);
+    HOT_FUNCTION std::pair<std::uint32_t, std::uint32_t> getChangedIndexes(COLOR c, const DirtyPiece & dp, std::uint32_t added[], std::uint32_t removed[]);
     inline std::uint32_t makeIndex(Square sq_k, Square sq, Piece p, COLOR c);
 #endif
 
 private:
     void Clear();
-    void Put(FLD f, PIECE p, DirtyThreats * threats = nullptr);
+    HOT_FUNCTION void Put(FLD f, PIECE p, DirtyThreats * threats = nullptr);
     void Put(FLD f, PIECE p, PieceId & next_piece_id);
-    void Remove(FLD f, DirtyThreats * threats = nullptr);
+    HOT_FUNCTION void Remove(FLD f, DirtyThreats * threats = nullptr);
     void MovePiece(PIECE p, FLD from, FLD to, DirtyThreats * threats = nullptr);
     void updateCorrectionHashes(PIECE p, FLD f);
 
     template <bool Discovered = true>
-    void updateThreats(PIECE p, bool placing, FLD f, DirtyThreats * threats, U64 moveMask = ~0ull) const;
+    HOT_FUNCTION void updateThreats(PIECE p, bool placing, FLD f, DirtyThreats * threats, U64 moveMask = ~0ull) const;
 
     static U64 s_hash[64][14];
     static U64 s_hashSide[2];
