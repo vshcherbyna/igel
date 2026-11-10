@@ -35,6 +35,12 @@
 #include <string>
 #include <vector>
 
+#if defined(__GNUC__) && !defined(__clang__)
+#define HOT_FUNCTION __attribute__((hot))
+#else
+#define HOT_FUNCTION
+#endif
+
 #ifndef _MSC_VER
 #include <stdint.h>
 typedef uint8_t U8;

@@ -42,15 +42,15 @@ public:
     };
 
 public:
-    static U64 enemyAttacks(const Position & position);
+    HOT_FUNCTION static U64 enemyAttacks(const Position & position);
     static int threatIndex(Move mv, U64 threats) {
         return 2 * bool(threats & BB_SINGLE[mv.From()]) + bool(threats & BB_SINGLE[mv.To()]);
     }
     static void updateStaticHistory(Search * pSearch, int ply);
-    static void updateHistory(Search * pSearch, const MoveList & quetMoves, int ply, int bonus, U64 threats, const LegalQuietMask & legalQuiets);
-    static void updateCaptureHistory(Search * pSearch, const Move * noisyMoves, size_t noisyTried, Move best, int bonus);
+    HOT_FUNCTION static void updateHistory(Search * pSearch, const MoveList & quetMoves, int ply, int bonus, U64 threats, const LegalQuietMask & legalQuiets);
+    HOT_FUNCTION static void updateCaptureHistory(Search * pSearch, const Move * noisyMoves, size_t noisyTried, Move best, int bonus);
     static void setKillerMove(Search * pSearch, Move mv, int ply);
-    static void fetchHistory(Search * pSearch, Move mv, int ply, HistoryHeuristics & hh, U64 threats);
+    HOT_FUNCTION static void fetchHistory(Search * pSearch, Move mv, int ply, HistoryHeuristics & hh, U64 threats);
 
 private:
     static constexpr int s_historyMax = 400;

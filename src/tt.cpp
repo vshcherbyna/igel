@@ -18,6 +18,7 @@
 */
 
 #include "tt.h"
+#include "numa.h"
 #include "utils.h"
 
 #include <algorithm>
@@ -202,6 +203,8 @@ bool TTable::clearHash(unsigned int threads)
     for (unsigned int i = 0; i < threads; i++) {
         workers.push_back(std::thread([tt, size, i, threads]()
             {
+                Numa::bindThisThread(Numa::nodeOfThread(i));
+
                 size_t range = size / threads;
                 void* ptr = (unsigned char*)tt + (i * range);
                 memset(ptr, 0, range);
@@ -256,6 +259,20 @@ bool TTable::setHashSize(double mb, unsigned int threads)
     clearHash(threads);
 
     assert(m_hash);
+    return m_hash != nullptr;
+}
+
+//
+//  The table's pages stay on the nodes of the threads that first cleared them
+//
+
+bool TTable::reallocate()
+{
+    if (m_hash)
+        freeClusters(m_hash);
+
+    m_hash = allocClusters(sizeof(TTCluster) * m_hashSize);
+
     return m_hash != nullptr;
 }
 
