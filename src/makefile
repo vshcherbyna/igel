@@ -32,8 +32,8 @@ SRC      = *.cpp fathom/tbprobe.cpp
 # Change the pair below to switch either network.
 #
 
-EVALFILE        = weights/5adc00b8.standard
-NETWORK_URL     = https://github.com/vshcherbyna/igel/releases/download/0.8/5adc00b8.standard
+EVALFILE        = weights/820573bc.universal
+NETWORK_URL     = https://github.com/vshcherbyna/igel/releases/download/0.8/820573bc.universal
 
 FRC_EVALFILE    = weights/020217c0.frc
 FRC_NETWORK_URL = https://github.com/vshcherbyna/igel/releases/download/0.8/020217c0.frc
