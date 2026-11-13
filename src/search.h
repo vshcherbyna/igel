@@ -231,6 +231,7 @@ private:
     EVAL m_score;
     Move m_best,
          m_ponder;
+    NODES m_rootMoveNodes[64][64];
 };
 
 struct HelperSearch : Search

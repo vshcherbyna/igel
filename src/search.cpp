@@ -713,6 +713,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                 reduction = std::clamp(reduction / m_lmrScale, 0, newDepth - 1);
             }
 
+            const NODES nodesBeforeMove = m_nodes;
             EVAL e;
 
             if (reduction) {
@@ -743,6 +744,9 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                 e = -abSearch(-beta, -alpha, newDepth, ply + 1, false, false, false);
 
             m_position.UnmakeMove();
+
+            if (rootNode)
+                m_rootMoveNodes[mv.From()][mv.To()] += m_nodes - nodesBeforeMove;
 
             if (m_flags & SEARCH_TERMINATED)
                 return DRAW_SCORE;
@@ -1326,6 +1330,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
     m_selDepth = 0;
     m_tbHits = 0;
     m_limitCheck = 1023;
+    memset(m_rootMoveNodes, 0, sizeof(m_rootMoveNodes));
 
     m_position.setSearchRoot();
 
@@ -1524,6 +1529,16 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         //
 
         U64 softLimit = static_cast<U64>(m_time.getSoftLimit()) * (130 - 5 * bestMoveStability) / 100;
+
+        //
+        //  Move that took nearly all of the nodes is clearly best
+        //
+
+        if (m_depth >= 8 && m_best) {
+            const NODES bestMoveNodes = m_rootMoveNodes[m_best.From()][m_best.To()];
+            const int bestMoveShare   = static_cast<int>(1000 * bestMoveNodes / std::max<NODES>(m_nodes, 1));
+            softLimit = softLimit * std::clamp(2650 - 2 * bestMoveShare, 500, 1600) / 1000;
+        }
 
         if (m_time.getTimeMode() == Time::TimeControl::TimeLimit && dt >= softLimit) {
             m_flags |= TERMINATED_BY_LIMIT;
