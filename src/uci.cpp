@@ -32,7 +32,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "3.8.7b";
+const std::string VERSION = "3.8.8";
 #if defined(PURE_HCE)
 const std::string PROGRAM_NAME = "Igel HCE";
 #else
