@@ -83,6 +83,8 @@
     auto s = quetMoves.Size();
     auto best = quetMoves[s - 1].m_mv;
 
+    bonus = std::min(bonus, s_historyMax);
+
     for (size_t i = 0; i < s; ++i) {
         Move mv = quetMoves[i].m_mv;
         auto delta = (mv == best) ? bonus : -bonus;
@@ -91,7 +93,6 @@
         auto to = mv.To();
         const int context = threatIndex(mv, threats);
         int entry = pSearch->m_history[colour][from][to][context];
-        bonus = std::min(bonus, s_historyMax);
         entry += s_historyMultiplier * delta - entry * abs(delta) / s_historyDivisor;
         pSearch->m_history[colour][from][to][context] = static_cast<int16_t>(entry);
 
