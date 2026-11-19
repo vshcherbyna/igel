@@ -72,7 +72,7 @@
     const auto killer0 = pSearch->m_killerMoves[ply][0];
     const auto killer1 = pSearch->m_killerMoves[ply][1];
     const auto side = pSearch->m_position.Side();
-    const auto & pawnHistory = pSearch->m_pawnHistory->entry[Search::pawnHistoryIndex(pSearch->m_position.pawnHash())];
+    const auto & pawnHistory = pSearch->m_pawnHistory[pSearch->pawnHistoryIndex(pSearch->m_position.pawnHash())];
 
     for (size_t j = 0; j < mvSize; ++j)
     {

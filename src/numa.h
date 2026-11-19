@@ -31,7 +31,9 @@
 
 //
 //  On a machine with several NUMA nodes threads are bound to nodes, so that what they first write stays
-//  close to them, and every node gets its own copy of the net
+//  close to them, and every NUMA node gets its own copy of the net. A node here is a group of cpus: with
+//  the system policies a NUMA node split into groups of L3 caches of up to 32 cpus, whose threads share
+//  their histories, otherwise one group of the NumaPolicy option
 //
 
 namespace Numa
@@ -39,11 +41,14 @@ namespace Numa
     inline thread_local unsigned int threadNode = 0;
 
     bool setPolicy(const std::string & policy);
+    std::string policy();
 
     void planThreads(unsigned int threads);
 
     bool threadsBound();
     unsigned int boundNodes();
+    unsigned int netCopies();
+    unsigned int netOfNode(unsigned int node);
     unsigned int nodeOfThread(unsigned int thread);
     void bindThisThread(unsigned int node);
 
@@ -54,6 +59,7 @@ namespace Numa
     std::vector<int> parseCpuList(const std::string & list);
     bool suggestsBinding(const std::vector<std::size_t> & nodeSizes, unsigned int threads);
     std::vector<unsigned int> distribute(const std::vector<std::size_t> & nodeSizes, unsigned int threads, unsigned int first);
+    std::vector<std::vector<int>> groupCaches(std::vector<std::vector<int>> caches, std::size_t limit);
 }
 
 #endif // NUMA_H

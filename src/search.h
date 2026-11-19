@@ -29,10 +29,47 @@
 #include "utils.h"
 
 #include <thread>
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <condition_variable>
 #include <functional>
+#include <vector>
+
+//
+//  A history entry that the threads of a group update at once
+//
+
+struct SharedI16
+{
+    std::atomic<int16_t> value;
+
+    operator int16_t() const { return value.load(std::memory_order_relaxed); }
+    SharedI16 & operator=(int16_t v) { value.store(v, std::memory_order_relaxed); return *this; }
+};
+
+static_assert(sizeof(SharedI16) == sizeof(int16_t) && std::atomic<int16_t>::is_always_lock_free);
+
+//
+//  Histories shared by the threads of one group of cpus
+//
+
+struct HistoryGroup
+{
+    explicit HistoryGroup(unsigned int threads);
+    void clearHistory();
+    void clearFollow();
+
+    static constexpr int s_correctionBits  = 16;
+    static constexpr int s_pawnHistoryBits = 11;
+
+    int correctionBits;
+    int pawnHistoryBits;
+    std::unique_ptr<SharedI16[]> correction;                          // pawn [2][n], minor [2][n], non-pawn [4][n], interleaved
+    std::unique_ptr<SharedI16[][64][14][64]> continuationCorrection;  // [14]
+    std::unique_ptr<SharedI16[][14][64]> pawnHistory;                 // [1 << pawnHistoryBits]
+    std::unique_ptr<SharedI16[][14][64][14][64]> followTable;         // [2]
+};
 
 const int MIN_LEVEL = 0;
 const int MAX_LEVEL = 20;
@@ -68,6 +105,9 @@ public:
     ~Search();
     Search(const Search&) = delete;
     Search& operator=(const Search&) = delete;
+
+protected:
+    explicit Search(bool ownHistories);
 
 public:
     uint64_t startSearch(Time time, int depth, bool ponder, bool bench = false);
@@ -111,24 +151,35 @@ private:
     HOT_FUNCTION int correctionValue(int ply) const;
     EVAL correctedStaticEval(EVAL eval, int ply) const;
     HOT_FUNCTION void updateCorrectionHistory(int ply, int bonus);
-    void clearCorrectionHistory();
+    void useHistoryGroup(HistoryGroup & group);
 
-    static FORCE_INLINE int correctionIndex(U64 key) {
-        return static_cast<int>((key * 0x9E3779B97F4A7C15ull) >> (64 - m_correctionHistoryBits));
+    FORCE_INLINE int correctionIndex(U64 key) const {
+        return static_cast<int>((key * 0x9E3779B97F4A7C15ull) >> m_correctionShift);
     }
 
-    static FORCE_INLINE int pawnHistoryIndex(U64 key) { // top bits: the lowest bits of the lcg-generated zobrist keys depend only on a pawn's file
-        return static_cast<int>((key * 0x9E3779B97F4A7C15ull) >> (64 - m_pawnHistoryBits));
+    FORCE_INLINE int pawnHistoryIndex(U64 key) const {
+        return static_cast<int>((key * 0x9E3779B97F4A7C15ull) >> m_pawnHistoryShift);
+    }
+
+    FORCE_INLINE SharedI16 & pawnCorrection(COLOR side) const {
+        return m_pawnCorrection[2 * correctionIndex(m_position.pawnHash()) + side];
+    }
+
+    FORCE_INLINE SharedI16 & minorCorrection(COLOR side) const {
+        return m_minorCorrection[2 * correctionIndex(m_position.minorHash()) + side];
+    }
+
+    FORCE_INLINE SharedI16 & nonPawnCorrection(COLOR side, COLOR colour) const {
+        return m_nonPawnCorrection[4 * correctionIndex(m_position.nonPawnHash(colour)) + 2 * side + colour];
     }
 
     FORCE_INLINE void prefetchCorrection() {
         const COLOR side = m_position.Side();
-        auto & history   = *m_correctionHistory;
 
-        prefetch(&history.pawn[side][correctionIndex(m_position.pawnHash())]);
-        prefetch(&history.minor[side][correctionIndex(m_position.minorHash())]);
-        prefetch(&history.nonPawn[side][WHITE][correctionIndex(m_position.nonPawnHash(WHITE))]);
-        prefetch(&history.nonPawn[side][BLACK][correctionIndex(m_position.nonPawnHash(BLACK))]);
+        prefetch(&pawnCorrection(side));
+        prefetch(&minorCorrection(side));
+        prefetch(&nonPawnCorrection(side, WHITE));
+        prefetch(&nonPawnCorrection(side, BLACK));
     }
     void printPV(const Position& pos, int iter, int selDepth, EVAL score, const Move* pv, int pvSize, Move mv, uint64_t sumNodes, uint64_t sumHits, uint64_t nps);
     HOT_FUNCTION bool isDraw();
@@ -158,18 +209,14 @@ private:
     bool m_ttPvStack[MAX_PLY];          // per-ply pv flag, carried into the transposition table
     Move m_counterTable[14][64] = {};   // refutation move of the previous [piece][to]
     int16_t m_history[2][64][64][4];
-    static constexpr int m_pawnHistoryBits = 11;
-    struct PawnHistoryTable {
-        int16_t entry[1 << m_pawnHistoryBits][14][64];
-    };
-    std::unique_ptr<PawnHistoryTable> m_pawnHistory;
+    SharedI16 (*m_pawnHistory)[14][64] = nullptr;
     int16_t * m_quietHistoryStack[MAX_PLY + 4] = {};
     int16_t m_captureHistory[14][64][14];   // [piece][to][captured] of captures and promotions
     Move m_moveStack[MAX_PLY + 4];
     PIECE m_pieceStack[MAX_PLY + 4];
     EVAL m_evalStack[MAX_PLY + 4];      // corrected, what search works with
     EVAL m_rawEvalStack[MAX_PLY + 4];   // uncorrected, what a null move child derives its own from
-    int16_t m_followTable[2][14][64][14][64];
+    SharedI16 (*m_followTable)[14][64][14][64] = nullptr;
     static constexpr int m_lmrScale = 1024;
     int m_logLMRTable[64][64];
     Time m_time, m_ponderTime;
@@ -177,8 +224,6 @@ private:
     std::mutex m_readyMutex;
     std::unique_ptr<Evaluator> m_evaluator;
 
-    static constexpr int m_correctionHistoryBits = 16;
-    static constexpr int m_correctionHistorySize = 1 << m_correctionHistoryBits;
     static constexpr int m_correctionHistoryLimit = 1024;
 
     static constexpr int s_pawnWeight         = 8492;
@@ -190,14 +235,13 @@ private:
     static constexpr int s_noPrevMoveBias     = 150033;
     static constexpr int s_correctionGrain    = 294912;
 
-    struct CorrectionHistoryTable {
-        I16 pawn[COLORS][m_correctionHistorySize];
-        I16 minor[COLORS][m_correctionHistorySize];
-        I16 nonPawn[COLORS][COLORS][m_correctionHistorySize];
-        I16 continuation[14][64][14][64];
-    };
-
-    std::unique_ptr<CorrectionHistoryTable> m_correctionHistory;
+    SharedI16 * m_pawnCorrection = nullptr;
+    SharedI16 * m_minorCorrection = nullptr;
+    SharedI16 * m_nonPawnCorrection = nullptr;
+    SharedI16 (*m_continuationCorrection)[64][14][64] = nullptr;
+    int m_correctionShift = 64 - HistoryGroup::s_correctionBits;
+    int m_pawnHistoryShift = 64 - HistoryGroup::s_pawnHistoryBits;
+    std::vector<std::unique_ptr<HistoryGroup>> m_historyGroups;
 
 public:
     bool m_principalSearcher;
@@ -236,6 +280,8 @@ private:
 
 struct HelperSearch : Search
 {
+    HelperSearch() : Search(false) {}
+
     char m_gap[2 * 1024 * 1024];
 };
 

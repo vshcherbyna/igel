@@ -46,7 +46,55 @@
 /*static */constexpr int Search::m_fmpHistoryLimit[2];
 /*static */constexpr int Search::m_fpHistoryLimit[2];
 
-Search::Search() :
+static int extraBits(unsigned int threads) {
+    int bits = 0;
+
+    while ((1u << bits) < threads)
+        ++bits;
+
+    return bits;
+}
+
+HistoryGroup::HistoryGroup(unsigned int threads) :
+    correctionBits(s_correctionBits + extraBits(threads)),
+    pawnHistoryBits(s_pawnHistoryBits + extraBits(threads)),
+    correction(new SharedI16[std::size_t(8) << correctionBits]),
+    continuationCorrection(new SharedI16[14][64][14][64]),
+    pawnHistory(new SharedI16[std::size_t(1) << pawnHistoryBits][14][64]),
+    followTable(new SharedI16[2][14][64][14][64]) 
+{
+    clearHistory();
+    clearFollow();
+}
+
+void HistoryGroup::clearHistory() {
+    memset(static_cast<void *>(correction.get()), 0, (std::size_t(8) << correctionBits) * sizeof(SharedI16));
+    memset(static_cast<void *>(continuationCorrection.get()), 0, sizeof(SharedI16[14][64][14][64]));
+    memset(static_cast<void *>(pawnHistory.get()), 0, (std::size_t(1) << pawnHistoryBits) * sizeof(SharedI16[14][64]));
+}
+
+void HistoryGroup::clearFollow() {
+    memset(static_cast<void *>(followTable.get()), 0, sizeof(SharedI16[2][14][64][14][64]));
+}
+
+void Search::useHistoryGroup(HistoryGroup & group) {
+    const std::size_t entries = std::size_t(1) << group.correctionBits;
+
+    m_pawnCorrection         = group.correction.get();
+    m_minorCorrection        = m_pawnCorrection + 2 * entries;
+    m_nonPawnCorrection      = m_pawnCorrection + 4 * entries;
+    m_continuationCorrection = group.continuationCorrection.get();
+    m_correctionShift        = 64 - group.correctionBits;
+    m_pawnHistory            = group.pawnHistory.get();
+    m_pawnHistoryShift       = 64 - group.pawnHistoryBits;
+    m_followTable            = group.followTable.get();
+}
+
+Search::Search() : Search(true)
+{
+}
+
+Search::Search(bool ownHistories) :
     m_nodes(0),
     m_tbHits(0),
     m_limitCheck(1023),
@@ -55,8 +103,6 @@ Search::Search() :
     m_depth(0),
     m_syzygyDepth(0),
     m_selDepth(0),
-    m_pawnHistory(new PawnHistoryTable{}),
-    m_correctionHistory(new CorrectionHistoryTable),
     m_principalSearcher(false),
     m_thc(0),
     m_threads(nullptr),
@@ -73,7 +119,12 @@ Search::Search() :
     m_ponder(0)
 {
     m_evaluator.reset(new Evaluator);
-    clearCorrectionHistory();
+
+    if (ownHistories) {
+        m_historyGroups.emplace_back(new HistoryGroup(1));
+        useHistoryGroup(*m_historyGroups[0]);
+    }
+
     memset(m_captureHistory, 0, sizeof(m_captureHistory));
     memset(&m_logLMRTable, 0, sizeof(m_logLMRTable));
 
@@ -85,12 +136,11 @@ Search::Search() :
 int Search::correctionValue(int ply) const {
 
     const auto side = m_position.Side();
-    const auto & history = *m_correctionHistory;
 
-    const int pawn         = history.pawn[side][correctionIndex(m_position.pawnHash())];
-    const int minor        = history.minor[side][correctionIndex(m_position.minorHash())];
-    const int whiteNonPawn = history.nonPawn[side][WHITE][correctionIndex(m_position.nonPawnHash(WHITE))];
-    const int blackNonPawn = history.nonPawn[side][BLACK][correctionIndex(m_position.nonPawnHash(BLACK))];
+    const int pawn         = pawnCorrection(side);
+    const int minor        = minorCorrection(side);
+    const int whiteNonPawn = nonPawnCorrection(side, WHITE);
+    const int blackNonPawn = nonPawnCorrection(side, BLACK);
 
     int continuation = s_noPrevMoveBias;
 
@@ -102,13 +152,13 @@ int Search::correctionValue(int ply) const {
         if (ply >= 2 && m_moveStack[ply - 2]) {
             const Move context = m_moveStack[ply - 2];
             const PIECE contextPiece = context.Promotion() ? context.Promotion() : context.Piece();
-            continuation += s_cont2Weight * history.continuation[contextPiece][context.To()][previousPiece][previous.To()];
+            continuation += s_cont2Weight * m_continuationCorrection[contextPiece][context.To()][previousPiece][previous.To()];
         }
 
         if (ply >= 4 && m_moveStack[ply - 4]) {
             const Move context = m_moveStack[ply - 4];
             const PIECE contextPiece = context.Promotion() ? context.Promotion() : context.Piece();
-            continuation += s_cont4Weight * history.continuation[contextPiece][context.To()][previousPiece][previous.To()];
+            continuation += s_cont4Weight * m_continuationCorrection[contextPiece][context.To()][previousPiece][previous.To()];
         }
     }
 
@@ -124,17 +174,17 @@ EVAL Search::correctedStaticEval(EVAL eval, int ply) const {
 void Search::updateCorrectionHistory(int ply, int bonus)
 {
     const auto side = m_position.Side();
-    auto & history = *m_correctionHistory;
 
-    auto update = [](I16 & entry, int adjustment) {
+    auto update = [](SharedI16 & entry, int adjustment) {
         adjustment = std::max(-m_correctionHistoryLimit, std::min(adjustment, m_correctionHistoryLimit));
-        entry = static_cast<I16>(entry + adjustment - entry * std::abs(adjustment) / m_correctionHistoryLimit);
+        const int value = entry; // read once, another thread may write it meanwhile
+        entry = static_cast<I16>(value + adjustment - value * std::abs(adjustment) / m_correctionHistoryLimit);
     };
 
-    update(history.pawn[side][correctionIndex(m_position.pawnHash())], bonus);
-    update(history.minor[side][correctionIndex(m_position.minorHash())], bonus * 145 / 128);
-    update(history.nonPawn[side][WHITE][correctionIndex(m_position.nonPawnHash(WHITE))], bonus * 200 / 128);
-    update(history.nonPawn[side][BLACK][correctionIndex(m_position.nonPawnHash(BLACK))], bonus * 184 / 128);
+    update(pawnCorrection(side), bonus);
+    update(minorCorrection(side), bonus * 145 / 128);
+    update(nonPawnCorrection(side, WHITE), bonus * 200 / 128);
+    update(nonPawnCorrection(side, BLACK), bonus * 184 / 128);
 
     if (ply == 0 || !m_moveStack[ply - 1])
         return;
@@ -145,18 +195,14 @@ void Search::updateCorrectionHistory(int ply, int bonus)
     if (ply >= 2 && m_moveStack[ply - 2]) {
         const Move context = m_moveStack[ply - 2];
         const PIECE contextPiece = context.Promotion() ? context.Promotion() : context.Piece();
-        update(history.continuation[contextPiece][context.To()][previousPiece][previous.To()], bonus * 135 / 128);
+        update(m_continuationCorrection[contextPiece][context.To()][previousPiece][previous.To()], bonus * 135 / 128);
     }
 
     if (ply >= 4 && m_moveStack[ply - 4]) {
         const Move context = m_moveStack[ply - 4];
         const PIECE contextPiece = context.Promotion() ? context.Promotion() : context.Piece();
-        update(history.continuation[contextPiece][context.To()][previousPiece][previous.To()], bonus * 65 / 128);
+        update(m_continuationCorrection[contextPiece][context.To()][previousPiece][previous.To()], bonus * 65 / 128);
     }
-}
-
-void Search::clearCorrectionHistory() {
-    memset(m_correctionHistory.get(), 0, sizeof(CorrectionHistoryTable));
 }
 
 Search::~Search()
@@ -962,17 +1008,17 @@ void Search::setInitial()
 void Search::clearHistory()
 {
     memset(m_history, 0, sizeof(m_history));
-    memset(m_pawnHistory.get(), 0, sizeof(PawnHistoryTable));
     memset(m_quietHistoryStack, 0, sizeof(m_quietHistoryStack));
     memset(m_captureHistory, 0, sizeof(m_captureHistory));
-    clearCorrectionHistory();
+
+    for (auto & group : m_historyGroups)
+        if (group)
+            group->clearHistory();
 
     for (unsigned int i = 0; i < m_thc; ++i) {
         memset(m_threadParams[i].m_history, 0, sizeof(m_history));
-        memset(m_threadParams[i].m_pawnHistory.get(), 0, sizeof(PawnHistoryTable));
         memset(m_threadParams[i].m_quietHistoryStack, 0, sizeof(m_quietHistoryStack));
         memset(m_threadParams[i].m_captureHistory, 0, sizeof(m_captureHistory));
-        m_threadParams[i].clearCorrectionHistory();
     }
 }
 
@@ -994,11 +1040,14 @@ void Search::clearStacks()
         m_moveStack[j].reset();
 
     memset(m_pieceStack, 0, sizeof(m_pieceStack));
-    memset(m_followTable, 0, sizeof(m_followTable));
     memset(m_evalStack, 0, sizeof(m_evalStack));
     memset(m_rawEvalStack, 0, sizeof(m_rawEvalStack));
     memset(m_pvSize, 0, sizeof(m_pvSize));
     memset(m_ttPvStack, 0, sizeof(m_ttPvStack));
+
+    for (auto & group : m_historyGroups)
+        if (group)
+            group->clearFollow();
 
     for (unsigned int i = 0; i < m_thc; ++i) {
 
@@ -1007,7 +1056,6 @@ void Search::clearStacks()
             m_threadParams[i].m_moveStack[j].reset();
 
         memset(m_threadParams[i].m_pieceStack, 0, sizeof(m_pieceStack));
-        memset(m_threadParams[i].m_followTable, 0, sizeof(m_followTable));
         memset(m_threadParams[i].m_evalStack, 0, sizeof(m_evalStack));
         memset(m_threadParams[i].m_rawEvalStack, 0, sizeof(m_rawEvalStack));
         memset(m_threadParams[i].m_pvSize, 0, sizeof(m_threadParams[i].m_pvSize));
@@ -1732,6 +1780,26 @@ void Search::setThreadCount(unsigned int threads, bool rebuild)
     Numa::planThreads(threads + 1);
     Evaluator::replicateNet(rebuild);
 
+    //
+    //  The threads of a group of cpus share histories, first written by a thread of that group
+    //
+
+    std::vector<unsigned int> members(Numa::boundNodes(), 0);
+
+    for (unsigned int thread = 0; thread <= threads; ++thread)
+        ++members[Numa::nodeOfThread(thread)];
+
+    m_historyGroups.clear();
+    m_historyGroups.resize(members.size());
+
+    for (unsigned int node = 0; node < members.size(); ++node)
+        if (members[node])
+            Numa::runOnNode(node, [this, node, &members]() {
+                m_historyGroups[node].reset(new HistoryGroup(members[node]));
+            });
+
+    useHistoryGroup(*m_historyGroups[Numa::nodeOfThread(0)]);
+
     m_thc = threads;
     m_threads.reset(new SearchThread[threads]);
     m_threadParams = static_cast<HelperSearch *>(::operator new(threads * sizeof(HelperSearch), std::align_val_t(alignof(HelperSearch))));
@@ -1740,6 +1808,7 @@ void Search::setThreadCount(unsigned int threads, bool rebuild)
         static void * (* volatile const zero)(void *, int, std::size_t) = std::memset;
         zero(&m_threadParams[i], 0, sizeof(Search));
         new (&m_threadParams[i]) HelperSearch;
+        m_threadParams[i].useHistoryGroup(*m_historyGroups[Numa::nodeOfThread(i + 1)]);
     };
 
     //

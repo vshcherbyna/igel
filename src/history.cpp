@@ -78,7 +78,7 @@
     auto followTo = followMove.To();
 
     auto colour = pSearch->m_position.Side();
-    auto & pawnHistory = pSearch->m_pawnHistory->entry[Search::pawnHistoryIndex(pSearch->m_position.pawnHash())];
+    auto & pawnHistory = pSearch->m_pawnHistory[pSearch->pawnHistoryIndex(pSearch->m_position.pawnHash())];
 
     auto s = quetMoves.Size();
     auto best = quetMoves[s - 1].m_mv;
@@ -107,7 +107,8 @@
                 pawnDelta /= s_pawnMalusDivisor;
 
             auto & pawnEntry = pawnHistory[piece][to];
-            pawnEntry = static_cast<int16_t>(pawnEntry + s_historyMultiplier * pawnDelta - pawnEntry * std::abs(pawnDelta) / s_historyDivisor);
+            const int pawnValue = pawnEntry; // read once, another thread may write it meanwhile
+            pawnEntry = static_cast<int16_t>(pawnValue + s_historyMultiplier * pawnDelta - pawnValue * std::abs(pawnDelta) / s_historyDivisor);
         }
 
         if (counterMove) {

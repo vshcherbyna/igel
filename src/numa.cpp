@@ -111,12 +111,36 @@ std::vector<unsigned int> Numa::distribute(const std::vector<std::size_t> & node
     return nodes;
 }
 
+//
+//  Neighbouring L3 caches are merged
+//
+
+std::vector<std::vector<int>> Numa::groupCaches(std::vector<std::vector<int>> caches, std::size_t limit) {
+    bool merged;
+
+    do {
+        merged = false;
+
+        for (std::size_t i = 0; i + 1 < caches.size(); ++i)
+            if (caches[i].size() + caches[i + 1].size() <= limit) {
+                caches[i].insert(caches[i].end(), caches[i + 1].begin(), caches[i + 1].end());
+                caches.erase(caches.begin() + i + 1);
+                merged = true;
+            }
+    } while (merged);
+
+    return caches;
+}
+
 #if defined(NUMA_BINDING)
 
+static constexpr std::size_t s_groupCpus = 32;
 static std::string s_policy = "auto";
 static bool s_nodesRead = false;
 static cpu_set_t s_allowed;
 static std::vector<cpu_set_t> s_nodes;
+static std::vector<unsigned int> s_netOf; // the net copy of each node
+static unsigned int s_netCount = 1;
 static std::vector<unsigned int> s_plan; // the node of each thread, empty when threads are not bound
 static thread_local bool s_restricted = false;
 
@@ -140,15 +164,67 @@ static bool addNode(std::vector<cpu_set_t> & nodes, const std::string & cpus)
     return true;
 }
 
-bool Numa::setPolicy(const std::string & policy)
-{
+//
+//  The cpus of a node that share each L3 cache, nothing when the system does not tell
+//
+
+static std::vector<std::vector<int>> readCaches(const cpu_set_t & node) {
+    std::vector<std::vector<int>> caches;
+    cpu_set_t seen;
+    CPU_ZERO(&seen);
+
+    for (int cpu = 0; cpu < CPU_SETSIZE; ++cpu) {
+        if (!CPU_ISSET(cpu, &node) || CPU_ISSET(cpu, &seen))
+            continue;
+
+        std::string list;
+
+        for (int index = 0; list.empty(); ++index) {
+            const std::string path = "/sys/devices/system/cpu/cpu" + std::to_string(cpu) + "/cache/index" + std::to_string(index) + "/";
+            std::ifstream level(path + "level");
+            std::string value;
+
+            if (!level)
+                return {};
+
+            if (std::getline(level, value) && value == "3") {
+                std::ifstream shared(path + "shared_cpu_list");
+
+                if (!std::getline(shared, list) || list.empty())
+                    return {};
+            }
+        }
+
+        std::vector<int> cache;
+
+        for (int other : Numa::parseCpuList(list))
+            if (other < CPU_SETSIZE) {
+                CPU_SET(other, &seen);
+
+                if (CPU_ISSET(other, &node))
+                    cache.push_back(other);
+            }
+
+        if (cache.empty())
+            return {};
+
+        caches.push_back(std::move(cache));
+    }
+
+    return caches;
+}
+
+bool Numa::setPolicy(const std::string & policy) {
     // what the process was started with, as this thread is never bound
     if (sched_getaffinity(0, sizeof(s_allowed), &s_allowed))
         CPU_ZERO(&s_allowed);
 
     std::vector<cpu_set_t> nodes;
+    std::vector<unsigned int> netOf;
+    unsigned int netCount;
 
     if (isSystemPolicy(policy)) {
+        std::vector<cpu_set_t> numaNodes;
         std::ifstream online("/sys/devices/system/node/online");
         std::string line;
 
@@ -157,8 +233,31 @@ bool Numa::setPolicy(const std::string & policy)
                 std::ifstream cpus("/sys/devices/system/node/node" + std::to_string(id) + "/cpulist");
 
                 if (std::getline(cpus, line))
-                    addNode(nodes, line); // a node without cpus is memory only, nothing can be bound to it
+                    addNode(numaNodes, line); // a node without cpus is memory only, nothing can be bound to it
             }
+
+        for (unsigned int numaNode = 0; numaNode < numaNodes.size(); ++numaNode) {
+            auto caches = groupCaches(readCaches(numaNodes[numaNode]), s_groupCpus);
+
+            if (caches.size() < 2) {
+                nodes.push_back(numaNodes[numaNode]);
+                netOf.push_back(numaNode);
+                continue;
+            }
+
+            for (const auto & cache : caches) {
+                cpu_set_t group;
+                CPU_ZERO(&group);
+
+                for (int cpu : cache)
+                    CPU_SET(cpu, &group);
+
+                nodes.push_back(group);
+                netOf.push_back(numaNode);
+            }
+        }
+
+        netCount = static_cast<unsigned int>(numaNodes.size());
     }
     else {
         std::string::size_type begin = 0, end;
@@ -171,13 +270,25 @@ bool Numa::setPolicy(const std::string & policy)
 
             begin = end + 1;
         } while (end != std::string::npos);
+
+        for (unsigned int node = 0; node < nodes.size(); ++node)
+            netOf.push_back(node);
+
+        netCount = static_cast<unsigned int>(nodes.size());
     }
 
     s_policy = policy;
     s_nodes = std::move(nodes);
+    s_netOf = std::move(netOf);
+    s_netCount = netCount;
     s_nodesRead = true;
 
     return true;
+}
+
+std::string Numa::policy()
+{
+    return s_policy;
 }
 
 void Numa::planThreads(unsigned int threads)
@@ -224,6 +335,16 @@ unsigned int Numa::boundNodes()
     return s_plan.empty() ? 1 : static_cast<unsigned int>(s_nodes.size());
 }
 
+unsigned int Numa::netCopies()
+{
+    return s_plan.empty() ? 1 : s_netCount;
+}
+
+unsigned int Numa::netOfNode(unsigned int node)
+{
+    return s_plan.empty() ? 0 : s_netOf[node];
+}
+
 unsigned int Numa::nodeOfThread(unsigned int thread)
 {
     return s_plan.empty() ? 0 : s_plan[thread % s_plan.size()];
@@ -232,7 +353,7 @@ unsigned int Numa::nodeOfThread(unsigned int thread)
 void Numa::bindThisThread(unsigned int node)
 {
     if (!s_plan.empty()) {
-        threadNode = node;
+        threadNode = s_netOf[node];
         s_restricted = sched_setaffinity(0, sizeof(cpu_set_t), &s_nodes[node]) == 0;
     }
     else {
@@ -263,25 +384,47 @@ std::string Numa::describe()
     if (s_plan.empty())
         return "";
 
-    std::vector<unsigned int> threads(s_nodes.size(), 0);
+    std::vector<unsigned int> threads(s_netCount, 0), groups(s_nodes.size(), 0);
 
-    for (unsigned int node : s_plan)
-        ++threads[node];
+    for (unsigned int node : s_plan) {
+        ++threads[s_netOf[node]];
+        ++groups[node];
+    }
 
     std::string text = "threads bound to NUMA nodes:";
 
     for (unsigned int count : threads)
         text += " " + std::to_string(count);
 
+    if (groups.size() != threads.size()) {
+        text += ", in L3 groups:";
+
+        for (unsigned int count : groups)
+            text += " " + std::to_string(count);
+    }
+
     return text;
 }
 
 #else
 
-bool Numa::setPolicy(const std::string & policy) { return policy == "auto" || policy == "none"; }
+static std::string s_policy = "auto";
+
+bool Numa::setPolicy(const std::string & policy)
+{
+    if (policy != "auto" && policy != "none")
+        return false;
+
+    s_policy = policy;
+    return true;
+}
+
+std::string Numa::policy() { return s_policy; }
 void Numa::planThreads(unsigned int) {}
 bool Numa::threadsBound() { return false; }
 unsigned int Numa::boundNodes() { return 1; }
+unsigned int Numa::netCopies() { return 1; }
+unsigned int Numa::netOfNode(unsigned int) { return 0; }
 unsigned int Numa::nodeOfThread(unsigned int) { return 0; }
 void Numa::bindThisThread(unsigned int) {}
 void Numa::runOnNode(unsigned int, const std::function<void()> & task) { task(); }

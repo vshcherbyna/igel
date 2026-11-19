@@ -87,4 +87,45 @@ TEST(NumaDistributeTest, Positive)
     EXPECT_EQ(1u, few[2]);
 }
 
+static std::vector<std::vector<int>> socketCaches(int caches, int cores, int threads) {
+    std::vector<std::vector<int>> result(caches);
+
+    for (int cache = 0; cache < caches; ++cache)
+        for (int core = 0; core < cores; ++core)
+            for (int thread = 0; thread < threads; ++thread)
+                result[cache].push_back(cache * cores + core + thread * caches * cores);
+
+    return result;
+}
+
+TEST(NumaGroupCachesTest, Positive) {
+    const auto epyc = Numa::groupCaches(socketCaches(16, 8, 2), 32);
+
+    ASSERT_EQ(8u, epyc.size());
+
+    for (const auto & group : epyc)
+        EXPECT_EQ(32u, group.size());
+
+    EXPECT_EQ(0, epyc[0][0]); // neighbours merge, in order
+    EXPECT_EQ(8, epyc[0][16]);
+    EXPECT_EQ(16, epyc[1][0]);
+
+    EXPECT_EQ(1u, Numa::groupCaches(socketCaches(2, 8, 2), 32).size()); // a Ryzen 9 7950X keeps one group
+    EXPECT_EQ(2u, Numa::groupCaches(socketCaches(2, 8, 2), 16).size());
+}
+
+TEST(NumaGroupCachesTest, Negative) {
+    EXPECT_TRUE(Numa::groupCaches({}, 32).empty());
+
+    //
+    //  a cache with more cpus than the limit stays whole and alone
+    //
+
+    const auto groups = Numa::groupCaches({std::vector<int>(64), std::vector<int>(16), std::vector<int>(16)}, 32);
+
+    ASSERT_EQ(2u, groups.size());
+    EXPECT_EQ(64u, groups[0].size());
+    EXPECT_EQ(32u, groups[1].size());
+}
+
 } // namespace unit
