@@ -32,7 +32,7 @@
 #include <iostream>
 #include <sstream>
 
-const std::string VERSION = "3.8.9";
+const std::string VERSION = "3.8.10";
 #if defined(PURE_HCE)
 const std::string PROGRAM_NAME = "Igel HCE";
 #else
@@ -121,7 +121,7 @@ int Uci::handleCommands()
 void Uci::onUci()
 {
     std::cout << "id name " << PROGRAM_NAME << " " << VERSION << ARCHITECTURE << std::endl;
-    std::cout << "id author V. Shcherbyna (Igel author 2018-2025), V. Medvedev (GreKo author 2002-2018)" << std::endl;
+    std::cout << "id author V. Shcherbyna (Igel author 2018-2026), V. Medvedev (GreKo author 2002-2018)" << std::endl;
 
     std::cout << "option name Hash type spin"   <<
         " default " << DEFAULT_HASH_SIZE        <<
