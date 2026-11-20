@@ -112,24 +112,29 @@ EVAL Evaluator::evaluate(Position & pos) {
 #if defined(PURE_HCE)
     (void)rebuild;
 #else
-    const unsigned int nodes = Numa::boundNodes();
+    const unsigned int count = Numa::netCopies();
 
-    if (rebuild || nodes == 1)
+    if (rebuild || count == 1)
         s_nets.resize(1);
 
-    if (s_nets.size() != nodes) {
-        std::vector<NetCopy> copies(nodes);
+    if (s_nets.size() != count) {
+        std::vector<NetCopy> copies(count);
 
         // some unit tests set threads without a net, then there is nothing to copy
-        for (unsigned int node = 0; s_nets[0].transformer && node < nodes; ++node) {
-            Numa::runOnNode(node, [&copies, node]() {
-                copies[node].transformer = makeTransformer(*s_nets[0].transformer);
+        for (unsigned int node = 0; s_nets[0].transformer && node < Numa::boundNodes(); ++node) {
+            const unsigned int copy = Numa::netOfNode(node);
+
+            if (copies[copy].transformer)
+                continue; // a NUMA node split into L3 groups gets one copy
+
+            Numa::runOnNode(node, [&copies, copy]() {
+                copies[copy].transformer = makeTransformer(*s_nets[0].transformer);
 
                 for (int i = 0; i < LAYERED_NETWORKS; ++i)
-                    copies[node].networks[i].reset(new LayeredNetwork(*s_nets[0].networks[i]));
+                    copies[copy].networks[i].reset(new LayeredNetwork(*s_nets[0].networks[i]));
             });
 
-            if (!copies[node].transformer) {
+            if (!copies[copy].transformer) {
                 std::cout << "Fatal error: unable to allocate memory for a copy of the network" << std::endl;
                 exit(1);
             }

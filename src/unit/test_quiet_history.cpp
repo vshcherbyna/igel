@@ -21,16 +21,22 @@
 #include "../search.h"
 #include "../notation.h"
 #include "../moveeval.h"
+#include "../numa.h"
 #include <gtest/gtest.h>
 #include <memory>
 #include <set>
+#include <string>
+#include <vector>
+#if defined(NUMA_BINDING)
+#include <sched.h>
+#endif
 
 struct HistoryTestAccess {
     static int pawnIndex(const Search & s) {
-        return Search::pawnHistoryIndex(s.m_position.pawnHash());
+        return s.pawnHistoryIndex(s.m_position.pawnHash());
     }
-    static int16_t & pawn(Search & s, Move m) {
-        return s.m_pawnHistory->entry[pawnIndex(s)][m.Piece()][m.To()];
+    static SharedI16 & pawn(Search & s, Move m) {
+        return s.m_pawnHistory[pawnIndex(s)][m.Piece()][m.To()];
     }
     static int16_t & quiet(Search & s, Move m) {
         return s.m_history[GetColor(m.Piece())][m.From()][m.To()][History::threatIndex(m, History::enemyAttacks(s.m_position))];
@@ -43,6 +49,7 @@ struct HistoryTestAccess {
     }
     static Search & worker(Search & s) { return s.m_threadParams[0]; }
     static bool pointerCleared(Search & s) { return !s.m_quietHistoryStack[0]; }
+    static const void * group(const Search & s) { return s.m_pawnHistory; } // every shared table comes with its group
 };
 
 namespace {
@@ -61,6 +68,20 @@ std::unique_ptr<Search> historySearch(const char * fen = STD_POSITION) {
     EXPECT_TRUE(s->setFEN(fen));
     return s;
 }
+
+class NumaPolicyScope {
+public:
+    explicit NumaPolicyScope(const std::string & policy) : m_previous(Numa::policy()), m_set(Numa::setPolicy(policy)) {}
+    ~NumaPolicyScope() {
+        Numa::setPolicy(m_previous);
+        Numa::planThreads(1);
+    }
+    bool set() const { return m_set; }
+
+private:
+    std::string m_previous;
+    bool m_set;
+};
 }
 
 TEST(QuietHistory, StaticFeedbackUsesPreviousMoversPerspectiveAndRemovesTempo) {
@@ -220,11 +241,45 @@ TEST(QuietHistory, PawnHistoryRewardsCutoffAndPenalizesEarlierQuiets) {
     EXPECT_LE(HistoryTestAccess::pawn(*s, best), 16384);
 }
 
-TEST(QuietHistory, PawnHistoryIsPrivateAndResetForEveryWorker) {
+TEST(QuietHistory, PawnHistoryIsSharedByTheGroupAndResetForEveryWorker) {
+    NumaPolicyScope policy("none"); // threads that are not bound form one group, whatever the machine
+    ASSERT_TRUE(policy.set());
     auto s = historySearch();
     s->setThreadCount(1);
     Search & worker = HistoryTestAccess::worker(*s);
     ASSERT_TRUE(worker.setFEN(STD_POSITION));
+    ASSERT_EQ(HistoryTestAccess::group(*s), HistoryTestAccess::group(worker));
+    const Move m(G1, F3, NW);
+    HistoryTestAccess::pawn(*s, m) = 123;
+    EXPECT_EQ(HistoryTestAccess::pawn(worker, m), 123);
+    HistoryTestAccess::pawn(worker, m) = -456;
+    EXPECT_EQ(HistoryTestAccess::pawn(*s, m), -456);
+    s->clearHistory();
+    EXPECT_EQ(HistoryTestAccess::pawn(*s, m), 0);
+    EXPECT_EQ(HistoryTestAccess::pawn(worker, m), 0);
+}
+
+#if defined(NUMA_BINDING)
+TEST(QuietHistory, PawnHistoryIsPrivateToEachGroupAndResetForEveryWorker) {
+    cpu_set_t allowed;
+    std::vector<int> cpus;
+
+    if (!sched_getaffinity(0, sizeof(allowed), &allowed))
+        for (int cpu = 0; cpu < CPU_SETSIZE && cpus.size() < 2; ++cpu)
+            if (CPU_ISSET(cpu, &allowed))
+                cpus.push_back(cpu);
+
+    if (cpus.size() < 2)
+        GTEST_SKIP() << "two groups need two cpus";
+
+    NumaPolicyScope policy(std::to_string(cpus[0]) + ":" + std::to_string(cpus[1])); // a group of one cpu for each thread
+    ASSERT_TRUE(policy.set());
+    auto s = historySearch();
+    s->setThreadCount(1);
+    Search & worker = HistoryTestAccess::worker(*s);
+    ASSERT_TRUE(worker.setFEN(STD_POSITION));
+    ASSERT_NE(Numa::nodeOfThread(0), Numa::nodeOfThread(1));
+    ASSERT_NE(HistoryTestAccess::group(*s), HistoryTestAccess::group(worker));
     const Move m(G1, F3, NW);
     HistoryTestAccess::pawn(*s, m) = 123;
     EXPECT_EQ(HistoryTestAccess::pawn(worker, m), 0);
@@ -234,6 +289,7 @@ TEST(QuietHistory, PawnHistoryIsPrivateAndResetForEveryWorker) {
     EXPECT_EQ(HistoryTestAccess::pawn(*s, m), 0);
     EXPECT_EQ(HistoryTestAccess::pawn(worker, m), 0);
 }
+#endif
 
 TEST(QuietHistory, PawnHistoryChangesOrderingButNotSearchHistory) {
     auto s = historySearch();
