@@ -29,14 +29,15 @@ SRC      = *.cpp fathom/tbprobe.cpp
 #     make pgo frc                 # Fischer Random network
 #     make pgo frc EXE=igel-frc    # ... under its own name
 #
-# Change the pair below to switch either network.
+# Change the pair below to switch either network. Both currently name the
+# same universal network, which plays standard chess and Fischer Random.
 #
 
 EVALFILE        = weights/820573bc.universal
 NETWORK_URL     = https://github.com/vshcherbyna/igel/releases/download/0.8/820573bc.universal
 
-FRC_EVALFILE    = weights/020217c0.frc
-FRC_NETWORK_URL = https://github.com/vshcherbyna/igel/releases/download/0.8/020217c0.frc
+FRC_EVALFILE    = weights/820573bc.universal
+FRC_NETWORK_URL = https://github.com/vshcherbyna/igel/releases/download/0.8/820573bc.universal
 
 ifneq ($(filter frc,$(MAKECMDGOALS)),)
     EVALFILE    = $(FRC_EVALFILE)

@@ -28,7 +28,7 @@ jobs:
       run: cmake --build . --config Release
 
     - name: Download network file
-      run: curl -L -o Release/network_file https://github.com/vshcherbyna/igel/releases/download/0.8/5adc00b8.standard
+      run: curl -L -o Release/network_file https://github.com/vshcherbyna/igel/releases/download/0.8/820573bc.universal
 
     - name: Run the bench
       run: igel.exe bench
@@ -36,7 +36,7 @@ jobs:
       shell: cmd
 
     - name: Download FRC network file
-      run: curl -L -o Release/network_file https://github.com/vshcherbyna/igel/releases/download/0.8/020217c0.frc
+      run: curl -L -o Release/network_file https://github.com/vshcherbyna/igel/releases/download/0.8/820573bc.universal
 
     - name: Run the FRC bench
       run: igel.exe bench
