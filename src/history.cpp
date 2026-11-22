@@ -22,10 +22,8 @@
 
 #include <algorithm>
 
-/*static */constexpr int History::s_historyMax;
 /*static */constexpr int History::s_historyMultiplier;
 /*static */constexpr int History::s_historyDivisor;
-/*static */constexpr int History::s_pawnMalusDivisor;
 
 /*static */U64 History::enemyAttacks(const Position & position)
 {
@@ -58,11 +56,19 @@
     // Use uncorrected evaluations so correction history does not train itself
     //
 
-    const int bonus = std::clamp((2 * Evaluator::Tempo - before - after) / 4, -32, 32);
+    const int bonus = std::clamp((2 * Evaluator::Tempo - before - after) * Search::s_staticHistMul / 64, -int(Search::s_staticHistClamp), int(Search::s_staticHistClamp));
     *entry = static_cast<int16_t>(*entry + s_historyMultiplier * bonus - *entry * std::abs(bonus) / s_historyDivisor);
 }
 
-/*static */void History::updateHistory(Search * pSearch, const MoveList & quetMoves, int ply, int bonus, U64 threats, const LegalQuietMask & legalQuiets)
+/*static */int History::historyBonus(int depth) {
+    return std::clamp(Search::s_histBonusQuad * depth * depth / 64 + Search::s_histBonusBase, 0, int(Search::s_histBonusMax));
+}
+
+/*static */int History::historyMalus(int depth) {
+    return std::clamp(Search::s_histMalusQuad * depth * depth / 64 + Search::s_histMalusBase, 0, int(Search::s_histMalusMax));
+}
+
+/*static */void History::updateHistory(Search * pSearch, const MoveList & quetMoves, int ply, int depth, U64 threats, const LegalQuietMask & legalQuiets)
 {
     assert(ply < MAX_PLY);
 
@@ -83,11 +89,12 @@
     auto s = quetMoves.Size();
     auto best = quetMoves[s - 1].m_mv;
 
-    bonus = std::min(bonus, s_historyMax);
+    const int bonus = historyBonus(depth);
+    const int malus = historyMalus(depth);
 
     for (size_t i = 0; i < s; ++i) {
         Move mv = quetMoves[i].m_mv;
-        auto delta = (mv == best) ? bonus : -bonus;
+        auto delta = (mv == best) ? bonus : -malus;
         auto from = mv.From();
         auto piece = mv.Piece();
         auto to = mv.To();
@@ -102,9 +109,9 @@
             //  a cutoff says far more about the move that cut than about the quiets tried before it
             //
 
-            auto pawnDelta = std::clamp(delta, -s_historyMax, s_historyMax);
+            auto pawnDelta = delta;
             if (pawnDelta < 0)
-                pawnDelta /= s_pawnMalusDivisor;
+                pawnDelta = pawnDelta * Search::s_pawnMalusMul / 1024;
 
             auto & pawnEntry = pawnHistory[piece][to];
             pawnEntry = static_cast<int16_t>(pawnEntry + s_historyMultiplier * pawnDelta - pawnEntry * std::abs(pawnDelta) / s_historyDivisor);
@@ -124,18 +131,19 @@
     }
 }
 
-/*static */void History::updateCaptureHistory(Search * pSearch, const Move * noisyMoves, size_t noisyTried, Move best, int bonus)
+/*static */void History::updateCaptureHistory(Search * pSearch, const Move * noisyMoves, size_t noisyTried, Move best, int depth)
 {
     auto update = [](int16_t & entry, int delta) {
         entry = static_cast<int16_t>(entry + s_historyMultiplier * delta - entry * abs(delta) / s_historyDivisor);
     };
 
-    bonus = std::min(bonus, s_historyMax);
+    const int bonus = historyBonus(depth);
+    const int malus = historyMalus(depth);
 
     for (size_t i = 0; i < noisyTried; ++i) {
         Move mv = noisyMoves[i];
         if (mv != best)
-            update(pSearch->m_captureHistory[mv.Piece()][mv.To()][mv.Captured()], -bonus);
+            update(pSearch->m_captureHistory[mv.Piece()][mv.To()][mv.Captured()], -malus);
     }
 
     //

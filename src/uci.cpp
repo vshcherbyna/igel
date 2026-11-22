@@ -22,6 +22,7 @@
 #include "notation.h"
 #include "nnue.h"
 #include "numa.h"
+#include "tune.h"
 #include "utils.h"
 #include "gen.h"
 
@@ -109,6 +110,8 @@ int Uci::handleCommands()
             onEval();
         else if (startsWith(cmd, "gen"))
             onGenerate(split(cmd));
+        else if (startsWith(cmd, "spsa") || startsWith(cmd, "tune"))
+            onSpsa();
         else {
             std::cout << "Unknown command. Good bye." << std::endl;
             onQuit(); // important to exit when stdin is gone to prevent issues in OpenBench
@@ -153,6 +156,8 @@ void Uci::onUci()
         " max "		<< MAX_LEVEL << std::endl;
 
     std::cout << "option name UCI_Chess960 type check default false" << std::endl;
+
+    Tune::printOptions();
 
     std::cout << "uciok" << std::endl;
 }
@@ -199,6 +204,10 @@ void Uci::onQuit() {
 void Uci::onPonderHit()
 {
     m_searcher.setPonderHit();
+}
+
+int Uci::onSpsa() {
+    return Tune::printSpsaInput() ? 0 : 1;
 }
 
 void Uci::onEval()
@@ -383,6 +392,8 @@ void Uci::onSetOption(commandParams params)
         ; // nothing to do, we are stateless here
     else if (name == "UCI_Chess960")
         g_uci_chess960 = (value == "true" || value == "True" || value == "TRUE" || value == "1");
+    else if (Tune::setOption(name, value))
+        m_searcher.initLmrTable();
     else
         std::cout << "Unknown option " << name << std::endl;
 }

@@ -32,6 +32,9 @@ int main(int argc, const char* argv[])
 {
     static_assert(USE_AVX2 == 1, "AVX2 is the minimum supported build type");
 
+    if ((argc > 1) && !strcmp(argv[1], "spsa"))
+        return Uci::onSpsa();
+
     //
     //  initialize igel
     //

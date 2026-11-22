@@ -159,7 +159,7 @@ TEST(QuietHistory, ThreatBucketsAreIndependentAndUsedByOrdering) {
         s->clearHistory();
         MoveList moves;
         moves.Add(m);
-        History::updateHistory(s.get(), moves, 2, 16, masks[trained], allLegalQuiets());
+        History::updateHistory(s.get(), moves, 2, 4, masks[trained], allLegalQuiets());
         for (int queried = 0; queried < 4; ++queried) {
             History::HistoryHeuristics hh;
             History::fetchHistory(s.get(), m, 2, hh, masks[queried]);
@@ -191,7 +191,7 @@ TEST(QuietHistory, PawnHistorySharesStructureButSeparatesPieceColorAndDestinatio
     const Move m(G1, F3, NW);
     MoveList moves;
     moves.Add(m);
-    History::updateHistory(s.get(), moves, 2, 16, History::enemyAttacks(s->m_position), allLegalQuiets());
+    History::updateHistory(s.get(), moves, 2, 4, History::enemyAttacks(s->m_position), allLegalQuiets());
     EXPECT_EQ(HistoryTestAccess::pawn(*s, m), 512);
     EXPECT_EQ(HistoryTestAccess::pawn(*s, Move(G8, F3, NB)), 0);
     EXPECT_EQ(HistoryTestAccess::pawn(*s, Move(G1, H3, NW)), 0);
@@ -213,7 +213,7 @@ TEST(QuietHistory, PawnHistoryRewardsCutoffAndPenalizesEarlierQuiets) {
     moves.Add(best);
     const U64 threats = History::enemyAttacks(s->m_position);
     for (int i = 0; i < 1000; ++i)
-        History::updateHistory(s.get(), moves, 2, 1000, threats, allLegalQuiets());
+        History::updateHistory(s.get(), moves, 2, 32, threats, allLegalQuiets());
     EXPECT_LT(HistoryTestAccess::pawn(*s, earlier), 0);
     EXPECT_GE(HistoryTestAccess::pawn(*s, earlier), -16384);
     EXPECT_GT(HistoryTestAccess::pawn(*s, best), 0);
@@ -268,7 +268,7 @@ TEST(QuietHistory, PawnHistoryIgnoresIllegalQuietsButKeepsLegalTraining) {
     legalQuiets.set(1);
     legalQuiets.set(2);
     const U64 threats = History::enemyAttacks(s->m_position);
-    History::updateHistory(s.get(), moves, 2, 16, threats, legalQuiets);
+    History::updateHistory(s.get(), moves, 2, 4, threats, legalQuiets);
 
     EXPECT_EQ(HistoryTestAccess::pawn(*s, illegal), 0);
     EXPECT_EQ(HistoryTestAccess::pawn(*s, earlier), -128); // a quarter of the cutoff's bonus
