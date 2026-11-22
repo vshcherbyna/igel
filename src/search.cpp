@@ -41,9 +41,7 @@
 /*static */constexpr int Search::m_lmpDepth;
 /*static */constexpr int Search::m_lmpPruningTable[2][9];
 /*static */constexpr int Search::m_cmpDepth[2];
-/*static */constexpr int Search::m_cmpHistoryLimit[2];
 /*static */constexpr int Search::m_fmpDepth[2];
-/*static */constexpr int Search::m_fmpHistoryLimit[2];
 /*static */constexpr int Search::m_fpHistoryLimit[2];
 
 Search::Search() :
@@ -75,11 +73,18 @@ Search::Search() :
     m_evaluator.reset(new Evaluator);
     clearCorrectionHistory();
     memset(m_captureHistory, 0, sizeof(m_captureHistory));
+    initLmrTable();
+}
+
+void Search::initLmrTable() {
     memset(&m_logLMRTable, 0, sizeof(m_logLMRTable));
 
     for (int depth = 1; depth < 64; ++depth)
         for (int moves = 1; moves < 64; ++moves)
-            m_logLMRTable[depth][moves] = static_cast<int>(m_lmrScale * (0.942 + log(depth) * log(moves) / 2.27));
+            m_logLMRTable[depth][moves] = static_cast<int>(m_lmrScale * (s_lmrBase / 1000.0 + log(depth) * log(moves) / 2.27));
+
+    for (unsigned int i = 0; i < m_thc; ++i)
+        m_threadParams[i].initLmrTable();
 }
 
 int Search::correctionValue(int ply) const {
@@ -407,14 +412,14 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //   razoring
         //
 
-        if (depth <= 2 && staticEval + 130 < alpha)
+        if (depth <= 2 && staticEval + s_razoringMargin < alpha)
             return qSearch(alpha, beta, ply, 0);
 
         //
         //  static null move pruning
         //
 
-        if (depth <= 8 && bestScore - 42 * (depth - improving) >= beta)
+        if (depth <= 8 && bestScore - s_staticNmpMargin * (depth - improving) >= beta)
             return bestScore;
 
         //
@@ -422,7 +427,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //
 
         if (!isNull && depth >= 3 && ply >= m_nmpMinPly && bestScore >= beta && (!(ttHit && hEntry.type == HASH_BETA && isValidScore(ttScore)) || ttScore >= beta) && m_position.NonPawnMaterial()) {
-            int R = 5 + depth / 6 + std::min(3, (bestScore - beta) / 92);
+            int R = (s_nmpBase + s_nmpDepthMul * depth) / 256 + std::min(3, (bestScore - beta) / s_nmpEvalDivisor);
 
             const auto savedMove  = m_moveStack[ply];
             const auto savedPiece = m_pieceStack[ply];
@@ -577,13 +582,13 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
                 History::fetchHistory(this, mv, ply, history, historyThreats);
 
-                if (depth <= m_cmpDepth[improving] && history.cmhistory < m_cmpHistoryLimit[improving])
+                if (depth <= m_cmpDepth[improving] && history.cmhistory < (improving ? int(s_cmpLimitImp) : int(s_cmpLimit)))
                     continue;
 
-                if (depth <= m_fmpDepth[improving] && history.fmhistory < m_fmpHistoryLimit[improving])
+                if (depth <= m_fmpDepth[improving] && history.fmhistory < (improving ? int(s_fmpLimitImp) : int(s_fmpLimit)))
                     continue;
 
-                auto futilityMargin = staticEval + 11 + 85 * depth;
+                auto futilityMargin = staticEval + s_futilityBase + s_futilityMargin * depth;
 
                 if (!inCheck
                     && futilityMargin <= alpha
@@ -591,19 +596,21 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                     && history.history + history.cmhistory + history.fmhistory < m_fpHistoryLimit[improving])
                     skipQuiets = true;
 
-                if (depth <= m_lmpDepth && quietsTried >= m_lmpPruningTable[improving][std::max(depth, 0)])
-                    skipQuiets = true;
+                if (depth <= m_lmpDepth) {
+                    const int lmpCount = m_lmpPruningTable[improving][std::max(depth, 0)];
+                    const int lmpScale = improving ? int(s_lmpScaleImp) : int(s_lmpScale);
+
+                    if (quietsTried >= (depth < 3 ? lmpCount : lmpCount * lmpScale / 1024))
+                        skipQuiets = true;
+                }
             }
 
             if (depth <= 8 && !inCheck) {
 
                 int seeMargin[2];
 
-                static const int SEEQuietMargin = -50;
-                static const int SEENoisyMargin = -12;
-
-                seeMargin[0] = SEENoisyMargin * depth * depth;
-                seeMargin[1] = SEEQuietMargin * depth;
+                seeMargin[0] = s_seeNoisyMargin * depth * depth;
+                seeMargin[1] = s_seeQuietMargin * depth;
 
                 const auto sortScore = mvlist[i].m_score;
                 const EVAL see = MoveEval::seeCached(mv, sortScore) ? MoveEval::cachedSee(sortScore) : MoveEval::SEE(this, mv);
@@ -623,7 +630,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //
 
         if (depth >= 8 && !skipMove && hashMove == mv && !rootNode && isValidScore(ttScore) && !isDecisiveScore(ttScore) && hEntry.type == HASH_BETA && hEntry.depth >= depth - 3) {
-            auto betaCut = ttScore - depth * 112 / 100;
+            auto betaCut = ttScore - depth * s_singularBetaScale / 100;
             const auto savedSingularPly = m_singularPly;
             m_singularPly = ply;
             auto score = abSearch(betaCut - 1, betaCut, depth / 2, ply, false, false, cutNode, mv);
@@ -631,7 +638,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
             if (score < betaCut) {
                 extension = 1;
-                if (!onPV && score < betaCut - 53)
+                if (!onPV && score < betaCut - s_singularDoubleMargin)
                     extension = 2;
             }
             else if (betaCut >= beta)
@@ -681,29 +688,29 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             if (depth >= 3 && newDepth > 1 && !mv.Promotion() && legalMoves > 1 + 2 * rootNode) {
                 reduction = m_logLMRTable[std::min(depth, 63)][std::min(legalMoves, 63)];
 
-                reduction += 1152 * cutNode + 1212 * ttCapture;
+                reduction += s_lmrCutNode * cutNode + s_lmrTtCapture * ttCapture;
 
                 if (onPV)
                     reduction -= 2143;
                 else if (ttPv)
-                    reduction -= 292;
+                    reduction -= s_lmrTtPv;
 
-                reduction -= improving * 368;
-                reduction -= (inCheck || m_position.InCheck()) * 488;
+                reduction -= improving * s_lmrImproving;
+                reduction -= (inCheck || m_position.InCheck()) * s_lmrCheck;
                 reduction -= correctionReduction;
 
                 if (quietMove) {
-                    reduction -= 788 * (mv == m_killerMoves[ply][0] || mv == m_killerMoves[ply][1]);
-                    reduction -= std::clamp((history.history + history.cmhistory + history.fmhistory) * 755 / 5000, -1139, 1139);
+                    reduction -= s_lmrKiller * (mv == m_killerMoves[ply][0] || mv == m_killerMoves[ply][1]);
+                    reduction -= std::clamp((history.history + history.cmhistory + history.fmhistory) * s_lmrHistScale / 5000, -int(s_lmrHistClamp), int(s_lmrHistClamp));
 
                     if (!inCheck && !isDecisiveScore(alpha))
-                        reduction += std::clamp(alpha - staticEval, -69, 105) * 960 / 256;
+                        reduction += std::clamp(alpha - staticEval, -int(s_lmrEvalGapMin), int(s_lmrEvalGapMax)) * s_lmrEvalGapScale / 256;
                 }
                 else {
                     const auto goodCapture = MoveEval::seeCached(mv, mvlist[i].m_score) && !MoveEval::cachedSeeNegative(mvlist[i].m_score);
-                    reduction -= 852 + goodCapture * 431;
-                    reduction -= std::min(MoveEval::SORT_VALUE[mv.Captured()], 1000) * 1240 / 1000;
-                    reduction -= m_captureHistory[mv.Piece()][mv.To()][mv.Captured()] * 1216 / 16384;
+                    reduction -= s_lmrNoisyBase + goodCapture * s_lmrGoodCapture;
+                    reduction -= std::min(MoveEval::SORT_VALUE[mv.Captured()], 1000) * s_lmrVictimScale / 1000;
+                    reduction -= m_captureHistory[mv.Piece()][mv.To()][mv.Captured()] * s_lmrCaptHistScale / 16384;
                 }
 
                 //
@@ -727,9 +734,9 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                     // 
 
                     if (!rootNode && !isDecisiveScore(e) && !isDecisiveScore(bestScore) && !isDecisiveScore(alpha)) {
-                        if (e > bestScore + 45 + newDepth * 145 / 100 && newDepth < depth && ply + newDepth + 1 < MAX_PLY)
+                        if (e > bestScore + s_deeperMargin + newDepth * s_deeperDepthScale / 100 && newDepth < depth && ply + newDepth + 1 < MAX_PLY)
                             ++newDepth;
-                        else if (e < bestScore + 13)
+                        else if (e < bestScore + s_shallowerMargin)
                             --newDepth;
                     }
 
@@ -765,10 +772,10 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                     if (alpha >= beta) {
                         type = HASH_BETA;
                         if (quietMove) {
-                            History::updateHistory(this, quietMoves, ply, depth * depth, historyThreats, legalQuiets);
+                            History::updateHistory(this, quietMoves, ply, depth, historyThreats, legalQuiets);
                             History::setKillerMove(this, mv, ply);
                         }
-                        History::updateCaptureHistory(this, noisyMoves, noisyTried, quietMove ? Move{} : mv, depth * depth);
+                        History::updateCaptureHistory(this, noisyMoves, noisyTried, quietMove ? Move{} : mv, depth);
                         break;
                     }
                 }
@@ -792,8 +799,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     const auto hasBestMove = type != HASH_ALPHA;
 
     if (legalMoves && !inCheck && !(hasBestMove && bestMove.Captured()) && (bestScore > staticEval) == hasBestMove) {
-        int bonus = (bestScore - staticEval) * std::max(depth, 1) * (hasBestMove ? 13 : 16) / 128;
-        bonus = std::max(-262, std::min(bonus, 262));
+        int bonus = (bestScore - staticEval) * std::max(depth, 1) * (hasBestMove ? int(s_corrBonusBestMove) : int(s_corrBonusFailLow)) / 1024;
+        bonus = std::max(-int(s_corrBonusMax), std::min(bonus, int(s_corrBonusMax)));
         updateCorrectionHistory(ply, 1105 * bonus / 1024);
     }
 
@@ -1449,7 +1456,7 @@ uint64_t Search::startSearch(Time time, int depth, bool ponderSearch, bool bench
         //  Make a search
         //
 
-        EVAL aspiration = m_depth >= 4 ? 8 : CHECKMATE_SCORE;
+        EVAL aspiration = m_depth >= 4 ? int(s_aspWindow) : CHECKMATE_SCORE;
 
         EVAL alpha = std::max(m_score - aspiration, -CHECKMATE_SCORE);
         EVAL beta  = std::min(m_score + aspiration, CHECKMATE_SCORE);

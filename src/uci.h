@@ -55,6 +55,7 @@ public:
 public:
     int handleCommands();
     int onBench(const char* depth, const char* evalFile);
+    int onSpsa();
     static commandParams split(const std::string & s, const std::string & sep = " ");
 
 private:
