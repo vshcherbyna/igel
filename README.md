@@ -66,6 +66,9 @@ cd igel
 git submodule update --init --recursive
 ```
 
+The networks Igel is built with are listed in `networks.txt`. The makefile and CMake both download
+them from there, so neither has to be told which file to use.
+
 #### Using the makefile
 
 This is how the released binaries and the CI builds are produced. The `pgo` target applies
@@ -96,24 +99,24 @@ make pgo frc
 
 Two other targets are available. `make pgo_hce` builds the hand-crafted evaluator, which needs no
 network at all. `make basic` is a plain GCC build without profile-guided optimisation; it downloads
-nothing, so point it at a network you already have, for example `make basic EVALFILE=../network_file`.
+nothing itself, so fetch the network first with `make net`, or point it at a network you already
+have with `make basic EVALFILE=<file>`.
 
 #### Using CMake
 
-On GCC and Clang the network is embedded into the binary at compile time, so CMake has to be told
-which file to use:
+CMake downloads the network into the build directory when it configures the build. On GCC and
+Clang the network is embedded into the binary at compile time:
 
 ```
-wget https://github.com/vshcherbyna/igel/releases/download/0.8/5adc00b8.standard -O ./network_file
-cmake -DEVALFILE=network_file -DUSE_AVX2=1 -DSYZYGY_SUPPORT=TRUE .
+cmake -DUSE_AVX2=1 -DSYZYGY_SUPPORT=TRUE .
 make -j
 ```
 
 A Visual Studio build does **not** embed the network. It opens a file named `network_file` in the
-working directory when it starts, so download that file and keep it next to `igel.exe`:
+working directory when it starts, and the build copies the network next to `igel.exe` under that
+name:
 
 ```
-curl -L -o network_file https://github.com/vshcherbyna/igel/releases/download/0.8/5adc00b8.standard
 cmake -DUSE_AVX2=1 -DSYZYGY_SUPPORT=TRUE -G "Visual Studio 17 2022" -A x64 .
 cmake --build . --config Release
 ```
@@ -122,7 +125,8 @@ The options CMake understands:
 
 | Option | Meaning |
 |---|---|
-| `-DEVALFILE=<file>` | Network to embed. Required for GCC and Clang builds. Visual Studio ignores it and reads `network_file` at startup instead |
+| `-DEVALFILE=<file>` | A network to use instead of the one in `networks.txt`. Visual Studio copies it next to `igel.exe` as `network_file` |
+| `-DFRC=ON` | Use the Fischer Random network from `networks.txt` |
 | `-DUSE_AVX2=1` | AVX2, the baseline for every released binary |
 | `-DUSE_AVX512=1` | AVX-512. Add `-DUSE_VNNI=1` for VNNI-512 |
 | `-DUSE_AVXVNNI=1` | AVX-VNNI, the 256-bit form |

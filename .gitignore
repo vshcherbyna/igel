@@ -26,3 +26,5 @@ ipch/
 # Local folder
 [Ll]ocal/
 
+# Networks the makefile and CMake download
+weights/

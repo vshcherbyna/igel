@@ -29,15 +29,14 @@ SRC      = *.cpp fathom/tbprobe.cpp
 #     make pgo frc                 # Fischer Random network
 #     make pgo frc EXE=igel-frc    # ... under its own name
 #
-# Change the pair below to switch either network. Both currently name the
-# same universal network, which plays standard chess and Fischer Random.
+# Both networks are listed in ../networks.txt, which CMake and the CI read
+# as well. Change them there.
 #
 
-EVALFILE        = weights/820573bc.universal
-NETWORK_URL     = https://github.com/vshcherbyna/igel/releases/download/0.8/820573bc.universal
+include ../networks.txt
 
-FRC_EVALFILE    = weights/820573bc.universal
-FRC_NETWORK_URL = https://github.com/vshcherbyna/igel/releases/download/0.8/820573bc.universal
+EVALFILE        = weights/$(notdir $(NETWORK_URL))
+FRC_EVALFILE    = weights/$(notdir $(FRC_NETWORK_URL))
 
 ifneq ($(filter frc,$(MAKECMDGOALS)),)
     EVALFILE    = $(FRC_EVALFILE)
@@ -138,13 +137,22 @@ frc:
 	@:
 
 #
+# 'net' only fetches the network, for builds such as 'make basic' that do not.
+#
+
+.PHONY: net
+
+net: $(EVALFILE)
+
+#
 # Fetch the NNUE network once, only if it is missing (fresh checkout or CI). A
 # failed or interrupted download is removed by .DELETE_ON_ERROR and retried on
-# the next run, so a truncated network is never embedded.
+# the next run, so a truncated network is never embedded. curl comes with
+# Windows and macOS, wget is the fallback.
 #
 
 .DELETE_ON_ERROR:
 
 $(EVALFILE):
 	mkdir -p $(dir $@)
-	wget -O $@ $(NETWORK_URL)
+	curl -fL -o $@ $(NETWORK_URL) || wget -O $@ $(NETWORK_URL)

@@ -36,11 +36,8 @@ jobs:
     - name: Install CMake
       run: sudo apt-get install -y cmake
 
-    - name: Download network file
-      run: wget https://github.com/vshcherbyna/igel/releases/download/0.8/820573bc.universal -O ./network_file
-
     - name: Configure CMake
-      run: cmake -DEVALFILE=network_file -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
+      run: cmake -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
 
     - name: Build the project
       run: make -j
@@ -49,7 +46,7 @@ jobs:
       run: ./igel bench | tee bench_bmi2.txt
 
     - name: Configure CMake for popcnt
-      run: cmake -DEVALFILE=network_file -DUSE_AVX2=1 -D_BTYPE=0 -DSYZYGY_SUPPORT=TRUE .
+      run: cmake -DUSE_AVX2=1 -D_BTYPE=0 -DSYZYGY_SUPPORT=TRUE .
 
     - name: Build the popcnt project
       run: make -j
@@ -75,11 +72,8 @@ jobs:
         fi
         echo "magics agree"
 
-    - name: Download FRC network file
-      run: wget https://github.com/vshcherbyna/igel/releases/download/0.8/820573bc.universal -O ./network_file_frc
-
     - name: Configure CMake for FRC
-      run: cmake -DEVALFILE=network_file_frc -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
+      run: cmake -DFRC=ON -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
 
     - name: Build the FRC project
       run: make -j
@@ -118,11 +112,8 @@ jobs:
     - name: Install CMake
       run: sudo apt-get install -y cmake
 
-    - name: Download network file
-      run: wget https://github.com/vshcherbyna/igel/releases/download/0.8/820573bc.universal -O ./network_file
-
     - name: Configure CMake for AVX512 and VNNI512
-      run: cmake -DEVALFILE=network_file -DUSE_AVX2=1 -DUSE_AVX512=1 -DUSE_VNNI=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
+      run: cmake -DUSE_AVX2=1 -DUSE_AVX512=1 -DUSE_VNNI=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
 
     # Build only, deliberately no bench. Both of these ship as releases
     # (igel-x64_bmi2_avx512 and igel-x64_bmi2_avx512_vnni512) but the hosted runners are a

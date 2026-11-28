@@ -1,0 +1,6 @@
+#
+#  The networks Igel is built with. The makefile, CMake and the CI read them from here
+#
+
+NETWORK_URL=https://github.com/vshcherbyna/igel/releases/download/0.8/820573bc.universal
+FRC_NETWORK_URL=https://github.com/vshcherbyna/igel/releases/download/0.8/820573bc.universal

@@ -88,7 +88,7 @@
             EVAL s_captured = SORT_VALUE[mv.Captured()];
             EVAL s_promotion = SORT_VALUE[mv.Promotion()];
 
-            mvlist[j].m_score = s_SortCapture + 10 * (s_captured + s_promotion) - s_piece + pSearch->m_captureHistory[mv.Piece()][mv.To()][mv.Captured()] / 4;
+            mvlist[j].m_score = s_SortCapture + 10 * (s_captured + s_promotion) - s_piece + pSearch->m_captureHistory[mv.Piece()][mv.To()][mv.Captured()] * 65 / 256;
 
             if (mv.Captured() && !mv.Promotion()) { // add SEE score for captures if it's negative (losing captures)
                 auto see = MoveEval::SEE(pSearch, mv);
@@ -101,13 +101,13 @@
         else if (counterMove && mv == pSearch->m_counterTable[counterPiece][counterTo])
             mvlist[j].m_score = s_SortCounter;
         else {
-            mvlist[j].m_score = pSearch->m_history[side][mv.From()][mv.To()][History::threatIndex(mv, threats)] + pawnHistory[mv.Piece()][mv.To()];
+            mvlist[j].m_score = pSearch->m_history[side][mv.From()][mv.To()][History::threatIndex(mv, threats)] + pawnHistory[mv.Piece()][mv.To()] * 932 / 1024;
 
             if (counterMove)
-                mvlist[j].m_score += pSearch->m_followTable[0][counterPiece][counterTo][mv.Piece()][mv.To()];
+                mvlist[j].m_score += pSearch->m_followTable[0][counterPiece][counterTo][mv.Piece()][mv.To()] * 987 / 1024;
 
             if (followMove)
-                mvlist[j].m_score += pSearch->m_followTable[1][followPiece][followTo][mv.Piece()][mv.To()];
+                mvlist[j].m_score += pSearch->m_followTable[1][followPiece][followTo][mv.Piece()][mv.To()] * 1032 / 1024;
         }
     }
 }

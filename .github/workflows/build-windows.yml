@@ -27,16 +27,16 @@ jobs:
     - name: Build the project
       run: cmake --build . --config Release
 
-    - name: Download network file
-      run: curl -L -o Release/network_file https://github.com/vshcherbyna/igel/releases/download/0.8/820573bc.universal
-
     - name: Run the bench
       run: igel.exe bench
       working-directory: Release
       shell: cmd
 
-    - name: Download FRC network file
-      run: curl -L -o Release/network_file https://github.com/vshcherbyna/igel/releases/download/0.8/820573bc.universal
+    - name: Configure CMake for FRC
+      run: cmake -DFRC=ON -DUSE_AVX2=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
+
+    - name: Build the FRC project
+      run: cmake --build . --config Release
 
     - name: Run the FRC bench
       run: igel.exe bench
@@ -64,7 +64,6 @@ jobs:
     - name: Configure CMake for AVX512 and VNNI512
       run: cmake -DUSE_AVX2=1 -DUSE_AVX512=1 -DUSE_VNNI=1 -D_BTYPE=1 -DSYZYGY_SUPPORT=TRUE .
 
-    # Build only, deliberately no bench - see the note in build-linux.yml. No network file
-    # is fetched either: the MSVC build does not embed one, it opens network_file at runtime.
+    # Build only, deliberately no bench - see the note in build-linux.yml.
     - name: Build the AVX512 project
       run: cmake --build . --config Release

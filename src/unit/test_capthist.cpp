@@ -111,7 +111,7 @@ TEST(CaptureHistory, PromotesTheCuttingCaptureAndDemotesTheOthers)
     ASSERT_GT(knightBefore, bishopBefore);
 
     const Move tried[] = { knight, bishop };
-    History::updateCaptureHistory(search.get(), tried, 2, bishop, 4 * 4);
+    History::updateCaptureHistory(search.get(), tried, 2, bishop, 4);
 
     EXPECT_LT(sortScoreOf(*search, knight), knightBefore);
     EXPECT_GT(sortScoreOf(*search, bishop), bishopBefore);
@@ -128,7 +128,7 @@ TEST(CaptureHistory, AQuietCutoffDemotesEveryCaptureTried)
     const int bishopBefore = sortScoreOf(*search, bishop);
 
     const Move tried[] = { knight, bishop };
-    History::updateCaptureHistory(search.get(), tried, 2, Move{}, 4 * 4);
+    History::updateCaptureHistory(search.get(), tried, 2, Move{}, 4);
 
     EXPECT_LT(sortScoreOf(*search, knight), knightBefore);
     EXPECT_LT(sortScoreOf(*search, bishop), bishopBefore);
@@ -162,7 +162,7 @@ TEST(CaptureHistory, RewardsACutoffBeyondTheTriedMovesLimit)
     const int cutoffBefore = sortScoreOf(*search, cutoff);
     const int firstBefore  = sortScoreOf(*search, noisy[0]);
 
-    History::updateCaptureHistory(search.get(), noisy.data(), 32, cutoff, 20 * 20);
+    History::updateCaptureHistory(search.get(), noisy.data(), 32, cutoff, 20);
 
     EXPECT_GT(sortScoreOf(*search, cutoff), cutoffBefore);
     EXPECT_LT(sortScoreOf(*search, noisy[0]), firstBefore);
@@ -181,7 +181,7 @@ TEST(CaptureHistory, LeavesTheExchangeValueOfALosingCaptureIntact)
 
     const Move tried[] = { queen };
     for (int i = 0; i < 100; ++i)
-        History::updateCaptureHistory(search.get(), tried, 1, queen, 20 * 20);
+        History::updateCaptureHistory(search.get(), tried, 1, queen, 20);
 
     const int after = sortScoreOf(*search, queen);
     EXPECT_EQ(before, after);
@@ -202,21 +202,21 @@ TEST(CaptureHistory, SaturatesInsideTheWinningCaptureBand)
     const Move tried[] = { knight };
 
     for (int i = 0; i < 100; ++i)
-        History::updateCaptureHistory(search.get(), tried, 1, Move{}, 20 * 20);
+        History::updateCaptureHistory(search.get(), tried, 1, Move{}, 20);
 
     const int demoted = sortScoreOf(*search, knight);
     EXPECT_FALSE(MoveEval::cachedSeeNegative(demoted));
 
-    History::updateCaptureHistory(search.get(), tried, 1, Move{}, 20 * 20);
+    History::updateCaptureHistory(search.get(), tried, 1, Move{}, 20);
     EXPECT_EQ(demoted, sortScoreOf(*search, knight));
 
     for (int i = 0; i < 200; ++i)
-        History::updateCaptureHistory(search.get(), tried, 1, knight, 20 * 20);
+        History::updateCaptureHistory(search.get(), tried, 1, knight, 20);
 
     const int promoted = sortScoreOf(*search, knight);
     EXPECT_GT(promoted, demoted);
 
-    History::updateCaptureHistory(search.get(), tried, 1, knight, 20 * 20);
+    History::updateCaptureHistory(search.get(), tried, 1, knight, 20);
     EXPECT_EQ(promoted, sortScoreOf(*search, knight));
 }
 
@@ -227,7 +227,7 @@ TEST(CaptureHistory, ANewGameForgetsIt)
     const int before = sortScoreOf(*search, knight);
 
     const Move tried[] = { knight };
-    History::updateCaptureHistory(search.get(), tried, 1, knight, 10 * 10);
+    History::updateCaptureHistory(search.get(), tried, 1, knight, 10);
     ASSERT_NE(before, sortScoreOf(*search, knight));
 
     search->clearHistory();

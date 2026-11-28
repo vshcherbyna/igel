@@ -47,16 +47,17 @@ public:
         return 2 * bool(threats & BB_SINGLE[mv.From()]) + bool(threats & BB_SINGLE[mv.To()]);
     }
     static void updateStaticHistory(Search * pSearch, int ply);
-    HOT_FUNCTION static void updateHistory(Search * pSearch, const MoveList & quetMoves, int ply, int bonus, U64 threats, const LegalQuietMask & legalQuiets);
-    HOT_FUNCTION static void updateCaptureHistory(Search * pSearch, const Move * noisyMoves, size_t noisyTried, Move best, int bonus);
+    HOT_FUNCTION static void updateHistory(Search * pSearch, const MoveList & quetMoves, int ply, int depth, U64 threats, const LegalQuietMask & legalQuiets);
+    HOT_FUNCTION static void updateCaptureHistory(Search * pSearch, const Move * noisyMoves, size_t noisyTried, Move best, int depth);
     static void setKillerMove(Search * pSearch, Move mv, int ply);
     HOT_FUNCTION static void fetchHistory(Search * pSearch, Move mv, int ply, HistoryHeuristics & hh, U64 threats);
 
 private:
-    static constexpr int s_historyMax = 400;
+    static int historyBonus(int depth);
+    static int historyMalus(int depth);
+
     static constexpr int s_historyMultiplier = 32;
     static constexpr int s_historyDivisor = 512;
-    static constexpr int s_pawnMalusDivisor = 4;
 };
 
 #endif // HISTORY_H

@@ -89,8 +89,7 @@ jobs:
     - if: matrix.build-mode == 'manual'
       shell: bash
       run: |        
-        wget https://github.com/vshcherbyna/igel/releases/download/0.8/820573bc.universal -O ./network_file
-        cd src&&make basic EVALFILE=../network_file
+        cd src&&make net&&make basic
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3

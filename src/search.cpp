@@ -79,7 +79,7 @@ Search::Search() :
 
     for (int depth = 1; depth < 64; ++depth)
         for (int moves = 1; moves < 64; ++moves)
-            m_logLMRTable[depth][moves] = static_cast<int>(m_lmrScale * (0.942 + log(depth) * log(moves) / 2.27));
+            m_logLMRTable[depth][moves] = static_cast<int>(m_lmrScale * (1.037 + log(depth) * log(moves) / 2.27));
 }
 
 int Search::correctionValue(int ply) const {
@@ -407,14 +407,14 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //   razoring
         //
 
-        if (depth <= 2 && staticEval + 130 < alpha)
+        if (depth <= 2 && staticEval + 127 < alpha)
             return qSearch(alpha, beta, ply, 0);
 
         //
         //  static null move pruning
         //
 
-        if (depth <= 8 && bestScore - 42 * (depth - improving) >= beta)
+        if (depth <= 8 && bestScore - 53 * (depth - improving) >= beta)
             return bestScore;
 
         //
@@ -422,7 +422,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //
 
         if (!isNull && depth >= 3 && ply >= m_nmpMinPly && bestScore >= beta && (!(ttHit && hEntry.type == HASH_BETA && isValidScore(ttScore)) || ttScore >= beta) && m_position.NonPawnMaterial()) {
-            int R = 5 + depth / 6 + std::min(3, (bestScore - beta) / 92);
+            int R = (3515 + 133 * depth) / 768 + std::min(3, (bestScore - beta) / 96);
 
             const auto savedMove  = m_moveStack[ply];
             const auto savedPiece = m_pieceStack[ply];
@@ -583,7 +583,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                 if (depth <= m_fmpDepth[improving] && history.fmhistory < m_fmpHistoryLimit[improving])
                     continue;
 
-                auto futilityMargin = staticEval + 11 + 85 * depth;
+                auto futilityMargin = staticEval + 18 + 80 * depth;
 
                 if (!inCheck
                     && futilityMargin <= alpha
@@ -599,8 +599,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
 
                 int seeMargin[2];
 
-                static const int SEEQuietMargin = -50;
-                static const int SEENoisyMargin = -12;
+                static const int SEEQuietMargin = -57;
+                static const int SEENoisyMargin = -13;
 
                 seeMargin[0] = SEENoisyMargin * depth * depth;
                 seeMargin[1] = SEEQuietMargin * depth;
@@ -623,7 +623,7 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
         //
 
         if (depth >= 8 && !skipMove && hashMove == mv && !rootNode && isValidScore(ttScore) && !isDecisiveScore(ttScore) && hEntry.type == HASH_BETA && hEntry.depth >= depth - 3) {
-            auto betaCut = ttScore - depth * 112 / 100;
+            auto betaCut = ttScore - depth * 141 / 100;
             const auto savedSingularPly = m_singularPly;
             m_singularPly = ply;
             auto score = abSearch(betaCut - 1, betaCut, depth / 2, ply, false, false, cutNode, mv);
@@ -681,29 +681,29 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
             if (depth >= 3 && newDepth > 1 && !mv.Promotion() && legalMoves > 1 + 2 * rootNode) {
                 reduction = m_logLMRTable[std::min(depth, 63)][std::min(legalMoves, 63)];
 
-                reduction += 1152 * cutNode + 1212 * ttCapture;
+                reduction += 1223 * cutNode + 1152 * ttCapture;
 
                 if (onPV)
                     reduction -= 2143;
                 else if (ttPv)
-                    reduction -= 292;
+                    reduction -= 469;
 
-                reduction -= improving * 368;
-                reduction -= (inCheck || m_position.InCheck()) * 488;
+                reduction -= improving * 435;
+                reduction -= (inCheck || m_position.InCheck()) * 235;
                 reduction -= correctionReduction;
 
                 if (quietMove) {
-                    reduction -= 788 * (mv == m_killerMoves[ply][0] || mv == m_killerMoves[ply][1]);
-                    reduction -= std::clamp((history.history + history.cmhistory + history.fmhistory) * 755 / 5000, -1139, 1139);
+                    reduction -= 708 * (mv == m_killerMoves[ply][0] || mv == m_killerMoves[ply][1]);
+                    reduction -= std::clamp((history.history + history.cmhistory + history.fmhistory) * 715 / 5000, -902, 902);
 
                     if (!inCheck && !isDecisiveScore(alpha))
-                        reduction += std::clamp(alpha - staticEval, -69, 105) * 960 / 256;
+                        reduction += std::clamp(alpha - staticEval, -76, 103) * 1255 / 256;
                 }
                 else {
                     const auto goodCapture = MoveEval::seeCached(mv, mvlist[i].m_score) && !MoveEval::cachedSeeNegative(mvlist[i].m_score);
-                    reduction -= 852 + goodCapture * 431;
-                    reduction -= std::min(MoveEval::SORT_VALUE[mv.Captured()], 1000) * 1240 / 1000;
-                    reduction -= m_captureHistory[mv.Piece()][mv.To()][mv.Captured()] * 1216 / 16384;
+                    reduction -= 628 + goodCapture * 333;
+                    reduction -= std::min(MoveEval::SORT_VALUE[mv.Captured()], 1000) * 1156 / 1000;
+                    reduction -= m_captureHistory[mv.Piece()][mv.To()][mv.Captured()] * 1372 / 16384;
                 }
 
                 //
@@ -727,9 +727,9 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                     // 
 
                     if (!rootNode && !isDecisiveScore(e) && !isDecisiveScore(bestScore) && !isDecisiveScore(alpha)) {
-                        if (e > bestScore + 45 + newDepth * 145 / 100 && newDepth < depth && ply + newDepth + 1 < MAX_PLY)
+                        if (e > bestScore + 40 + newDepth * 164 / 100 && newDepth < depth && ply + newDepth + 1 < MAX_PLY)
                             ++newDepth;
-                        else if (e < bestScore + 13)
+                        else if (e < bestScore + 18)
                             --newDepth;
                     }
 
@@ -765,10 +765,10 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
                     if (alpha >= beta) {
                         type = HASH_BETA;
                         if (quietMove) {
-                            History::updateHistory(this, quietMoves, ply, depth * depth, historyThreats, legalQuiets);
+                            History::updateHistory(this, quietMoves, ply, depth, historyThreats, legalQuiets);
                             History::setKillerMove(this, mv, ply);
                         }
-                        History::updateCaptureHistory(this, noisyMoves, noisyTried, quietMove ? Move{} : mv, depth * depth);
+                        History::updateCaptureHistory(this, noisyMoves, noisyTried, quietMove ? Move{} : mv, depth);
                         break;
                     }
                 }
@@ -792,8 +792,8 @@ EVAL Search::abSearch(EVAL alpha, EVAL beta, int depth, int ply, bool isNull, bo
     const auto hasBestMove = type != HASH_ALPHA;
 
     if (legalMoves && !inCheck && !(hasBestMove && bestMove.Captured()) && (bestScore > staticEval) == hasBestMove) {
-        int bonus = (bestScore - staticEval) * std::max(depth, 1) * (hasBestMove ? 13 : 16) / 128;
-        bonus = std::max(-262, std::min(bonus, 262));
+        int bonus = (bestScore - staticEval) * std::max(depth, 1) * (hasBestMove ? 121 : 129) / 1024;
+        bonus = std::max(-238, std::min(bonus, 238));
         updateCorrectionHistory(ply, 1105 * bonus / 1024);
     }
 
